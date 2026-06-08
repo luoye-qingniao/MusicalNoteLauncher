@@ -1,0 +1,177 @@
+# ========================
+# Visual Studio / C# / WPF
+# ========================
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache/options
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Build results
+*.dll
+*.exe
+*.pdb
+*.cache
+*.ilk
+*.meta
+*.obj
+*.iobj
+*.pch
+*.ipdb
+*.pgc
+*.pgd
+*.rsp
+*.sbr
+*.tlb
+*.tli
+*.tlh
+*.tmp
+*.tmp_proj
+*_wpftmp
+*.log
+*.vspscc
+*.vssscc
+.builds
+*.pidb
+*.svclog
+*.scc
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+*.sap
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ========================
+# Minecraft 启动器特定
+# ========================
+
+# 游戏数据目录（不要提交用户的游戏数据）
+.minecraft/
+minecraft/
+game/
+
+# 日志文件
+logs/
+*.log
+
+# 配置文件（包含用户特定配置）
+config.local.json
+settings.local.json
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# 发布脚本
+publish.bat
+publish.ps1
+
+# 任务配置
+tasks.json
+
+# ========================
+# 其他
+# ========================
+
+# 压缩文件
+*.zip
+*.rar
+*.7z
+*.tar.gz
+
+# 文档（如果需要可以提交）
+# *.md
+
+# 测试结果
+TestResults/
+*.testlog
+
+# 代码覆盖率
+*.coverage
+*.coveragexml
+
+# 发布配置
+Properties/PublishProfiles/*.pubxml
+*.publishsettings
+
+# Azure
+*.azurePubxml
+
+# SQL
+*.mdf
+*.ldf
+
+# Office
+*.adsk
+
+# Windows Store
+AppPackages/
+BundleArtifacts/
+Package.StoreAssociation.xml
+_pkginfo.txt
+*.appx
+*.appxbundle
+*.appxupload
+
+# ========================
+# 保留的文件（不忽略）
+# ========================
+
+# 保留 README.md（项目文档）
+!README.md
+
+# 保留 LICENSE
+!LICENSE
