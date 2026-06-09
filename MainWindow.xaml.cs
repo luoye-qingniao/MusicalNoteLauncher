@@ -55,6 +55,7 @@ namespace MusicalNoteLauncher
                 case "SaveManager": return new SaveManagerPage();
                 case "DownloadTask": return new DownloadTaskPage();
                 case "Login": return new LoginPage();
+                case "RecommendDetail": return new RecommendDetailPage();
                 default: return null;
             }
         }

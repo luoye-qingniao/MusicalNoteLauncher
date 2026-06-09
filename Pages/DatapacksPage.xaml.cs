@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.ViewModels;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -111,7 +112,7 @@ namespace MusicalNoteLauncher.Pages
             AppContext.NavigateTo("Download");
         }
 
-        private void BtnDownload_Click(object sender, RoutedEventArgs e)
+        private async void BtnDownload_Click(object sender, RoutedEventArgs e)
         {
             Button button = sender as Button;
             if (button == null) return;
@@ -119,7 +120,47 @@ namespace MusicalNoteLauncher.Pages
             DatapackItem item = button.DataContext as DatapackItem;
             if (item == null) return;
 
-            MessageBox.Show($"开始下载数据包 {item.Name}...", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            try
+            {
+                string downloadUrl = null;
+                
+                if (item.Source == "Modrinth")
+                {
+                    downloadUrl = await _modrinthApi.GetDownloadUrl(item.ProjectId);
+                }
+                else if (item.Source == "CurseForge")
+                {
+                    if (long.TryParse(item.ProjectId, out long modId))
+                    {
+                        downloadUrl = await _curseForgeApi.GetDownloadUrl(modId);
+                    }
+                }
+
+                if (string.IsNullOrEmpty(downloadUrl))
+                {
+                    MessageBox.Show("无法获取下载链接", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                string fileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
+                string savePath = Path.Combine(_datapacksPath, fileName);
+
+                if (!Directory.Exists(_datapacksPath))
+                {
+                    Directory.CreateDirectory(_datapacksPath);
+                }
+
+                var task = new GenericDownloadTaskViewModel(downloadUrl, savePath, fileName);
+                DownloadTaskManager.Instance.AddTask(task);
+                _ = task.StartDownloadAsync();
+
+                MessageBox.Show($"已将 {fileName} 添加到下载任务", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[数据包下载] 下载失败: {ex.Message}");
+                MessageBox.Show($"下载失败:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
     }
 }

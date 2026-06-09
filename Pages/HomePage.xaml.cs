@@ -1,12 +1,15 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management;
+using System.Timers;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.ViewModels;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -16,6 +19,15 @@ namespace MusicalNoteLauncher.Pages
         private readonly string _minecraftPath;
         private readonly string _username;
         private readonly bool _isOfflineMode;
+        
+        private readonly ModrinthApiService _modrinthApi;
+        private readonly CurseForgeApiService _curseForgeApi;
+        
+        private List<RecommendItemViewModel> _modRecommendations = new List<RecommendItemViewModel>();
+        private List<RecommendItemViewModel> _packRecommendations = new List<RecommendItemViewModel>();
+        private int _currentModIndex = 0;
+        private int _currentPackIndex = 0;
+        private Timer _carouselTimer;
 
         public HomePage()
         {
@@ -27,6 +39,8 @@ namespace MusicalNoteLauncher.Pages
 
             var javaConfig = new JavaConfigManager(_minecraftPath);
             _gameLauncher = new GameLauncher(_minecraftPath, javaConfig);
+            _modrinthApi = new ModrinthApiService();
+            _curseForgeApi = new CurseForgeApiService();
 
             _gameLauncher.LaunchStatusChanged += (status) =>
             {
@@ -75,6 +89,8 @@ namespace MusicalNoteLauncher.Pages
             {
                 cboPlayerName.SelectedIndex = 0;
             }
+            
+            LoadRecommendationsAsync();
 
             LoadInstalledVersions();
             CheckGpuCompatibilityAsync();
@@ -237,6 +253,24 @@ namespace MusicalNoteLauncher.Pages
             if (txtConsole != null) txtConsole.Text = "";
         }
 
+        private void BtnViewModDetail_Click(object sender, RoutedEventArgs e)
+        {
+            if (_modRecommendations.Count > 0 && _currentModIndex < _modRecommendations.Count)
+            {
+                AppContext.CurrentRecommendItem = _modRecommendations[_currentModIndex];
+                AppContext.NavigateTo("RecommendDetail");
+            }
+        }
+
+        private void BtnViewPackDetail_Click(object sender, RoutedEventArgs e)
+        {
+            if (_packRecommendations.Count > 0 && _currentPackIndex < _packRecommendations.Count)
+            {
+                AppContext.CurrentRecommendItem = _packRecommendations[_currentPackIndex];
+                AppContext.NavigateTo("RecommendDetail");
+            }
+        }
+
         private void BtnViewMods_Click(object sender, RoutedEventArgs e) { AppContext.NavigateTo("Mods"); }
         private void BtnViewPacks_Click(object sender, RoutedEventArgs e) { AppContext.NavigateTo("Modpacks"); }
         private void BtnViewMore_Click(object sender, RoutedEventArgs e) { AppContext.NavigateTo("ComponentStore"); }
@@ -340,6 +374,155 @@ namespace MusicalNoteLauncher.Pages
             catch
             {
                 return "未知显卡";
+            }
+        }
+
+        private async void LoadRecommendationsAsync()
+        {
+            await Task.WhenAll(
+                LoadModRecommendationsAsync(),
+                LoadPackRecommendationsAsync()
+            );
+            
+            StartCarousel();
+        }
+
+        private async Task LoadModRecommendationsAsync()
+        {
+            try
+            {
+                var modrinthMods = await _modrinthApi.SearchMods("", "", 6);
+                foreach (var mod in modrinthMods)
+                {
+                    _modRecommendations.Add(new RecommendItemViewModel
+                    {
+                        Name = mod.Name,
+                        Author = mod.Author,
+                        DownloadCount = mod.DownloadCountFormatted,
+                        Source = "Modrinth",
+                        ProjectId = mod.Id,
+                        Type = "mod",
+                        Description = mod.Description,
+                        IconUrl = mod.IconUrl,
+                        Tags = mod.Categories != null ? string.Join(",", mod.Categories) : ""
+                    });
+                }
+                
+                if (_modRecommendations.Count > 0)
+                {
+                    UpdateModDisplay(_modRecommendations[0]);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[HomePage] 加载模组推荐失败: {ex.Message}");
+                _modRecommendations.Add(new RecommendItemViewModel
+                {
+                    Name = "加载失败",
+                    Source = "-",
+                    Type = "mod"
+                });
+            }
+        }
+
+        private async Task LoadPackRecommendationsAsync()
+        {
+            try
+            {
+                var modrinthPacks = await _modrinthApi.GetModpacks(6);
+                foreach (var pack in modrinthPacks)
+                {
+                    _packRecommendations.Add(new RecommendItemViewModel
+                    {
+                        Name = pack.Name,
+                        Author = pack.Author,
+                        DownloadCount = pack.DownloadCountFormatted,
+                        Source = "Modrinth",
+                        ProjectId = pack.Id,
+                        Type = "modpack",
+                        Description = pack.Description,
+                        IconUrl = pack.IconUrl,
+                        Tags = pack.Categories != null ? string.Join(",", pack.Categories) : ""
+                    });
+                }
+                
+                if (_packRecommendations.Count > 0)
+                {
+                    UpdatePackDisplay(_packRecommendations[0]);
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[HomePage] 加载整合包推荐失败: {ex.Message}");
+                _packRecommendations.Add(new RecommendItemViewModel
+                {
+                    Name = "加载失败",
+                    Source = "-",
+                    Type = "modpack"
+                });
+            }
+        }
+
+        private void StartCarousel()
+        {
+            _carouselTimer = new Timer(5000);
+            _carouselTimer.Elapsed += OnCarouselTimerElapsed;
+            _carouselTimer.Start();
+        }
+
+        private void OnCarouselTimerElapsed(object sender, ElapsedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (_modRecommendations.Count > 1)
+                {
+                    _currentModIndex = (_currentModIndex + 1) % _modRecommendations.Count;
+                    UpdateModDisplay(_modRecommendations[_currentModIndex]);
+                }
+                
+                if (_packRecommendations.Count > 1)
+                {
+                    _currentPackIndex = (_currentPackIndex + 1) % _packRecommendations.Count;
+                    UpdatePackDisplay(_packRecommendations[_currentPackIndex]);
+                }
+            });
+        }
+
+        private async void UpdateModDisplay(RecommendItemViewModel item)
+        {
+            if (spModContent != null)
+            {
+                var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(300));
+                spModContent.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+                
+                await Task.Delay(300);
+                
+                if (txtModName != null)
+                    txtModName.Text = item.Name;
+                if (txtModSource != null)
+                    txtModSource.Text = $"({item.Source})";
+                
+                var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300));
+                spModContent.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+            }
+        }
+
+        private async void UpdatePackDisplay(RecommendItemViewModel item)
+        {
+            if (spPackContent != null)
+            {
+                var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(300));
+                spPackContent.BeginAnimation(UIElement.OpacityProperty, fadeOut);
+                
+                await Task.Delay(300);
+                
+                if (txtPackName != null)
+                    txtPackName.Text = item.Name;
+                if (txtPackSource != null)
+                    txtPackSource.Text = $"({item.Source})";
+                
+                var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300));
+                spPackContent.BeginAnimation(UIElement.OpacityProperty, fadeIn);
             }
         }
     }

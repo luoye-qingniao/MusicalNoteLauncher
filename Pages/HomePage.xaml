@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
 	x:Class="MusicalNoteLauncher.Pages.HomePage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	Background="#1E1E1E" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<ScrollViewer
@@ -10,7 +10,7 @@
 				<RowDefinition
 					Height="Auto" />
 				<RowDefinition
-					Height="Auto" />
+					Height="*" />
 				<RowDefinition
 					Height="Auto" />
 			</Grid.RowDefinitions>
@@ -20,68 +20,133 @@
 				CornerRadius="12"
 				Padding="20"
 				Margin="0,0,0,16">
-				<Grid>
-					<Grid.ColumnDefinitions>
-						<ColumnDefinition
-							Width="*" />
-						<ColumnDefinition
-							Width="Auto" />
-					</Grid.ColumnDefinitions>
+				<StackPanel>
+					<StackPanel.Resources>
+						<Storyboard x:Key="FadeOutAnimation">
+							<DoubleAnimation
+								Storyboard.TargetProperty="Opacity"
+								From="1"
+								To="0"
+								Duration="0:0:0.3" />
+						</Storyboard>
+						<Storyboard x:Key="FadeInAnimation">
+							<DoubleAnimation
+								Storyboard.TargetProperty="Opacity"
+								From="0"
+								To="1"
+								Duration="0:0:0.3" />
+						</Storyboard>
+					</StackPanel.Resources>
+					
 					<StackPanel
-						Grid.Column="0"
-						VerticalAlignment="Center">
-						<StackPanel
-							Orientation="Horizontal"
-							Margin="0,0,0,8">
+						Orientation="Horizontal"
+						VerticalAlignment="Center"
+						Margin="0,0,0,8">
+						<TextBlock
+							Text="🔥 热门模组："
+							FontSize="14"
+							Foreground="#FFFFFF"
+							FontFamily="Microsoft YaHei"
+							VerticalAlignment="Center" />
+						<StackPanel Name="spModContent" Orientation="Horizontal" VerticalAlignment="Center">
 							<TextBlock
-								Text="热门模组推荐："
-								FontSize="14"
-								Foreground="#FFFFFF"
-								FontFamily="Microsoft YaHei"
-								VerticalAlignment="Center" />
-							<TextBlock
-								Text="[热门模组名称]"
+								Name="txtModName"
 								FontSize="14"
 								Foreground="#2ECC71"
 								FontFamily="Microsoft YaHei"
 								VerticalAlignment="Center"
-								Margin="4,0,0,0" />
-						</StackPanel>
-						<StackPanel
-							Orientation="Horizontal">
+								Margin="4,0,0,0"
+								Text="加载中..." />
 							<TextBlock
-								Text="热门整合包推荐："
-								FontSize="14"
-								Foreground="#FFFFFF"
+								Name="txtModSource"
+								FontSize="10"
+								Foreground="#666666"
 								FontFamily="Microsoft YaHei"
-								VerticalAlignment="Center" />
+								VerticalAlignment="Center"
+								Margin="8,0,0,0" />
+						</StackPanel>
+						<Button
+							Name="btnViewModDetail"
+							Content="点击查看"
+							Background="#333333"
+							Foreground="#FFFFFF"
+							BorderBrush="#444444"
+							BorderThickness="1"
+							Padding="12,6"
+							FontSize="12"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							MinWidth="70"
+							Margin="16,0,0,0"
+							Click="BtnViewModDetail_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										BorderBrush="{TemplateBinding BorderBrush}"
+										BorderThickness="{TemplateBinding BorderThickness}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="Center"
+											VerticalAlignment="Center" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#2D2D2D" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+					</StackPanel>
+					<StackPanel
+						Orientation="Horizontal"
+						VerticalAlignment="Center">
+						<TextBlock
+							Text="📦 热门整合包："
+							FontSize="14"
+							Foreground="#FFFFFF"
+							FontFamily="Microsoft YaHei"
+							VerticalAlignment="Center" />
+						<StackPanel Name="spPackContent" Orientation="Horizontal" VerticalAlignment="Center">
 							<TextBlock
-								Text="[热门整合包名称]"
+								Name="txtPackName"
 								FontSize="14"
 								Foreground="#3498DB"
 								FontFamily="Microsoft YaHei"
 								VerticalAlignment="Center"
-								Margin="4,0,0,0" />
+								Margin="4,0,0,0"
+								Text="加载中..." />
+							<TextBlock
+								Name="txtPackSource"
+								FontSize="10"
+								Foreground="#666666"
+								FontFamily="Microsoft YaHei"
+								VerticalAlignment="Center"
+								Margin="8,0,0,0" />
 						</StackPanel>
-					</StackPanel>
-					<StackPanel
-						Grid.Column="1"
-						Orientation="Horizontal"
-						VerticalAlignment="Center">
 						<Button
-							Name="btnViewMods"
+							Name="btnViewPackDetail"
 							Content="点击查看"
 							Background="#333333"
 							Foreground="#FFFFFF"
 							BorderBrush="#444444"
 							BorderThickness="1"
-							Padding="16,10"
-							FontSize="13"
+							Padding="12,6"
+							FontSize="12"
 							FontFamily="Microsoft YaHei"
 							Cursor="Hand"
-							MinWidth="90"
-							Margin="0,0,8,0"
-							Click="BtnViewMods_Click">
+							MinWidth="70"
+							Margin="16,0,0,0"
+							Click="BtnViewPackDetail_Click">
 							<Control.Template>
 								<ControlTemplate
 									TargetType="{x:Type Button}">
@@ -102,132 +167,15 @@
 											Value="True">
 											<Setter
 												TargetName="border"
-												Property="BorderBrush"
-												Value="#555555" />
-											<Setter
-												TargetName="border"
 												Property="Background"
-												Value="#3A3A3A" />
-										</Trigger>
-										<Trigger
-											Property="IsPressed"
-											Value="True">
-											<Setter
-												TargetName="border"
-												Property="Background"
-												Value="#444444" />
-										</Trigger>
-									</ControlTemplate.Triggers>
-								</ControlTemplate>
-							</Control.Template>
-						</Button>
-						<Button
-							Name="btnViewPacks"
-							Content="点击查看"
-							Background="#333333"
-							Foreground="#FFFFFF"
-							BorderBrush="#444444"
-							BorderThickness="1"
-							Padding="16,10"
-							FontSize="13"
-							FontFamily="Microsoft YaHei"
-							Cursor="Hand"
-							MinWidth="90"
-							Margin="0,0,8,0"
-							Click="BtnViewPacks_Click">
-							<Control.Template>
-								<ControlTemplate
-									TargetType="{x:Type Button}">
-									<Border
-										Name="border"
-										Background="{TemplateBinding Background}"
-										BorderBrush="{TemplateBinding BorderBrush}"
-										BorderThickness="{TemplateBinding BorderThickness}"
-										CornerRadius="4"
-										Padding="{TemplateBinding Padding}">
-										<ContentPresenter
-											HorizontalAlignment="Center"
-											VerticalAlignment="Center" />
-									</Border>
-									<ControlTemplate.Triggers>
-										<Trigger
-											Property="UIElement.IsMouseOver"
-											Value="True">
-											<Setter
-												TargetName="border"
-												Property="BorderBrush"
-												Value="#555555" />
-											<Setter
-												TargetName="border"
-												Property="Background"
-												Value="#3A3A3A" />
-										</Trigger>
-										<Trigger
-											Property="IsPressed"
-											Value="True">
-											<Setter
-												TargetName="border"
-												Property="Background"
-												Value="#444444" />
-										</Trigger>
-									</ControlTemplate.Triggers>
-								</ControlTemplate>
-							</Control.Template>
-						</Button>
-						<Button
-							Name="btnViewMore"
-							Content="点击查看"
-							Background="#333333"
-							Foreground="#FFFFFF"
-							BorderBrush="#444444"
-							BorderThickness="1"
-							Padding="16,10"
-							FontSize="13"
-							FontFamily="Microsoft YaHei"
-							Cursor="Hand"
-							MinWidth="90"
-							Click="BtnViewMore_Click">
-							<Control.Template>
-								<ControlTemplate
-									TargetType="{x:Type Button}">
-									<Border
-										Name="border"
-										Background="{TemplateBinding Background}"
-										BorderBrush="{TemplateBinding BorderBrush}"
-										BorderThickness="{TemplateBinding BorderThickness}"
-										CornerRadius="4"
-										Padding="{TemplateBinding Padding}">
-										<ContentPresenter
-											HorizontalAlignment="Center"
-											VerticalAlignment="Center" />
-									</Border>
-									<ControlTemplate.Triggers>
-										<Trigger
-											Property="UIElement.IsMouseOver"
-											Value="True">
-											<Setter
-												TargetName="border"
-												Property="BorderBrush"
-												Value="#555555" />
-											<Setter
-												TargetName="border"
-												Property="Background"
-												Value="#3A3A3A" />
-										</Trigger>
-										<Trigger
-											Property="IsPressed"
-											Value="True">
-											<Setter
-												TargetName="border"
-												Property="Background"
-												Value="#444444" />
+												Value="#2D2D2D" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>
 							</Control.Template>
 						</Button>
 					</StackPanel>
-				</Grid>
+				</StackPanel>
 			</Border>
 			<Grid
 				Row="1">

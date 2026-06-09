@@ -1,0 +1,346 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
+using MusicalNoteLauncher.Core;
+
+namespace MusicalNoteLauncher.ViewModels
+{
+    public class GenericDownloadTaskViewModel : IDownloadTask
+    {
+        private string _versionId;
+        private string _status;
+        private double _progress;
+        private long _downloadedBytes;
+        private long _totalBytes;
+        private string _currentFile;
+        private string _downloadSpeed;
+        private string _remainingTime;
+        private bool _isCompleted;
+        private bool _isFailed;
+        private bool _isCancelled;
+        private bool _isPaused;
+        private string _errorMessage;
+
+        public string VersionId
+        {
+            get => _versionId;
+            set => SetProperty(ref _versionId, value);
+        }
+
+        public string Status
+        {
+            get => _status;
+            set => SetProperty(ref _status, value);
+        }
+
+        public double Progress
+        {
+            get => _progress;
+            set => SetProperty(ref _progress, value);
+        }
+
+        public long DownloadedBytes
+        {
+            get => _downloadedBytes;
+            set => SetProperty(ref _downloadedBytes, value);
+        }
+
+        public long TotalBytes
+        {
+            get => _totalBytes;
+            set => SetProperty(ref _totalBytes, value);
+        }
+
+        public string CurrentFile
+        {
+            get => _currentFile;
+            set => SetProperty(ref _currentFile, value);
+        }
+
+        public string DownloadSpeed
+        {
+            get => _downloadSpeed;
+            set => SetProperty(ref _downloadSpeed, value);
+        }
+
+        public string RemainingTime
+        {
+            get => _remainingTime;
+            set => SetProperty(ref _remainingTime, value);
+        }
+
+        public bool IsCompleted
+        {
+            get => _isCompleted;
+            set => SetProperty(ref _isCompleted, value);
+        }
+
+        public bool IsFailed
+        {
+            get => _isFailed;
+            set => SetProperty(ref _isFailed, value);
+        }
+
+        public bool IsCancelled
+        {
+            get => _isCancelled;
+            set => SetProperty(ref _isCancelled, value);
+        }
+
+        public bool IsPaused
+        {
+            get => _isPaused;
+            set => SetProperty(ref _isPaused, value);
+        }
+
+        public string ErrorMessage
+        {
+            get => _errorMessage;
+            set => SetProperty(ref _errorMessage, value);
+        }
+
+        public bool IsDownloading => !IsCompleted && !IsFailed && !IsCancelled && Status == "下载中";
+
+        private readonly string _downloadUrl;
+        private readonly string _savePath;
+        private CancellationTokenSource _cts;
+        private DateTime _startTime;
+        private long _lastBytes;
+        private DateTime _lastTime;
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
+
+        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
+        {
+            if (EqualityComparer<T>.Default.Equals(field, value)) return false;
+            field = value;
+            OnPropertyChanged(propertyName);
+            return true;
+        }
+
+        public GenericDownloadTaskViewModel(string downloadUrl, string savePath, string fileName)
+        {
+            _downloadUrl = downloadUrl;
+            _savePath = savePath;
+            _versionId = fileName;
+            _currentFile = fileName;
+            _status = "等待中";
+            _progress = 0;
+            _downloadedBytes = 0;
+            _totalBytes = 0;
+            _downloadSpeed = "--";
+            _remainingTime = "--";
+            _isPaused = false;
+        }
+
+        public async Task StartDownloadAsync()
+        {
+            if (IsDownloading || IsCompleted) return;
+
+            _cts = new CancellationTokenSource();
+            _startTime = DateTime.Now;
+            _lastBytes = DownloadedBytes;
+            _lastTime = DateTime.Now;
+
+            Status = "下载中";
+            IsCompleted = false;
+            IsFailed = false;
+            IsCancelled = false;
+            IsPaused = false;
+
+            try
+            {
+                using (var httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(30) })
+                {
+                    using (var response = await httpClient.GetAsync(_downloadUrl, HttpCompletionOption.ResponseHeadersRead, _cts.Token))
+                    {
+                        response.EnsureSuccessStatusCode();
+                        TotalBytes = response.Content.Headers.ContentLength ?? -1;
+
+                        string directory = Path.GetDirectoryName(_savePath);
+                        if (!Directory.Exists(directory))
+                        {
+                            Directory.CreateDirectory(directory);
+                        }
+
+                        using (var stream = await response.Content.ReadAsStreamAsync())
+                        using (var fileStream = new FileStream(_savePath, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            var buffer = new byte[8192];
+                            int bytesRead;
+
+                            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, _cts.Token)) > 0)
+                            {
+                                await fileStream.WriteAsync(buffer, 0, bytesRead);
+                                DownloadedBytes += bytesRead;
+
+                                UpdateProgress();
+                            }
+                        }
+                    }
+                }
+
+                Status = "已完成";
+                Progress = 100;
+                IsCompleted = true;
+                DownloadSpeed = "--";
+                RemainingTime = "已完成";
+            }
+            catch (OperationCanceledException)
+            {
+                if (IsPaused)
+                {
+                    Status = "已暂停";
+                    DownloadSpeed = "--";
+                    RemainingTime = "--";
+                }
+                else
+                {
+                    Status = "已取消";
+                    IsCancelled = true;
+                    DownloadSpeed = "--";
+                    RemainingTime = "--";
+                }
+            }
+            catch (Exception ex)
+            {
+                Status = "下载失败";
+                IsFailed = true;
+                ErrorMessage = ex.Message;
+                DownloadSpeed = "--";
+                RemainingTime = "--";
+            }
+        }
+
+        private void UpdateProgress()
+        {
+            if (TotalBytes > 0)
+            {
+                Progress = (DownloadedBytes * 100.0 / TotalBytes);
+            }
+
+            CalculateSpeedAndTime();
+        }
+
+        private void CalculateSpeedAndTime()
+        {
+            DateTime now = DateTime.Now;
+            TimeSpan elapsed = now - _lastTime;
+
+            if (elapsed.TotalSeconds >= 1)
+            {
+                long bytesDelta = DownloadedBytes - _lastBytes;
+                double bytesPerSecond = bytesDelta / elapsed.TotalSeconds;
+
+                DownloadSpeed = FormatSpeed(bytesPerSecond);
+
+                if (TotalBytes > 0 && bytesPerSecond > 0)
+                {
+                    long remainingBytes = TotalBytes - DownloadedBytes;
+                    double remainingSeconds = remainingBytes / bytesPerSecond;
+                    RemainingTime = FormatTime(remainingSeconds);
+                }
+
+                _lastBytes = DownloadedBytes;
+                _lastTime = now;
+            }
+        }
+
+        private string FormatSpeed(double bytesPerSecond)
+        {
+            if (bytesPerSecond < 1024)
+                return $"{bytesPerSecond:F1} B/s";
+            if (bytesPerSecond < 1024 * 1024)
+                return $"{bytesPerSecond / 1024:F1} KB/s";
+            return $"{bytesPerSecond / (1024 * 1024):F1} MB/s";
+        }
+
+        private string FormatTime(double seconds)
+        {
+            if (seconds < 60)
+                return $"{(int)seconds}秒";
+            if (seconds < 3600)
+                return $"{(int)(seconds / 60)}分{(int)(seconds % 60)}秒";
+            int hours = (int)(seconds / 3600);
+            int minutes = (int)((seconds % 3600) / 60);
+            int secs = (int)(seconds % 60);
+            return $"{hours}时{minutes}分{secs}秒";
+        }
+
+        public void Cancel()
+        {
+            _cts?.Cancel();
+        }
+
+        public void Pause()
+        {
+            if (!IsDownloading) return;
+
+            IsPaused = true;
+            _cts?.Cancel();
+            Logger.Info($"[下载任务] 已暂停任务: {VersionId}");
+        }
+
+        public string ProgressText => $"{Progress:F1}%";
+
+        public string FileName => string.IsNullOrEmpty(CurrentFile) ? VersionId : CurrentFile;
+
+        public string FileSize => SizeText;
+
+        public string Speed => DownloadSpeed;
+
+        public string StatusIcon
+        {
+            get
+            {
+                switch (Status)
+                {
+                    case "下载中":
+                        return "⬇️";
+                    case "已完成":
+                        return "✅";
+                    case "下载失败":
+                        return "❌";
+                    case "已取消":
+                        return "⏹️";
+                    case "已暂停":
+                        return "⏸️";
+                    case "等待中":
+                    default:
+                        return "⏳";
+                }
+            }
+        }
+
+        public string SizeText
+        {
+            get
+            {
+                if (TotalBytes <= 0)
+                    return "-- / --";
+                string downloaded = FormatSize(DownloadedBytes);
+                string total = FormatSize(TotalBytes);
+                return $"{downloaded} / {total}";
+            }
+        }
+
+        private string FormatSize(long bytes)
+        {
+            if (bytes < 1024)
+                return $"{bytes} B";
+            if (bytes < 1024 * 1024)
+                return $"{bytes / 1024.0:F1} KB";
+            return $"{bytes / (1024.0 * 1024):F1} MB";
+        }
+    }
+}

@@ -1,0 +1,293 @@
+<UserControl
+	x:Class="MusicalNoteLauncher.Pages.RecommendDetailPage"
+	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:local="clr-namespace:MusicalNoteLauncher.Pages"
+	Background="#1E1E1E">
+	<Grid
+		Background="#1E1E1E">
+		<Grid.RowDefinitions>
+			<RowDefinition
+				Height="60" />
+			<RowDefinition
+				Height="*" />
+		</Grid.RowDefinitions>
+		<Border
+			Grid.Row="0"
+			Background="#2D2D2D">
+			<StackPanel
+				Orientation="Horizontal"
+				Margin="20,0"
+				VerticalAlignment="Center">
+				<Button
+					Content="← 返回"
+					Background="#00FFFFFF"
+					Foreground="#2196F3"
+					BorderThickness="0"
+					FontSize="14"
+					FontFamily="Microsoft YaHei"
+					Cursor="Hand"
+					Margin="0,0,20,0"
+					Click="BtnBack_Click" />
+				<TextBlock
+					Text="资源详情"
+					FontSize="20"
+					FontWeight="Bold"
+					Foreground="#FFFFFF" />
+			</StackPanel>
+		</Border>
+		<ScrollViewer
+			Grid.Row="1"
+			VerticalScrollBarVisibility="Auto"
+			Margin="20">
+			<StackPanel>
+				<Border
+					Background="#2D2D2D"
+					CornerRadius="12"
+					Padding="24"
+					Margin="0,0,0,16">
+					<StackPanel>
+						<StackPanel
+							Orientation="Horizontal"
+							VerticalAlignment="Center"
+							Margin="0,0,0,16">
+							<Border
+								Name="borderIcon"
+								Width="64"
+								Height="64"
+								Background="#383838"
+								CornerRadius="8">
+								<Image
+									Name="imgIcon"
+									Width="56"
+									Height="56"
+									Stretch="UniformToFill" />
+								<Border.Style>
+									<Style TargetType="Border">
+										<Setter Property="Visibility" Value="Visible" />
+										<Style.Triggers>
+											<DataTrigger Binding="{Binding ElementName=imgIcon, Path=Source}" Value="{x:Null}">
+												<Setter Property="Visibility" Value="Collapsed" />
+											</DataTrigger>
+										</Style.Triggers>
+									</Style>
+								</Border.Style>
+							</Border>
+							<Border
+								Name="borderIconPlaceholder"
+								Width="64"
+								Height="64"
+								Background="#383838"
+								CornerRadius="8"
+								Visibility="Collapsed">
+								<TextBlock
+									Text="📦"
+									FontSize="32"
+									HorizontalAlignment="Center"
+									VerticalAlignment="Center" />
+								<Border.Style>
+									<Style TargetType="Border">
+										<Setter Property="Visibility" Value="Collapsed" />
+										<Style.Triggers>
+											<DataTrigger Binding="{Binding ElementName=imgIcon, Path=Source}" Value="{x:Null}">
+												<Setter Property="Visibility" Value="Visible" />
+											</DataTrigger>
+										</Style.Triggers>
+									</Style>
+								</Border.Style>
+							</Border>
+							<StackPanel
+								Margin="16,0,0,0">
+								<TextBlock
+									Name="txtName"
+									FontSize="20"
+									FontWeight="Bold"
+									Foreground="#FFFFFF"
+									FontFamily="Microsoft YaHei" />
+								<StackPanel
+									Orientation="Horizontal"
+									Margin="0,4,0,0">
+									<TextBlock
+										Name="txtAuthor"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei" />
+									<TextBlock
+										Text=" · "
+										FontSize="12"
+										Foreground="#666666" />
+									<TextBlock
+										Name="txtSource"
+										FontSize="12"
+										Foreground="#666666"
+										FontFamily="Microsoft YaHei" />
+								</StackPanel>
+							</StackPanel>
+						</StackPanel>
+						<Border
+							Background="#383838"
+							CornerRadius="8"
+							Padding="16">
+							<TextBlock
+								Name="txtDescription"
+								FontSize="13"
+								Foreground="#DDDDDD"
+								FontFamily="Microsoft YaHei"
+								TextWrapping="Wrap" />
+						</Border>
+					</StackPanel>
+				</Border>
+				<Border
+					Background="#2D2D2D"
+					CornerRadius="12"
+					Padding="24"
+					Margin="0,0,0,16">
+					<StackPanel>
+						<TextBlock
+							Text="📊 统计信息"
+							FontSize="14"
+							Foreground="#FFFFFF"
+							FontFamily="Microsoft YaHei"
+							Margin="0,0,0,12" />
+						<Grid>
+							<Grid.ColumnDefinitions>
+								<ColumnDefinition Width="*" />
+								<ColumnDefinition Width="*" />
+							</Grid.ColumnDefinitions>
+							<StackPanel
+								Grid.Column="0"
+								Margin="0,0,16,0">
+								<TextBlock
+									Text="下载量"
+									FontSize="12"
+									Foreground="#888888"
+									FontFamily="Microsoft YaHei" />
+								<TextBlock
+									Name="txtDownloads"
+									FontSize="18"
+									FontWeight="Bold"
+									Foreground="#2ECC71"
+									FontFamily="Microsoft YaHei"
+									Margin="0,4,0,0" />
+							</StackPanel>
+							<StackPanel
+								Grid.Column="1">
+								<TextBlock
+									Text="评分"
+									FontSize="12"
+									Foreground="#888888"
+									FontFamily="Microsoft YaHei" />
+								<TextBlock
+									Name="txtRating"
+									FontSize="18"
+									FontWeight="Bold"
+									Foreground="#F39C12"
+									FontFamily="Microsoft YaHei"
+									Margin="0,4,0,0" />
+							</StackPanel>
+						</Grid>
+					</StackPanel>
+				</Border>
+				<Border
+					Background="#2D2D2D"
+					CornerRadius="12"
+					Padding="24"
+					Margin="0,0,0,16">
+					<StackPanel>
+						<TextBlock
+							Text="🏷️ 标签"
+							FontSize="14"
+							Foreground="#FFFFFF"
+							FontFamily="Microsoft YaHei"
+							Margin="0,0,0,12" />
+						<WrapPanel
+							Name="pnlTags" />
+					</StackPanel>
+				</Border>
+				<StackPanel
+					Orientation="Horizontal">
+					<Button
+						Name="btnDownload"
+						Content="立即下载"
+						Background="#2196F3"
+						Foreground="#FFFFFF"
+						BorderBrush="#1976D2"
+						BorderThickness="1"
+						Padding="24,12"
+						FontSize="14"
+						FontFamily="Microsoft YaHei"
+						Cursor="Hand"
+						MinWidth="140"
+						Click="BtnDownload_Click">
+						<Control.Template>
+							<ControlTemplate
+								TargetType="{x:Type Button}">
+								<Border
+									Name="border"
+									Background="{TemplateBinding Background}"
+									BorderBrush="{TemplateBinding BorderBrush}"
+									BorderThickness="{TemplateBinding BorderThickness}"
+									CornerRadius="8"
+									Padding="{TemplateBinding Padding}">
+									<ContentPresenter
+										HorizontalAlignment="Center"
+										VerticalAlignment="Center" />
+								</Border>
+								<ControlTemplate.Triggers>
+									<Trigger
+										Property="UIElement.IsMouseOver"
+										Value="True">
+										<Setter
+											TargetName="border"
+											Property="Background"
+											Value="#1976D2" />
+									</Trigger>
+								</ControlTemplate.Triggers>
+							</ControlTemplate>
+						</Control.Template>
+					</Button>
+					<Button
+						Content="查看更多"
+						Background="#383838"
+						Foreground="#FFFFFF"
+						BorderBrush="#444444"
+						BorderThickness="1"
+						Padding="24,12"
+						FontSize="14"
+						FontFamily="Microsoft YaHei"
+						Cursor="Hand"
+						MinWidth="140"
+						Margin="16,0,0,0"
+						Click="BtnViewMore_Click">
+						<Control.Template>
+							<ControlTemplate
+								TargetType="{x:Type Button}">
+								<Border
+									Name="border"
+									Background="{TemplateBinding Background}"
+									BorderBrush="{TemplateBinding BorderBrush}"
+									BorderThickness="{TemplateBinding BorderThickness}"
+									CornerRadius="8"
+									Padding="{TemplateBinding Padding}">
+									<ContentPresenter
+										HorizontalAlignment="Center"
+										VerticalAlignment="Center" />
+								</Border>
+								<ControlTemplate.Triggers>
+									<Trigger
+										Property="UIElement.IsMouseOver"
+										Value="True">
+										<Setter
+											TargetName="border"
+											Property="Background"
+											Value="#444444" />
+									</Trigger>
+								</ControlTemplate.Triggers>
+							</ControlTemplate>
+						</Control.Template>
+					</Button>
+				</StackPanel>
+			</StackPanel>
+		</ScrollViewer>
+	</Grid>
+</UserControl>

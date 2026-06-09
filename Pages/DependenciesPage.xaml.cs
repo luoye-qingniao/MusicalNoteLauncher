@@ -1,8 +1,9 @@
 using System;
-using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.ViewModels;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -117,26 +118,68 @@ namespace MusicalNoteLauncher.Pages
         {
         }
 
-        private void BtnDownload_Click(object sender, RoutedEventArgs e)
+        private async void BtnDownload_Click(object sender, RoutedEventArgs e)
         {
             Button button = sender as Button;
-            if (button != null)
+            if (button == null) return;
+
+            DependencyItem item = button.DataContext as DependencyItem;
+            if (item == null) return;
+
+            string modrinthId = GetModrinthId(item.Name);
+            if (!string.IsNullOrEmpty(modrinthId))
             {
-                DependencyItem item = button.DataContext as DependencyItem;
-                if (item != null)
+                try
                 {
-                    if (!string.IsNullOrEmpty(item.SourceUrl))
+                    string downloadUrl = await _modrinthApi.GetDownloadUrl(modrinthId);
+                    if (!string.IsNullOrEmpty(downloadUrl))
                     {
-                        Process.Start(new ProcessStartInfo(item.SourceUrl)
+                        string fileName = Path.GetFileName(new Uri(downloadUrl).AbsolutePath);
+                        string modsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "mods");
+                        string savePath = Path.Combine(modsPath, fileName);
+
+                        if (!Directory.Exists(modsPath))
                         {
-                            UseShellExecute = true
-                        });
-                        MessageBox.Show("已在浏览器中打开下载页面:\n" + item.Name, "下载提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                            Directory.CreateDirectory(modsPath);
+                        }
+
+                        var task = new GenericDownloadTaskViewModel(downloadUrl, savePath, fileName);
+                        DownloadTaskManager.Instance.AddTask(task);
+                        _ = task.StartDownloadAsync();
+
+                        MessageBox.Show($"已将 {fileName} 添加到下载任务", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                         return;
                     }
-                    MessageBox.Show("未找到下载链接", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"[依赖库下载] 下载失败: {ex.Message}");
                 }
             }
+
+            if (!string.IsNullOrEmpty(item.SourceUrl))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(item.SourceUrl)
+                {
+                    UseShellExecute = true
+                });
+                MessageBox.Show("已在浏览器中打开下载页面:\n" + item.Name, "下载提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            }
+            else
+            {
+                MessageBox.Show("未找到下载链接", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+            }
+        }
+
+        private string GetModrinthId(string name)
+        {
+            return name switch
+            {
+                "Sodium" => "AANobbMI",
+                "Lithium" => "gvQqBUqZ",
+                "Iris" => "YL57xq9U",
+                _ => null
+            };
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.ViewModels;
 
 namespace MusicalNoteLauncher
 {
@@ -10,6 +11,7 @@ namespace MusicalNoteLauncher
         public static bool IsOfflineMode { get; set; } = true;
         public static string MinecraftPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
         public static ConfigManager Config { get; set; } = new ConfigManager();
+        public static RecommendItemViewModel CurrentRecommendItem { get; set; }
 
         public static event Action<string> NavigateRequested;
 

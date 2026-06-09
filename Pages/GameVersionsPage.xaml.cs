@@ -18,6 +18,7 @@ namespace MusicalNoteLauncher.Pages
     public partial class GameVersionsPage : UserControl
     {
         private readonly VersionDownloadService _downloadService;
+        private readonly string _minecraftPath;
         private bool _isLoading;
         private bool _isInstalledLoading;
         private ObservableCollection<VersionItem> _latestVersions = new ObservableCollection<VersionItem>();
@@ -27,8 +28,8 @@ namespace MusicalNoteLauncher.Pages
         public GameVersionsPage()
         {
             InitializeComponent();
-            string minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
-            _downloadService = new VersionDownloadService(minecraftPath);
+            _minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+            _downloadService = new VersionDownloadService(_minecraftPath);
             lvLatestVersions.ItemsSource = _latestVersions;
             icVersions.ItemsSource = _versionGroups;
             icInstalledVersions.ItemsSource = _installedVersionGroups;
@@ -282,15 +283,28 @@ namespace MusicalNoteLauncher.Pages
                 item.Status = "下载中";
                 item.DownloadProgress = 0.0;
 
-                var downloader = new VersionDownloader(item.VersionId);
+                var downloader = new VersionDownloader(_minecraftPath);
                 downloader.ShowDialog();
 
                 VersionScanService.Instance.ScanAsync("下载窗口关闭");
+                
+                bool isDownloaded = CheckVersionDownloaded(item.VersionId);
+                if (isDownloaded)
+                {
+                    item.Status = "已下载";
+                    item.DownloadProgress = 100.0;
+                }
+                else
+                {
+                    item.Status = "可下载";
+                    item.DownloadProgress = 0.0;
+                }
             }
             catch (Exception ex)
             {
                 Logger.Error("[下载] 启动下载失败: " + ex.Message);
                 item.Status = "可下载";
+                item.DownloadProgress = 0.0;
             }
         }
 
