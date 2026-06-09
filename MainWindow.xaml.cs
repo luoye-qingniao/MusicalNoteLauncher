@@ -1,11 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
 using MusicalNoteLauncher.Pages;
 using MusicalNoteLauncher.Core;
 
@@ -15,12 +13,11 @@ namespace MusicalNoteLauncher
     {
         private readonly ConfigManager _config;
         private readonly LauncherCore _launcherCore;
-        private readonly Dictionary<string, object> _pageCache = new();
+        private readonly Dictionary<string, UserControl> _pageCache = new();
         private string _currentPageKey = "";
-        private bool _isNavigating;
+        private bool _activeIsA = true;
+        private bool _isAnimating;
         public event Action OnLogout;
-        private const int TransitionDuration = 200;
-        private const double SlideOffset = 30.0;
 
         public MainWindow() : this("Player", true) { }
 
@@ -28,94 +25,149 @@ namespace MusicalNoteLauncher
         {
             InitializeComponent();
             _config = new ConfigManager();
+            AppContext.Initialize(username, isOfflineMode, config: _config);
             _launcherCore = new LauncherCore(_config);
-            Loaded += async (s, e) => { await PreloadPagesAsync(); NavigateToPage("Home"); };
+            AppContext.NavigateRequested += pageKey => Dispatcher.Invoke(() => ShowPage(pageKey));
+            Loaded += (s, e) => ShowPage("Home");
         }
 
-        private async Task PreloadPagesAsync()
+        private UserControl CreatePage(string key)
         {
-            await Task.Run(async () =>
+            switch (key)
             {
-                var pages = new List<Tuple<string, Func<object>>>
-                {
-                    Tuple.Create("Home", (Func<object>)(() => new HomePage())),
-                    Tuple.Create("Download", (Func<object>)(() => new DownloadPage())),
-                    Tuple.Create("Settings", (Func<object>)(() => new SettingsPage())),
-                    Tuple.Create("Launch", (Func<object>)(() => new LaunchPage())),
-                    Tuple.Create("Profile", (Func<object>)(() => new ProfilePage())),
-                    Tuple.Create("Mods", (Func<object>)(() => new ModManagerPage())),
-                    Tuple.Create("Modpacks", (Func<object>)(() => new ModpacksPage())),
-                    Tuple.Create("JavaConfig", (Func<object>)(() => new JavaConfigPage())),
-                    Tuple.Create("GameVersions", (Func<object>)(() => new GameVersionsPage())),
-                    Tuple.Create("MultiplayerSocial", (Func<object>)(() => new MultiplayerSocialPage())),
-                    Tuple.Create("FriendsList", (Func<object>)(() => new FriendsListPage())),
-                    Tuple.Create("Mail", (Func<object>)(() => new MailPage())),
-                    Tuple.Create("Community", (Func<object>)(() => new CommunityPage())),
-                    Tuple.Create("ComponentStore", (Func<object>)(() => new ComponentStorePage())),
-                    Tuple.Create("ModsPage", (Func<object>)(() => new ModsPage())),
-                    Tuple.Create("Shaders", (Func<object>)(() => new ShadersPage())),
-                    Tuple.Create("Datapacks", (Func<object>)(() => new DatapacksPage())),
-                    Tuple.Create("Dependencies", (Func<object>)(() => new DependenciesPage())),
-                    Tuple.Create("SaveManager", (Func<object>)(() => new SaveManagerPage())),
-                    Tuple.Create("DownloadTask", (Func<object>)(() => new DownloadTaskPage())),
-                    Tuple.Create("Test", (Func<object>)(() => new TestPage())),
-                    Tuple.Create("Login", (Func<object>)(() => new LoginPage()))
-                };
-                foreach (var p in pages)
-                {
-                    try { Application.Current.Dispatcher.Invoke(() => _pageCache[p.Item1] = p.Item2()); }
-                    catch { }
-                }
-            });
+                case "Home": return new HomePage();
+                case "Download": return new DownloadPage();
+                case "Settings": return new SettingsPage();
+                case "Profile": return new ProfilePage();
+                case "Mods": return new ModManagerPage();
+                case "Modpacks": return new ModpacksPage();
+                case "JavaConfig": return new JavaConfigPage();
+                case "GameVersions": return new GameVersionsPage();
+                case "MultiplayerSocial": return new MultiplayerSocialPage();
+                case "FriendsList": return new FriendsListPage();
+                case "Mail": return new MailPage();
+                case "Community": return new CommunityPage();
+                case "ComponentStore": return new ComponentStorePage();
+                case "ModsPage": return new ModsPage();
+                case "Shaders": return new ShadersPage();
+                case "Datapacks": return new DatapacksPage();
+                case "Dependencies": return new DependenciesPage();
+                case "SaveManager": return new SaveManagerPage();
+                case "DownloadTask": return new DownloadTaskPage();
+                case "Login": return new LoginPage();
+                default: return null;
+            }
         }
 
-        private void NavigateToPage(string pageKey)
+        private ContentControl Active => _activeIsA ? pageContainerA : pageContainerB;
+        private ContentControl Inactive => _activeIsA ? pageContainerB : pageContainerA;
+
+        private void ShowPage(string pageKey)
         {
-            if (_isNavigating || !_pageCache.ContainsKey(pageKey) || pageKey == _currentPageKey) return;
-            _isNavigating = true;
+            if (_isAnimating || pageKey == _currentPageKey) return;
+
             try
             {
-                if (_currentPageKey != "" && _pageCache.ContainsKey(_currentPageKey))
+                if (!_pageCache.ContainsKey(pageKey))
                 {
-                    pageContainerOld.Content = _pageCache[_currentPageKey];
-                    pageContainerOld.RenderTransform = new TranslateTransform(0, 0);
-                    pageContainerOld.Opacity = 1;
-                    pageContainerOld.Visibility = Visibility.Visible;
+                    var page = CreatePage(pageKey);
+                    if (page == null)
+                    {
+                        MessageBox.Show($"鏈煡椤甸潰: {pageKey}", "閿欒", MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
+                    }
+                    _pageCache[pageKey] = page;
                 }
-                else
-                {
-                    pageContainerOld.Opacity = 0;
-                    pageContainerOld.Visibility = Visibility.Collapsed;
-                }
-                pageContainerNew.Content = _pageCache[pageKey];
-                pageContainerNew.RenderTransform = new TranslateTransform(SlideOffset, 0);
-                pageContainerNew.Opacity = 0;
-                pageContainerNew.Visibility = Visibility.Visible;
-                var oldFade = new DoubleAnimation { From = 1, To = 0, Duration = TimeSpan.FromMilliseconds(TransitionDuration), EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut } };
-                var newSlide = new DoubleAnimation { From = SlideOffset, To = 0, Duration = TimeSpan.FromMilliseconds(TransitionDuration), EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut } };
-                var newFade = new DoubleAnimation { From = 0, To = 1, Duration = TimeSpan.FromMilliseconds(TransitionDuration), EasingFunction = new QuarticEase { EasingMode = EasingMode.EaseOut } };
-                if (pageContainerOld.Opacity > 0) pageContainerOld.BeginAnimation(UIElement.OpacityProperty, oldFade);
-                var transform = pageContainerNew.RenderTransform as TranslateTransform;
-                transform?.BeginAnimation(TranslateTransform.XProperty, newSlide);
-                pageContainerNew.BeginAnimation(UIElement.OpacityProperty, newFade);
-                var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(TransitionDuration + 10) };
-                timer.Tick += (s, e) =>
-                {
-                    timer.Stop();
-                    if (pageContainerOld.Content != null) { pageContainerOld.Content = null; pageContainerOld.Opacity = 0; pageContainerOld.Visibility = Visibility.Collapsed; }
-                    pageContainerNew.ClearValue(UIElement.OpacityProperty);
-                    pageContainerNew.ClearValue(UIElement.RenderTransformProperty);
-                    _currentPageKey = pageKey;
-                    _isNavigating = false;
-                };
-                timer.Start();
             }
-            catch { _isNavigating = false; }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"椤甸潰 {pageKey} 鍔犺浇澶辫触:\n{ex}", "閿欒", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
+            _isAnimating = true;
+
+            // 鏂伴〉闈㈡斁鍏ラ潪娲昏穬瀹瑰櫒
+            var newContainer = Inactive;
+            newContainer.Content = _pageCache[pageKey];
+            newContainer.RenderTransform = new TranslateTransform(30, 0);
+            newContainer.Opacity = 0;
+            newContainer.Visibility = Visibility.Visible;
+
+            var oldContainer = Active;
+
+            var sb = new Storyboard();
+            const double duration = 0.2;
+
+            // 鏃ч〉闈㈡贰鍑?            if (oldContainer.Content != null)
+            {
+                var fadeOut = new DoubleAnimation(1, 0, TimeSpan.FromSeconds(duration))
+                { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn } };
+                Storyboard.SetTarget(fadeOut, oldContainer);
+                Storyboard.SetTargetProperty(fadeOut, new PropertyPath(UIElement.OpacityProperty));
+                sb.Children.Add(fadeOut);
+            }
+
+// 新页面滑入
+            var slideIn = new DoubleAnimation(30, 0, TimeSpan.FromSeconds(duration))
+            { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
+            Storyboard.SetTarget(slideIn, newContainer);
+            Storyboard.SetTargetProperty(slideIn, new PropertyPath("(UIElement.RenderTransform).(TranslateTransform.X)"));
+            sb.Children.Add(slideIn);
+
+// 新页面淡入
+            var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromSeconds(duration))
+            { EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut } };
+            Storyboard.SetTarget(fadeIn, newContainer);
+            Storyboard.SetTargetProperty(fadeIn, new PropertyPath(UIElement.OpacityProperty));
+            sb.Children.Add(fadeIn);
+
+            sb.Completed += (_, _) =>
+            {
+                // 娓呯悊鏃у鍣?                if (oldContainer.Content != null)
+                {
+                    oldContainer.Content = null;
+                    oldContainer.Opacity = 0;
+                    oldContainer.Visibility = Visibility.Collapsed;
+                    oldContainer.RenderTransform = null;
+                }
+                // 娓呯悊鏂板鍣ㄥ姩鐢绘畫鐣?                newContainer.ClearValue(UIElement.OpacityProperty);
+                newContainer.RenderTransform = null;
+
+                _activeIsA = !_activeIsA;
+                _currentPageKey = pageKey;
+                _isAnimating = false;
+            };
+
+            sb.Begin();
         }
 
         private void BtnNav_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button button && button.Tag is string pageKey) NavigateToPage(pageKey);
+            if (sender is Button button && button.Tag is string pageKey)
+            {
+                ShowPage(pageKey);
+                UpdateNavButtonStyle(button);
+            }
+        }
+
+        private void UpdateNavButtonStyle(Button activeButton)
+        {
+            var navButtons = new[] { btnHome, btnDownload, btnMods, btnSaves, btnMultiplayer, btnDownloadTask, btnCommunity, btnComponentStore, btnProfile, btnFriends, btnSettings };
+            
+            foreach (var btn in navButtons)
+            {
+                if (btn == activeButton)
+                {
+                    btn.Foreground = new SolidColorBrush(Colors.White);
+                    btn.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
+                }
+                else
+                {
+                    btn.Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170));
+                    btn.Background = Brushes.Transparent;
+                }
+            }
         }
 
         private void BtnLogout_Click(object sender, RoutedEventArgs e)
@@ -125,3 +177,9 @@ namespace MusicalNoteLauncher
         }
     }
 }
+
+
+
+
+
+

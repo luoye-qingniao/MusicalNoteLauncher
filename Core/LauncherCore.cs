@@ -1,4 +1,4 @@
-using Microsoft.Win32;
+﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -82,7 +82,7 @@ namespace MusicalNoteLauncher.Core
                                             {
                                                 Path = javaExePath,
                                                 Version = version,
-                                                DisplayName = $"Java {version} (系统注册表)"
+                                                DisplayName = $"Java {version} (绯荤粺娉ㄥ唽琛?"
                                             });
                                         }
                                     }
@@ -121,7 +121,7 @@ namespace MusicalNoteLauncher.Core
                                 {
                                     Path = javaExePath,
                                     Version = version,
-                                    DisplayName = $"Java {version} (本地安装)"
+                                    DisplayName = $"Java {version} (鏈湴瀹夎)"
                                 });
                             }
                         }
@@ -250,7 +250,7 @@ namespace MusicalNoteLauncher.Core
 
             if (string.IsNullOrEmpty(version))
             {
-                errorMessage = "请选择游戏版本";
+                errorMessage = "璇烽€夋嫨娓告垙鐗堟湰";
                 return false;
             }
 
@@ -260,27 +260,27 @@ namespace MusicalNoteLauncher.Core
 
             if (!Directory.Exists(versionPath))
             {
-                errorMessage = $"游戏版本不存在：{version}\n请确认版本号是否正确，或确保该版本已下载。";
+                errorMessage = $"游戏版本不存在：{version}`n 请确认版本号是否正确，或确保该版本已下载。";
                 return false;
             }
 
             string jsonPath = Path.Combine(versionPath, version + ".json");
             if (!File.Exists(jsonPath))
             {
-                errorMessage = $"游戏版本文件不完整：{version}\n请重新下载该版本。";
+                errorMessage = $"游戏版本文件不完整：{version}`n 请重新下载该版本。";
                 return false;
             }
 
             return true;
         }
 
-        public bool LaunchGame(string javaPath, string gameVersion, int memoryMB, string username, bool offlineMode)
+        public bool LaunchGame(string javaPath, string gameVersion, int memoryMB, string username, bool offlineMode, Action<string> logCallback = null)
         {
             try
             {
                 if (string.IsNullOrEmpty(javaPath) || !File.Exists(javaPath))
                 {
-                    throw new Exception("Java路径无效：" + javaPath);
+                    throw new Exception("Java 路径无效：" + javaPath);
                 }
 
                 string errorMessage;
@@ -292,7 +292,7 @@ namespace MusicalNoteLauncher.Core
                 string minecraftPath = _config.GetMinecraftPath();
                 string versionsPath = Path.Combine(minecraftPath, "versions", gameVersion);
                 string jarPath = Path.Combine(versionsPath, gameVersion + ".jar");
-                // 使用版本独立的natives目录
+                // 浣跨敤鐗堟湰鐙珛鐨刵atives鐩綍
                 string nativesPath = Path.Combine(versionsPath, $"{gameVersion}-natives");
                 string librariesPath = Path.Combine(minecraftPath, "libraries");
                 string assetsPath = Path.Combine(minecraftPath, "assets");
@@ -345,7 +345,9 @@ namespace MusicalNoteLauncher.Core
                     Arguments = arguments.ToString(),
                     WorkingDirectory = minecraftPath,
                     UseShellExecute = false,
-                    CreateNoWindow = false
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true,
                 };
 
                 Process process = Process.Start(startInfo);
@@ -355,7 +357,7 @@ namespace MusicalNoteLauncher.Core
                     process.WaitForExit(3000);
                     if (process.HasExited && process.ExitCode != 0)
                     {
-                        throw new Exception($"游戏启动失败，进程立即退出 (退出码: {process.ExitCode})");
+                        throw new Exception($"娓告垙鍚姩澶辫触锛岃繘绋嬬珛鍗抽€€鍑?(閫€鍑虹爜: {process.ExitCode})");
                     }
                     return true;
                 }
@@ -578,3 +580,4 @@ namespace MusicalNoteLauncher.Core
         }
     }
 }
+

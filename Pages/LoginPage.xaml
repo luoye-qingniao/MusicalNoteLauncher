@@ -1,10 +1,118 @@
-﻿<UserControl x:Class="MusicalNoteLauncher.Pages.LoginPage"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#1E1E1E">
-    <Grid>
-        <TextBlock Text="LoginPage" 
-                   FontSize="24" Foreground="White" 
-                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-    </Grid>
+﻿<UserControl
+	x:Class="MusicalNoteLauncher.Pages.LoginPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Background="#00FFFFFF" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	<Grid>
+		<Border
+			Background="{StaticResource BackgroundGradientBrush}" />
+		<Ellipse
+			Width="400"
+			Height="400"
+			Fill="{StaticResource PrimaryBrush}"
+			Opacity="0.05"
+			HorizontalAlignment="Left"
+			VerticalAlignment="Top"
+			Margin="-100,-100,0,0" />
+		<Ellipse
+			Width="300"
+			Height="300"
+			Fill="{StaticResource PrimaryBrush}"
+			Opacity="0.03"
+			HorizontalAlignment="Right"
+			VerticalAlignment="Bottom"
+			Margin="0,0,-50,-50" />
+		<Border
+			Style="{StaticResource CardBorder}"
+			Width="380"
+			VerticalAlignment="Center"
+			HorizontalAlignment="Center">
+			<StackPanel>
+				<Border
+					Height="80"
+					Margin="0,0,0,20">
+					<StackPanel
+						VerticalAlignment="Center"
+						HorizontalAlignment="Center">
+						<TextBlock
+							Text="♪"
+							FontSize="48"
+							Foreground="{StaticResource PrimaryBrush}"
+							HorizontalAlignment="Center"
+							FontWeight="Bold" />
+						<TextBlock
+							Text="MusicalNote"
+							FontSize="24"
+							Foreground="{StaticResource TextPrimaryBrush}"
+							HorizontalAlignment="Center"
+							FontWeight="Bold"
+							Margin="0,5,0,0" />
+						<TextBlock
+							Text="我的世界启动器"
+							FontSize="14"
+							Foreground="{StaticResource TextSecondaryBrush}"
+							HorizontalAlignment="Center" />
+					</StackPanel>
+				</Border>
+				<Border
+					Height="1"
+					Background="{StaticResource BorderBrush}"
+					Margin="0,0,0,25" />
+				<TextBlock
+					Text="用户名"
+					Foreground="{StaticResource TextSecondaryBrush}"
+					FontSize="12"
+					Margin="0,0,0,8" />
+				<TextBox
+					Name="txtUsername"
+					Style="{StaticResource ModernTextBox}"
+					Margin="0,0,0,20" />
+				<Grid
+					Margin="0,0,0,20">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition
+							Width="*" />
+						<ColumnDefinition
+							Width="Auto" />
+					</Grid.ColumnDefinitions>
+					<StackPanel
+						Grid.Column="0"
+						VerticalAlignment="Center">
+						<TextBlock
+							Text="离线模式"
+							Foreground="{StaticResource TextPrimaryBrush}"
+							FontSize="14" />
+						<TextBlock
+							Text="不连接正版服务器"
+							Foreground="{StaticResource TextSecondaryBrush}"
+							FontSize="12" />
+					</StackPanel>
+					<ToggleButton
+						Name="togOfflineMode"
+						Grid.Column="1"
+						Style="{StaticResource ToggleSwitch}"
+						IsChecked="True"
+						VerticalAlignment="Center" />
+				</Grid>
+				<CheckBox
+					Name="chkRemember"
+					Style="{StaticResource ModernCheckBox}"
+					Content="记住账号"
+					Margin="0,0,0,25"
+					IsChecked="True" />
+				<Button
+					Name="btnLogin"
+					Style="{StaticResource PrimaryButton}"
+					Content="登 录"
+					Margin="0,0,0,0"
+					Click="BtnLogin_Click" />
+			</StackPanel>
+		</Border>
+		<TextBlock
+			Text="v1.0.0"
+			Foreground="{StaticResource TextSecondaryBrush}"
+			FontSize="12"
+			HorizontalAlignment="Right"
+			VerticalAlignment="Bottom"
+			Margin="0,0,20,15" />
+	</Grid>
 </UserControl>
+

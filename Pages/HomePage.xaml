@@ -1,122 +1,1531 @@
-﻿<UserControl x:Class="MusicalNoteLauncher.Pages.HomePage"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             Background="#1E1E1E">
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-
-        <!-- 头部欢迎区域 -->
-        <Border Grid.Row="0" Background="#2D2D2D" Padding="20">
-            <StackPanel>
-                <TextBlock Text="馃幍 欢迎回来！" FontSize="24" Foreground="White" FontFamily="Microsoft YaHei"/>
-                <TextBlock Text="准备好开始你的 Minecraft 冒险了吗？" FontSize="14" Foreground="#AAAAAA" Margin="0,5,0,0"/>
-            </StackPanel>
-        </Border>
-
-        <!-- 主要内容区域 -->
-        <ScrollViewer Grid.Row="1" Padding="20" VerticalScrollBarVisibility="Auto">
-            <StackPanel>
-                <!-- 快捷启动卡片 -->
-                <Border Background="#2D2D2D" Padding="15" Margin="0,0,0,15">
-                    <StackPanel>
-                        <TextBlock Text="快䢝启动" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="120"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="100"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="#4CAF50" Height="80"/>
-                            <StackPanel Grid.Column="1" Margin="15,0">
-                                <TextBlock Text="1.20.1 - 原版" FontSize="14" Foreground="White"/>
-                                <TextBlock Text="最新稳定版本" FontSize="12" Foreground="#AAAAAA" Margin="0,3,0,0"/>
-                            </StackPanel>
-                            <Button Grid.Column="2" Background="#2196F3" Foreground="White" 
-                                    BorderThickness="0" Padding="15,10"
-                                    FontSize="14" FontWeight="SemiBold">
-                                启动
-                            </Button>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-
-                <!-- 服务器列表 -->
-                <Border Background="#2D2D2D" Padding="15" Margin="0,0,0,15">
-                    <StackPanel>
-                        <TextBlock Text="热门服务器" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <StackPanel>
-                            <Border Background="#383838" Padding="12" Margin="0,0,0,5">
-                                <StackPanel Orientation="Horizontal">
-                                    <Border Background="#FF9800" Width="8" Height="8" Margin="0,0,10,0"/>
-                                    <TextBlock Text="陶瓦联机" FontSize="14" Foreground="White"/>
-                                    <TextBlock Text="mc.taowa.cn:25565" FontSize="12" Foreground="#AAAAAA" Margin="10,0,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#383838" Padding="12" Margin="0,0,0,5">
-                                <StackPanel Orientation="Horizontal">
-                                    <Border Background="#F44336" Width="8" Height="8" Margin="0,0,10,0"/>
-                                    <TextBlock Text="Hypixel" FontSize="14" Foreground="White"/>
-                                    <TextBlock Text="mc.hypixel.net" FontSize="12" Foreground="#AAAAAA" Margin="10,0,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Background="#383838" Padding="12">
-                                <StackPanel Orientation="Horizontal">
-                                    <Border Background="#9C27B0" Width="8" Height="8" Margin="0,0,10,0"/>
-                                    <TextBlock Text="Mineplex" FontSize="14" Foreground="White"/>
-                                    <TextBlock Text="us.mineplex.com" FontSize="12" Foreground="#AAAAAA" Margin="10,0,0,0"/>
-                                </StackPanel>
-                            </Border>
-                        </StackPanel>
-                    </StackPanel>
-                </Border>
-
-                <!-- 游戏统计 -->
-                <Border Background="#2D2D2D" Padding="15">
-                    <StackPanel>
-                        <TextBlock Text="游戏统计" FontSize="16" FontWeight="Bold" Foreground="White" Margin="0,0,0,10"/>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Background="#383838" Padding="15" Margin="0,0,5,0">
-                                <StackPanel>
-                                    <TextBlock Text="12" FontSize="28" FontWeight="Bold" Foreground="#4CAF50"/>
-                                    <TextBlock Text="已安装版本" FontSize="12" Foreground="#AAAAAA" Margin="0,5,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Column="1" Background="#383838" Padding="15" Margin="5,0,5,0">
-                                <StackPanel>
-                                    <TextBlock Text="256" FontSize="28" FontWeight="Bold" Foreground="#2196F3"/>
-                                    <TextBlock Text="模组数量" FontSize="12" Foreground="#AAAAAA" Margin="0,5,0,0"/>
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Column="2" Background="#383838" Padding="15" Margin="5,0,0,0">
-                                <StackPanel>
-                                    <TextBlock Text="15" FontSize="28" FontWeight="Bold" Foreground="#FF9800"/>
-                                    <TextBlock Text="存档数量" FontSize="12" Foreground="#AAAAAA" Margin="0,5,0,0"/>
-                                </StackPanel>
-                            </Border>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-            </StackPanel>
-        </ScrollViewer>
-
-        <!-- 底部状态栏 -->
-        <Border Grid.Row="2" Background="#2D2D2D" Padding="15">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="Java 版本: 21" FontSize="12" Foreground="#AAAAAA"/>
-                <TextBlock Text=" | " FontSize="12" Foreground="#444444"/>
-                <TextBlock Text="内存: 4GB" FontSize="12" Foreground="#AAAAAA"/>
-                <TextBlock Text=" | " FontSize="12" Foreground="#444444"/>
-                <TextBlock Text="在线状态" FontSize="12" Foreground="#4CAF50"/>
-            </StackPanel>
-        </Border>
-    </Grid>
+﻿<UserControl
+	x:Class="MusicalNoteLauncher.Pages.HomePage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Background="#1E1E1E" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	<ScrollViewer
+		VerticalScrollBarVisibility="Auto"
+		HorizontalScrollBarVisibility="Disabled"
+		Padding="20">
+		<Grid>
+			<Grid.RowDefinitions>
+				<RowDefinition
+					Height="Auto" />
+				<RowDefinition
+					Height="Auto" />
+				<RowDefinition
+					Height="Auto" />
+			</Grid.RowDefinitions>
+			<Border
+				Grid.Row="0"
+				Background="#2D2D2D"
+				CornerRadius="12"
+				Padding="20"
+				Margin="0,0,0,16">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition
+							Width="*" />
+						<ColumnDefinition
+							Width="Auto" />
+					</Grid.ColumnDefinitions>
+					<StackPanel
+						Grid.Column="0"
+						VerticalAlignment="Center">
+						<StackPanel
+							Orientation="Horizontal"
+							Margin="0,0,0,8">
+							<TextBlock
+								Text="热门模组推荐："
+								FontSize="14"
+								Foreground="#FFFFFF"
+								FontFamily="Microsoft YaHei"
+								VerticalAlignment="Center" />
+							<TextBlock
+								Text="[热门模组名称]"
+								FontSize="14"
+								Foreground="#2ECC71"
+								FontFamily="Microsoft YaHei"
+								VerticalAlignment="Center"
+								Margin="4,0,0,0" />
+						</StackPanel>
+						<StackPanel
+							Orientation="Horizontal">
+							<TextBlock
+								Text="热门整合包推荐："
+								FontSize="14"
+								Foreground="#FFFFFF"
+								FontFamily="Microsoft YaHei"
+								VerticalAlignment="Center" />
+							<TextBlock
+								Text="[热门整合包名称]"
+								FontSize="14"
+								Foreground="#3498DB"
+								FontFamily="Microsoft YaHei"
+								VerticalAlignment="Center"
+								Margin="4,0,0,0" />
+						</StackPanel>
+					</StackPanel>
+					<StackPanel
+						Grid.Column="1"
+						Orientation="Horizontal"
+						VerticalAlignment="Center">
+						<Button
+							Name="btnViewMods"
+							Content="点击查看"
+							Background="#333333"
+							Foreground="#FFFFFF"
+							BorderBrush="#444444"
+							BorderThickness="1"
+							Padding="16,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							MinWidth="90"
+							Margin="0,0,8,0"
+							Click="BtnViewMods_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										BorderBrush="{TemplateBinding BorderBrush}"
+										BorderThickness="{TemplateBinding BorderThickness}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="Center"
+											VerticalAlignment="Center" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="BorderBrush"
+												Value="#555555" />
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#3A3A3A" />
+										</Trigger>
+										<Trigger
+											Property="IsPressed"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#444444" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnViewPacks"
+							Content="点击查看"
+							Background="#333333"
+							Foreground="#FFFFFF"
+							BorderBrush="#444444"
+							BorderThickness="1"
+							Padding="16,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							MinWidth="90"
+							Margin="0,0,8,0"
+							Click="BtnViewPacks_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										BorderBrush="{TemplateBinding BorderBrush}"
+										BorderThickness="{TemplateBinding BorderThickness}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="Center"
+											VerticalAlignment="Center" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="BorderBrush"
+												Value="#555555" />
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#3A3A3A" />
+										</Trigger>
+										<Trigger
+											Property="IsPressed"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#444444" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnViewMore"
+							Content="点击查看"
+							Background="#333333"
+							Foreground="#FFFFFF"
+							BorderBrush="#444444"
+							BorderThickness="1"
+							Padding="16,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							MinWidth="90"
+							Click="BtnViewMore_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										BorderBrush="{TemplateBinding BorderBrush}"
+										BorderThickness="{TemplateBinding BorderThickness}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="Center"
+											VerticalAlignment="Center" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="BorderBrush"
+												Value="#555555" />
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#3A3A3A" />
+										</Trigger>
+										<Trigger
+											Property="IsPressed"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#444444" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+					</StackPanel>
+				</Grid>
+			</Border>
+			<Grid
+				Row="1">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition
+						Width="2*" />
+					<ColumnDefinition
+						Width="1*" />
+				</Grid.ColumnDefinitions>
+				<Grid
+					Column="0"
+					Margin="0,0,15,0">
+					<Grid.RowDefinitions>
+						<RowDefinition
+							Height="*" />
+						<RowDefinition
+							Height="Auto" />
+					</Grid.RowDefinitions>
+					<Border
+						Grid.Row="0"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16"
+						Margin="0,0,0,12">
+						<Grid>
+							<Grid.RowDefinitions>
+								<RowDefinition
+									Height="Auto" />
+								<RowDefinition
+									Height="*" />
+							</Grid.RowDefinitions>
+							<TextBlock
+								Grid.Row="0"
+								Text="自定义组件区"
+								FontSize="14"
+								FontWeight="SemiBold"
+								Foreground="#FFFFFF"
+								FontFamily="Microsoft YaHei"
+								Margin="0,0,0,12" />
+							<Border
+								Grid.Row="1"
+								Background="#333333"
+								CornerRadius="8">
+								<Grid
+									VerticalAlignment="Center"
+									HorizontalAlignment="Center">
+									<StackPanel
+										HorizontalAlignment="Center">
+										<TextBlock
+											Text="暂未设置自定义组件"
+											FontSize="13"
+											Foreground="#FFFFFF"
+											FontFamily="Microsoft YaHei"
+											HorizontalAlignment="Center" />
+										<Button
+											Name="btnGoToStore"
+											Content="去组件商店看看？"
+											Background="#333333"
+											Foreground="#FFFFFF"
+											BorderBrush="#444444"
+											BorderThickness="1"
+											Padding="12,6"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Cursor="Hand"
+											Margin="0,8,0,0"
+											Click="BtnGoToStore_Click">
+											<Control.Template>
+												<ControlTemplate
+													TargetType="{x:Type Button}">
+													<Border
+														Name="border"
+														Background="{TemplateBinding Background}"
+														BorderBrush="{TemplateBinding BorderBrush}"
+														BorderThickness="{TemplateBinding BorderThickness}"
+														CornerRadius="4"
+														Padding="{TemplateBinding Padding}">
+														<ContentPresenter
+															HorizontalAlignment="Center"
+															VerticalAlignment="Center" />
+													</Border>
+													<ControlTemplate.Triggers>
+														<Trigger
+															Property="UIElement.IsMouseOver"
+															Value="True">
+															<Setter
+																TargetName="border"
+																Property="BorderBrush"
+																Value="#555555" />
+															<Setter
+																TargetName="border"
+																Property="Background"
+																Value="#3A3A3A" />
+														</Trigger>
+														<Trigger
+															Property="IsPressed"
+															Value="True">
+															<Setter
+																TargetName="border"
+																Property="Background"
+																Value="#444444" />
+														</Trigger>
+													</ControlTemplate.Triggers>
+												</ControlTemplate>
+											</Control.Template>
+										</Button>
+									</StackPanel>
+								</Grid>
+							</Border>
+						</Grid>
+					</Border>
+					<Border
+						Grid.Row="1"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16">
+						<StackPanel>
+							<TextBlock
+								Text="游戏启动设置（可选）"
+								FontSize="14"
+								FontWeight="SemiBold"
+								Foreground="#FFFFFF"
+								FontFamily="Microsoft YaHei"
+								Margin="0,0,0,12" />
+							<Grid
+								Margin="0,0,0,10"
+								HorizontalAlignment="Stretch">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition
+										Width="*" />
+									<ColumnDefinition
+										Width="*" />
+								</Grid.ColumnDefinitions>
+								<StackPanel
+									Grid.Column="0"
+									Margin="0,0,10,0"
+									HorizontalAlignment="Stretch">
+									<TextBlock
+										Text="游戏昵称"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,6" />
+									<ComboBox
+										Name="cboPlayerName"
+										Background="#333333"
+										Foreground="#FFFFFF"
+										BorderBrush="#444444"
+										BorderThickness="1"
+										MinWidth="120"
+										HorizontalAlignment="Stretch"
+										FontSize="14"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand">
+										<Control.Template>
+											<ControlTemplate
+												TargetType="{x:Type ComboBox}">
+												<Grid>
+													<ToggleButton
+														Name="ToggleButton"
+														Grid.Column="2"
+														Focusable="false"
+														ClickMode="Press"
+														Background="{TemplateBinding Background}"
+														BorderBrush="{TemplateBinding BorderBrush}"
+														BorderThickness="{TemplateBinding BorderThickness}"
+														IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+														<Control.Template>
+															<ControlTemplate
+																TargetType="{x:Type ToggleButton}">
+																<Border
+																	Name="toggleBorder"
+																	Background="{TemplateBinding Background}"
+																	BorderBrush="{TemplateBinding BorderBrush}"
+																	BorderThickness="{TemplateBinding BorderThickness}"
+																	CornerRadius="4">
+																	<Grid>
+																		<Grid.ColumnDefinitions>
+																			<ColumnDefinition
+																				Width="*" />
+																			<ColumnDefinition
+																				Width="24" />
+																		</Grid.ColumnDefinitions>
+																		<ContentPresenter
+																			Grid.Column="0"
+																			HorizontalAlignment="Left"
+																			VerticalAlignment="Center"
+																			Margin="8,0,0,0" />
+																		<Path
+																			Name="Arrow"
+																			Grid.Column="1"
+																			Data="M0,0 L5,5 L10,0"
+																			Fill="#FFFFFF"
+																			HorizontalAlignment="Center"
+																			VerticalAlignment="Center"
+																			Width="10"
+																			Height="6"
+																			Stretch="Uniform" />
+																	</Grid>
+																</Border>
+																<ControlTemplate.Triggers>
+																	<Trigger
+																		Property="UIElement.IsMouseOver"
+																		Value="True">
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="Background"
+																			Value="#3A3A3A" />
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="BorderBrush"
+																			Value="#555555" />
+																	</Trigger>
+																	<Trigger
+																		Property="ToggleButton.IsChecked"
+																		Value="True">
+																		<Setter
+																			TargetName="Arrow"
+																			Property="Data"
+																			Value="M0,5 L5,0 L10,5" />
+																	</Trigger>
+																	<Trigger
+																		Property="IsEnabled"
+																		Value="False">
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="UIElement.Opacity"
+																			Value="0.5" />
+																	</Trigger>
+																</ControlTemplate.Triggers>
+															</ControlTemplate>
+														</Control.Template>
+													</ToggleButton>
+													<ContentPresenter
+														Name="ContentSite"
+														IsHitTestVisible="False"
+														Content="{TemplateBinding SelectionBoxItem}"
+														ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+														ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+														Margin="8,8,24,8"
+														HorizontalAlignment="Left"
+														VerticalAlignment="Center" />
+													<Popup
+														Name="Popup"
+														Placement="Bottom"
+														IsOpen="{TemplateBinding IsDropDownOpen}"
+														AllowsTransparency="True"
+														Focusable="False"
+														PopupAnimation="Slide"
+														StaysOpen="False">
+														<Grid
+															Name="DropDown"
+															SnapsToDevicePixels="True"
+															MinWidth="{TemplateBinding ActualWidth}"
+															MaxHeight="{TemplateBinding MaxDropDownHeight}"
+															Margin="0,2,0,0">
+															<Border
+																Name="DropDownBorder"
+																Background="#333333"
+																BorderBrush="#444444"
+																BorderThickness="1"
+																CornerRadius="4"
+																Padding="2">
+																<ScrollViewer
+																	Margin="2"
+																	SnapsToDevicePixels="True">
+																	<ItemsPresenter
+																		KeyboardNavigation.DirectionalNavigation="Contained" />
+																</ScrollViewer>
+															</Border>
+														</Grid>
+													</Popup>
+												</Grid>
+												<ControlTemplate.Triggers>
+													<Trigger
+														Property="ItemsControl.HasItems"
+														Value="False">
+														<Setter
+															TargetName="DropDownBorder"
+															Property="MinHeight"
+															Value="40" />
+													</Trigger>
+													<Trigger
+														Property="IsEnabled"
+														Value="False">
+														<Setter
+															Property="Foreground"
+															Value="#888888" />
+													</Trigger>
+													<Trigger
+														Property="ItemsControl.IsGrouping"
+														Value="True">
+														<Setter
+															Property="ScrollViewer.CanContentScroll"
+															Value="False" />
+													</Trigger>
+													<Trigger
+														Property="ComboBox.IsDropDownOpen"
+														Value="True">
+														<Setter
+															TargetName="ToggleButton"
+															Property="Background"
+															Value="#3A3A3A" />
+														<Setter
+															TargetName="ToggleButton"
+															Property="BorderBrush"
+															Value="#555555" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Control.Template>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10"
+											IsSelected="True">Player</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">Steve</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">Alex</ComboBoxItem>
+									</ComboBox>
+								</StackPanel>
+								<StackPanel
+									Grid.Column="1"
+									Margin="0,0,10,0"
+									HorizontalAlignment="Stretch">
+									<TextBlock
+										Text="内存分配"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,6" />
+									<ComboBox
+										Name="cboMemory"
+										Background="#333333"
+										Foreground="#FFFFFF"
+										BorderBrush="#444444"
+										BorderThickness="1"
+										MinWidth="120"
+										HorizontalAlignment="Stretch"
+										FontSize="14"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand">
+										<Control.Template>
+											<ControlTemplate
+												TargetType="{x:Type ComboBox}">
+												<Grid>
+													<ToggleButton
+														Name="ToggleButton"
+														Grid.Column="2"
+														Focusable="false"
+														ClickMode="Press"
+														Background="{TemplateBinding Background}"
+														BorderBrush="{TemplateBinding BorderBrush}"
+														BorderThickness="{TemplateBinding BorderThickness}"
+														IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+														<Control.Template>
+															<ControlTemplate
+																TargetType="{x:Type ToggleButton}">
+																<Border
+																	Name="toggleBorder"
+																	Background="{TemplateBinding Background}"
+																	BorderBrush="{TemplateBinding BorderBrush}"
+																	BorderThickness="{TemplateBinding BorderThickness}"
+																	CornerRadius="4">
+																	<Grid>
+																		<Grid.ColumnDefinitions>
+																			<ColumnDefinition
+																				Width="*" />
+																			<ColumnDefinition
+																				Width="24" />
+																		</Grid.ColumnDefinitions>
+																		<ContentPresenter
+																			Grid.Column="0"
+																			HorizontalAlignment="Left"
+																			VerticalAlignment="Center"
+																			Margin="8,0,0,0" />
+																		<Path
+																			Name="Arrow"
+																			Grid.Column="1"
+																			Data="M0,0 L5,5 L10,0"
+																			Fill="#FFFFFF"
+																			HorizontalAlignment="Center"
+																			VerticalAlignment="Center"
+																			Width="10"
+																			Height="6"
+																			Stretch="Uniform" />
+																	</Grid>
+																</Border>
+																<ControlTemplate.Triggers>
+																	<Trigger
+																		Property="UIElement.IsMouseOver"
+																		Value="True">
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="Background"
+																			Value="#3A3A3A" />
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="BorderBrush"
+																			Value="#555555" />
+																	</Trigger>
+																	<Trigger
+																		Property="ToggleButton.IsChecked"
+																		Value="True">
+																		<Setter
+																			TargetName="Arrow"
+																			Property="Data"
+																			Value="M0,5 L5,0 L10,5" />
+																	</Trigger>
+																	<Trigger
+																		Property="IsEnabled"
+																		Value="False">
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="UIElement.Opacity"
+																			Value="0.5" />
+																	</Trigger>
+																</ControlTemplate.Triggers>
+															</ControlTemplate>
+														</Control.Template>
+													</ToggleButton>
+													<ContentPresenter
+														Name="ContentSite"
+														IsHitTestVisible="False"
+														Content="{TemplateBinding SelectionBoxItem}"
+														ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+														ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+														Margin="8,8,24,8"
+														HorizontalAlignment="Left"
+														VerticalAlignment="Center" />
+													<Popup
+														Name="Popup"
+														Placement="Bottom"
+														IsOpen="{TemplateBinding IsDropDownOpen}"
+														AllowsTransparency="True"
+														Focusable="False"
+														PopupAnimation="Slide"
+														StaysOpen="False">
+														<Grid
+															Name="DropDown"
+															SnapsToDevicePixels="True"
+															MinWidth="{TemplateBinding ActualWidth}"
+															MaxHeight="{TemplateBinding MaxDropDownHeight}"
+															Margin="0,2,0,0">
+															<Border
+																Name="DropDownBorder"
+																Background="#333333"
+																BorderBrush="#444444"
+																BorderThickness="1"
+																CornerRadius="4"
+																Padding="2">
+																<ScrollViewer
+																	Margin="2"
+																	SnapsToDevicePixels="True">
+																	<ItemsPresenter
+																		KeyboardNavigation.DirectionalNavigation="Contained" />
+																</ScrollViewer>
+															</Border>
+														</Grid>
+													</Popup>
+												</Grid>
+												<ControlTemplate.Triggers>
+													<Trigger
+														Property="ItemsControl.HasItems"
+														Value="False">
+														<Setter
+															TargetName="DropDownBorder"
+															Property="MinHeight"
+															Value="40" />
+													</Trigger>
+													<Trigger
+														Property="IsEnabled"
+														Value="False">
+														<Setter
+															Property="Foreground"
+															Value="#888888" />
+													</Trigger>
+													<Trigger
+														Property="ItemsControl.IsGrouping"
+														Value="True">
+														<Setter
+															Property="ScrollViewer.CanContentScroll"
+															Value="False" />
+													</Trigger>
+													<Trigger
+														Property="ComboBox.IsDropDownOpen"
+														Value="True">
+														<Setter
+															TargetName="ToggleButton"
+															Property="Background"
+															Value="#3A3A3A" />
+														<Setter
+															TargetName="ToggleButton"
+															Property="BorderBrush"
+															Value="#555555" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Control.Template>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10"
+											IsSelected="True">2G</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">4G</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">8G</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">16G</ComboBoxItem>
+									</ComboBox>
+								</StackPanel>
+							</Grid>
+							<Grid
+								Margin="0,0,0,10"
+								HorizontalAlignment="Stretch">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition
+										Width="*" />
+									<ColumnDefinition
+										Width="*" />
+								</Grid.ColumnDefinitions>
+								<StackPanel
+									Grid.Column="0"
+									Margin="0,0,10,0"
+									HorizontalAlignment="Stretch">
+									<TextBlock
+										Text="窗口大小"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,6" />
+									<ComboBox
+										Name="cboResolution"
+										Background="#333333"
+										Foreground="#FFFFFF"
+										BorderBrush="#444444"
+										BorderThickness="1"
+										MinWidth="120"
+										HorizontalAlignment="Stretch"
+										FontSize="14"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand">
+										<Control.Template>
+											<ControlTemplate
+												TargetType="{x:Type ComboBox}">
+												<Grid>
+													<ToggleButton
+														Name="ToggleButton"
+														Grid.Column="2"
+														Focusable="false"
+														ClickMode="Press"
+														Background="{TemplateBinding Background}"
+														BorderBrush="{TemplateBinding BorderBrush}"
+														BorderThickness="{TemplateBinding BorderThickness}"
+														IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+														<Control.Template>
+															<ControlTemplate
+																TargetType="{x:Type ToggleButton}">
+																<Border
+																	Name="toggleBorder"
+																	Background="{TemplateBinding Background}"
+																	BorderBrush="{TemplateBinding BorderBrush}"
+																	BorderThickness="{TemplateBinding BorderThickness}"
+																	CornerRadius="4">
+																	<Grid>
+																		<Grid.ColumnDefinitions>
+																			<ColumnDefinition
+																				Width="*" />
+																			<ColumnDefinition
+																				Width="24" />
+																		</Grid.ColumnDefinitions>
+																		<ContentPresenter
+																			Grid.Column="0"
+																			HorizontalAlignment="Left"
+																			VerticalAlignment="Center"
+																			Margin="8,0,0,0" />
+																		<Path
+																			Name="Arrow"
+																			Grid.Column="1"
+																			Data="M0,0 L5,5 L10,0"
+																			Fill="#FFFFFF"
+																			HorizontalAlignment="Center"
+																			VerticalAlignment="Center"
+																			Width="10"
+																			Height="6"
+																			Stretch="Uniform" />
+																	</Grid>
+																</Border>
+																<ControlTemplate.Triggers>
+																	<Trigger
+																		Property="UIElement.IsMouseOver"
+																		Value="True">
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="Background"
+																			Value="#3A3A3A" />
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="BorderBrush"
+																			Value="#555555" />
+																	</Trigger>
+																	<Trigger
+																		Property="ToggleButton.IsChecked"
+																		Value="True">
+																		<Setter
+																			TargetName="Arrow"
+																			Property="Data"
+																			Value="M0,5 L5,0 L10,5" />
+																	</Trigger>
+																	<Trigger
+																		Property="IsEnabled"
+																		Value="False">
+																		<Setter
+																			TargetName="toggleBorder"
+																			Property="UIElement.Opacity"
+																			Value="0.5" />
+																	</Trigger>
+																</ControlTemplate.Triggers>
+															</ControlTemplate>
+														</Control.Template>
+													</ToggleButton>
+													<ContentPresenter
+														Name="ContentSite"
+														IsHitTestVisible="False"
+														Content="{TemplateBinding SelectionBoxItem}"
+														ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+														ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+														Margin="8,8,24,8"
+														HorizontalAlignment="Left"
+														VerticalAlignment="Center" />
+													<Popup
+														Name="Popup"
+														Placement="Bottom"
+														IsOpen="{TemplateBinding IsDropDownOpen}"
+														AllowsTransparency="True"
+														Focusable="False"
+														PopupAnimation="Slide"
+														StaysOpen="False">
+														<Grid
+															Name="DropDown"
+															SnapsToDevicePixels="True"
+															MinWidth="{TemplateBinding ActualWidth}"
+															MaxHeight="{TemplateBinding MaxDropDownHeight}"
+															Margin="0,2,0,0">
+															<Border
+																Name="DropDownBorder"
+																Background="#333333"
+																BorderBrush="#444444"
+																BorderThickness="1"
+																CornerRadius="4"
+																Padding="2">
+																<ScrollViewer
+																	Margin="2"
+																	SnapsToDevicePixels="True">
+																	<ItemsPresenter
+																		KeyboardNavigation.DirectionalNavigation="Contained" />
+																</ScrollViewer>
+															</Border>
+														</Grid>
+													</Popup>
+												</Grid>
+												<ControlTemplate.Triggers>
+													<Trigger
+														Property="ItemsControl.HasItems"
+														Value="False">
+														<Setter
+															TargetName="DropDownBorder"
+															Property="MinHeight"
+															Value="40" />
+													</Trigger>
+													<Trigger
+														Property="IsEnabled"
+														Value="False">
+														<Setter
+															Property="Foreground"
+															Value="#888888" />
+													</Trigger>
+													<Trigger
+														Property="ItemsControl.IsGrouping"
+														Value="True">
+														<Setter
+															Property="ScrollViewer.CanContentScroll"
+															Value="False" />
+													</Trigger>
+													<Trigger
+														Property="ComboBox.IsDropDownOpen"
+														Value="True">
+														<Setter
+															TargetName="ToggleButton"
+															Property="Background"
+															Value="#3A3A3A" />
+														<Setter
+															TargetName="ToggleButton"
+															Property="BorderBrush"
+															Value="#555555" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Control.Template>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">800×600</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">1024×768</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">1280×720</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10"
+											IsSelected="True">1280×1024</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">1920×1080</ComboBoxItem>
+										<ComboBoxItem
+											Background="#333333"
+											Foreground="#FFFFFF"
+											Padding="12,10">全屏</ComboBoxItem>
+									</ComboBox>
+								</StackPanel>
+								<StackPanel
+									Grid.Column="1"
+									HorizontalAlignment="Stretch">
+									<TextBlock
+										Text="Java环境"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,6" />
+									<Border
+										Background="#333333"
+										CornerRadius="4"
+										Padding="8,8"
+										HorizontalAlignment="Stretch">
+										<StackPanel
+											Orientation="Horizontal">
+											<TextBlock
+												Text="✓"
+												Foreground="#2ECC71"
+												FontSize="14"
+												FontWeight="Bold"
+												VerticalAlignment="Center" />
+											<TextBlock
+												Text="正常"
+												Foreground="#FFFFFF"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="4,0,0,0"
+												VerticalAlignment="Center" />
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</Grid>
+							<Grid
+								Margin="0,0,0,10"
+								HorizontalAlignment="Stretch">
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition
+										Width="*" />
+									<ColumnDefinition
+										Width="*" />
+								</Grid.ColumnDefinitions>
+								<StackPanel
+									Grid.Column="0"
+									Margin="0,0,10,0"
+									HorizontalAlignment="Stretch">
+									<TextBlock
+										Text="显卡状态"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,6" />
+									<Border
+										Background="#333333"
+										CornerRadius="4"
+										Padding="8,8"
+										HorizontalAlignment="Stretch">
+										<StackPanel
+											Orientation="Horizontal">
+											<TextBlock
+												Name="txtGpuStatusIcon"
+												Text="✓"
+												Foreground="#2ECC71"
+												FontSize="14"
+												FontWeight="Bold"
+												VerticalAlignment="Center" />
+											<TextBlock
+												Name="txtGpuStatusText"
+												Text="检测中..."
+												Foreground="#FFFFFF"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="4,0,0,0"
+												VerticalAlignment="Center" />
+										</StackPanel>
+									</Border>
+								</StackPanel>
+								<StackPanel
+									Grid.Column="1"
+									HorizontalAlignment="Stretch">
+									<TextBlock
+										Text="Java配置"
+										FontSize="12"
+										Foreground="#AAAAAA"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,6" />
+									<Button
+										Content="配置"
+										Background="#2196F3"
+										Foreground="#FFFFFF"
+										BorderThickness="0"
+										Padding="12,8"
+										FontSize="13"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand"
+										HorizontalAlignment="Stretch"
+										Click="BtnJavaConfig_Click">
+										<Control.Template>
+											<ControlTemplate
+												TargetType="{x:Type Button}">
+												<Border
+													Name="border"
+													Background="{TemplateBinding Background}"
+													CornerRadius="4"
+													Padding="{TemplateBinding Padding}">
+													<ContentPresenter
+														HorizontalAlignment="Center"
+														VerticalAlignment="Center" />
+												</Border>
+												<ControlTemplate.Triggers>
+													<Trigger
+														Property="UIElement.IsMouseOver"
+														Value="True">
+														<Setter
+															TargetName="border"
+															Property="Background"
+															Value="#1976D2" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Control.Template>
+									</Button>
+								</StackPanel>
+							</Grid>
+						</StackPanel>
+					</Border>
+				</Grid>
+				<Grid
+					Column="1">
+					<Grid.RowDefinitions>
+						<RowDefinition
+							Height="*" />
+						<RowDefinition
+							Height="Auto" />
+						<RowDefinition
+							Height="Auto" />
+						<RowDefinition
+							Height="Auto" />
+						<RowDefinition
+							Height="Auto" />
+					</Grid.RowDefinitions>
+					<Border
+						Grid.Row="0"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16"
+						Margin="0,0,0,12">
+						<StackPanel>
+							<TextBlock
+								Text="游戏启动详情"
+								FontSize="14"
+								FontWeight="SemiBold"
+								Foreground="#FFFFFF"
+								FontFamily="Microsoft YaHei"
+								Margin="0,0,0,12" />
+							<Border
+								Background="#333333"
+								CornerRadius="8"
+								Padding="12">
+								<StackPanel>
+									<StackPanel
+										Orientation="Horizontal">
+										<TextBlock
+											Name="txtStatusDot"
+											Text="●"
+											FontSize="14"
+											VerticalAlignment="Center"
+											Foreground="#9E9E9E" />
+										<TextBlock
+											Name="txtGameStatus"
+											Text="等待启动..."
+											FontSize="13"
+											Foreground="#FFFFFF"
+											FontFamily="Microsoft YaHei"
+											Margin="8,0,0,0"
+											VerticalAlignment="Center" />
+									</StackPanel>
+								</StackPanel>
+							</Border>
+						</StackPanel>
+					</Border>
+					<Border
+						Grid.Row="1"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16"
+						Margin="0,0,0,12">
+						<StackPanel>
+							<TextBlock
+								Text="控制台输出"
+								FontSize="14"
+								FontWeight="SemiBold"
+								Foreground="#FFFFFF"
+								FontFamily="Microsoft YaHei"
+								Margin="0,0,0,12" />
+							<Border
+								Background="#000000"
+								CornerRadius="8"
+								Padding="12"
+								MinHeight="100"
+								MaxHeight="250">
+								<TextBox
+									Name="txtConsole"
+									Text="&gt; 正在初始化游戏...&#xA;&gt; 加载资源包...&#xA;&gt; 准备启动..."
+									Background="#00FFFFFF"
+									Foreground="#2ECC71"
+									BorderThickness="0"
+									FontFamily="Consolas"
+									FontSize="12"
+									IsReadOnly="True"
+									TextWrapping="Wrap"
+									VerticalScrollBarVisibility="Auto" />
+							</Border>
+						</StackPanel>
+					</Border>
+					<Border
+						Grid.Row="2"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16"
+						Margin="0,0,0,12">
+						<StackPanel>
+							<StackPanel
+								Orientation="Horizontal">
+								<Button
+									Name="btnJavaVersion"
+									Content="Java版"
+									Background="#2196F3"
+									Foreground="#FFFFFF"
+									BorderThickness="0"
+									Padding="16,8"
+									FontSize="13"
+									FontFamily="Microsoft YaHei"
+									FontWeight="SemiBold"
+									Margin="0,0,8,0"
+									Tag="Java"
+									Click="BtnVersionType_Click">
+									<Control.Template>
+										<ControlTemplate
+											TargetType="{x:Type Button}">
+											<Border
+												Name="border"
+												Background="{TemplateBinding Background}"
+												CornerRadius="6"
+												Padding="{TemplateBinding Padding}">
+												<ContentPresenter
+													HorizontalAlignment="Center"
+													VerticalAlignment="Center" />
+											</Border>
+											<ControlTemplate.Triggers>
+												<Trigger
+													Property="UIElement.IsMouseOver"
+													Value="True">
+													<Setter
+														TargetName="border"
+														Property="Background"
+														Value="#1976D2" />
+												</Trigger>
+												<Trigger
+													Property="IsPressed"
+													Value="True">
+													<Setter
+														TargetName="border"
+														Property="Background"
+														Value="#1565C0" />
+												</Trigger>
+											</ControlTemplate.Triggers>
+										</ControlTemplate>
+									</Control.Template>
+								</Button>
+								<Button
+									Name="btnBedrockVersion"
+									Content="基岩版"
+									Background="#333333"
+									Foreground="#888888"
+									BorderBrush="#444444"
+									BorderThickness="1"
+									Padding="16,8"
+									FontSize="13"
+									FontFamily="Microsoft YaHei"
+									Tag="Bedrock"
+									Click="BtnVersionType_Click">
+									<Control.Template>
+										<ControlTemplate
+											TargetType="{x:Type Button}">
+											<Border
+												Name="border"
+												Background="{TemplateBinding Background}"
+												BorderBrush="{TemplateBinding BorderBrush}"
+												BorderThickness="{TemplateBinding BorderThickness}"
+												CornerRadius="6"
+												Padding="{TemplateBinding Padding}">
+												<ContentPresenter
+													HorizontalAlignment="Center"
+													VerticalAlignment="Center" />
+											</Border>
+											<ControlTemplate.Triggers>
+												<Trigger
+													Property="UIElement.IsMouseOver"
+													Value="True">
+													<Setter
+														TargetName="border"
+														Property="Background"
+														Value="#3A3A3A" />
+													<Setter
+														TargetName="border"
+														Property="BorderBrush"
+														Value="#555555" />
+													<Setter
+														Property="Foreground"
+														Value="#FFFFFF" />
+												</Trigger>
+											</ControlTemplate.Triggers>
+										</ControlTemplate>
+									</Control.Template>
+								</Button>
+							</StackPanel>
+						</StackPanel>
+					</Border>
+					<Border
+						Grid.Row="3"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16"
+						Margin="0,0,0,12">
+						<StackPanel>
+							<TextBlock
+								Text="游戏版本"
+								FontSize="12"
+								Foreground="#AAAAAA"
+								FontFamily="Microsoft YaHei"
+								Margin="0,0,0,8" />
+							<ComboBox
+								Name="cboGameVersion"
+								Background="#333333"
+								Foreground="#FFFFFF"
+								BorderBrush="#444444"
+								BorderThickness="1"
+								MinWidth="120"
+								HorizontalAlignment="Stretch"
+								FontSize="14"
+								FontFamily="Microsoft YaHei"
+								Cursor="Hand">
+								<Control.Template>
+									<ControlTemplate
+										TargetType="{x:Type ComboBox}">
+										<Grid>
+											<ToggleButton
+												Name="ToggleButton"
+												Grid.Column="2"
+												Focusable="false"
+												ClickMode="Press"
+												Background="{TemplateBinding Background}"
+												BorderBrush="{TemplateBinding BorderBrush}"
+												BorderThickness="{TemplateBinding BorderThickness}"
+												IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+												<Control.Template>
+													<ControlTemplate
+														TargetType="{x:Type ToggleButton}">
+														<Border
+															Name="toggleBorder"
+															Background="{TemplateBinding Background}"
+															BorderBrush="{TemplateBinding BorderBrush}"
+															BorderThickness="{TemplateBinding BorderThickness}"
+															CornerRadius="4">
+															<Grid>
+																<Grid.ColumnDefinitions>
+																	<ColumnDefinition
+																		Width="*" />
+																	<ColumnDefinition
+																		Width="32" />
+																</Grid.ColumnDefinitions>
+																<ContentPresenter
+																	Grid.Column="0"
+																	HorizontalAlignment="Left"
+																	VerticalAlignment="Center"
+																	Margin="12,0,0,0" />
+																<Path
+																	Name="Arrow"
+																	Grid.Column="1"
+																	Data="M0,0 L5,5 L10,0"
+																	Fill="#FFFFFF"
+																	HorizontalAlignment="Center"
+																	VerticalAlignment="Center"
+																	Width="10"
+																	Height="6"
+																	Stretch="Uniform" />
+															</Grid>
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger
+																Property="UIElement.IsMouseOver"
+																Value="True">
+																<Setter
+																	TargetName="toggleBorder"
+																	Property="Background"
+																	Value="#3A3A3A" />
+																<Setter
+																	TargetName="toggleBorder"
+																	Property="BorderBrush"
+																	Value="#555555" />
+															</Trigger>
+															<Trigger
+																Property="ToggleButton.IsChecked"
+																Value="True">
+																<Setter
+																	TargetName="Arrow"
+																	Property="Data"
+																	Value="M0,5 L5,0 L10,5" />
+															</Trigger>
+															<Trigger
+																Property="IsEnabled"
+																Value="False">
+																<Setter
+																	TargetName="toggleBorder"
+																	Property="UIElement.Opacity"
+																	Value="0.5" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Control.Template>
+											</ToggleButton>
+											<ContentPresenter
+												Name="ContentSite"
+												IsHitTestVisible="False"
+												Content="{TemplateBinding SelectionBoxItem}"
+												ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+												ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+												Margin="14,10,32,10"
+												HorizontalAlignment="Left"
+												VerticalAlignment="Center" />
+											<Popup
+												Name="Popup"
+												Placement="Bottom"
+												IsOpen="{TemplateBinding IsDropDownOpen}"
+												AllowsTransparency="True"
+												Focusable="False"
+												PopupAnimation="Slide"
+												StaysOpen="False">
+												<Grid
+													Name="DropDown"
+													SnapsToDevicePixels="True"
+													MinWidth="{TemplateBinding ActualWidth}"
+													MaxHeight="{TemplateBinding MaxDropDownHeight}"
+													Margin="0,2,0,0">
+													<Border
+														Name="DropDownBorder"
+														Background="#333333"
+														BorderBrush="#444444"
+														BorderThickness="1"
+														CornerRadius="4"
+														Padding="2">
+														<ScrollViewer
+															Margin="2"
+															SnapsToDevicePixels="True">
+															<ItemsPresenter
+																KeyboardNavigation.DirectionalNavigation="Contained" />
+														</ScrollViewer>
+													</Border>
+												</Grid>
+											</Popup>
+										</Grid>
+										<ControlTemplate.Triggers>
+											<Trigger
+												Property="ItemsControl.HasItems"
+												Value="False">
+												<Setter
+													TargetName="DropDownBorder"
+													Property="MinHeight"
+													Value="40" />
+											</Trigger>
+											<Trigger
+												Property="IsEnabled"
+												Value="False">
+												<Setter
+													Property="Foreground"
+													Value="#888888" />
+											</Trigger>
+											<Trigger
+												Property="ItemsControl.IsGrouping"
+												Value="True">
+												<Setter
+													Property="ScrollViewer.CanContentScroll"
+													Value="False" />
+											</Trigger>
+											<Trigger
+												Property="ComboBox.IsDropDownOpen"
+												Value="True">
+												<Setter
+													TargetName="ToggleButton"
+													Property="Background"
+													Value="#3A3A3A" />
+												<Setter
+													TargetName="ToggleButton"
+													Property="BorderBrush"
+													Value="#555555" />
+											</Trigger>
+										</ControlTemplate.Triggers>
+									</ControlTemplate>
+								</Control.Template>
+							</ComboBox>
+						</StackPanel>
+					</Border>
+					<Border
+						Grid.Row="4"
+						Background="#2D2D2D"
+						CornerRadius="12"
+						Padding="16">
+						<Button
+							Name="btnLaunchGame"
+							Content="启动游戏"
+							Background="#2ECC71"
+							Foreground="#FFFFFF"
+							BorderThickness="0"
+							Padding="24,14"
+							FontSize="16"
+							FontWeight="SemiBold"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalAlignment="Stretch"
+							MinHeight="48"
+							Click="BtnLaunchGame_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="8"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="Center"
+											VerticalAlignment="Center" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#27AE60" />
+										</Trigger>
+										<Trigger
+											Property="IsPressed"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="#1E8449" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+					</Border>
+				</Grid>
+			</Grid>
+		</Grid>
+	</ScrollViewer>
 </UserControl>
+
+
