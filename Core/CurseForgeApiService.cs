@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -179,6 +180,50 @@ namespace MusicalNoteLauncher.Core
 
             return null;
         }
+
+        /// <summary>
+        /// 获取指定项目的所有可用文件（版本）
+        /// </summary>
+        public async Task<List<CurseForgeVersion>> GetModFiles(long modId)
+        {
+            try
+            {
+                string url = $"{BaseUrl}/mods/{modId}/files";
+                System.Diagnostics.Debug.WriteLine($"CurseForge GetModFiles URL: {url}");
+
+                var response = await _httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    System.Diagnostics.Debug.WriteLine($"CurseForge API Error: {response.StatusCode}");
+                    return new List<CurseForgeVersion>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<CurseForgeFilesResponse>(content);
+
+                if (result?.Data == null || result.Data.Count == 0)
+                {
+                    return new List<CurseForgeVersion>();
+                }
+
+                // 按发布类型排序（release > beta > alpha），然后按日期降序
+                var sortedFiles = result.Data.OrderByDescending(v => v.ReleaseType switch
+                {
+                    1 => 3,
+                    2 => 2,
+                    3 => 1,
+                    _ => 0
+                }).ThenByDescending(v => v.FileDate ?? DateTime.MinValue).ToList();
+
+                System.Diagnostics.Debug.WriteLine($"CurseForge GetModFiles: Found {sortedFiles.Count} versions");
+                return sortedFiles;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CurseForge GetModFiles Exception: {ex.Message}");
+                return new List<CurseForgeVersion>();
+            }
+        }
     }
 
     public class CurseForgeSearchResult
@@ -191,6 +236,63 @@ namespace MusicalNoteLauncher.Core
     {
         [JsonPropertyName("data")]
         public List<CurseForgeFile> Data { get; set; }
+    }
+
+    public class CurseForgeFilesResponse
+    {
+        [JsonPropertyName("data")]
+        public List<CurseForgeVersion> Data { get; set; }
+    }
+
+    public class CurseForgeVersion
+    {
+        [JsonPropertyName("id")]
+        public long Id { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonPropertyName("fileName")]
+        public string FileName { get; set; }
+
+        [JsonPropertyName("fileSize")]
+        public long FileSize { get; set; }
+
+        [JsonPropertyName("downloadUrl")]
+        public string DownloadUrl { get; set; }
+
+        [JsonPropertyName("fileDate")]
+        public DateTime? FileDate { get; set; }
+
+        [JsonPropertyName("releaseType")]
+        public int ReleaseType { get; set; }
+
+        [JsonPropertyName("gameVersions")]
+        public List<string> GameVersions { get; set; }
+
+        public string VersionTypeText
+        {
+            get
+            {
+                switch (ReleaseType)
+                {
+                    case 1: return "正式版";
+                    case 2: return "测试版";
+                    case 3: return "预览版";
+                    default: return "未知";
+                }
+            }
+        }
+
+        public bool IsRecommended => ReleaseType == 1;
+
+        public string DisplayGameVersions => GameVersions != null && GameVersions.Count > 0
+            ? string.Join(", ", GameVersions.Take(3))
+            : "未知";
+
+        public string FileNameSafe => !string.IsNullOrEmpty(FileName) ? FileName : $"{Id}.jar";
+
+        public string VersionName => !string.IsNullOrEmpty(DisplayName) ? DisplayName : FileNameSafe;
     }
 
     public class CurseForgeMod

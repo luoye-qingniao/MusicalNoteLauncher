@@ -1,12 +1,17 @@
-<Application x:Class="MusicalNoteLauncher.App"
+﻿<Application x:Class="MusicalNoteLauncher.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:core="clr-namespace:MusicalNoteLauncher.Core"
              xmlns:system="clr-namespace:System;assembly=mscorlib">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="Themes/ModernTheme.xaml"/>
             </ResourceDictionary.MergedDictionaries>
+
+            <core:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <core:VersionTypeColorConverter x:Key="VersionTypeColorConverter"/>
+            <core:FileSizeConverter x:Key="FileSizeConverter"/>
 
             <!-- 全局文本清晰度设置 -->
             <Style TargetType="TextBlock">

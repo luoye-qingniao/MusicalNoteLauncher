@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using Microsoft.Win32;
 using MusicalNoteLauncher.Core;
 
@@ -12,11 +13,17 @@ namespace MusicalNoteLauncher.Pages
     public partial class ModManagerPage : UserControl
     {
         private readonly ConfigManager _config;
+        private List<ModLoaderDetector.LoaderInfo> _detectedLoaders = new List<ModLoaderDetector.LoaderInfo>();
 
         public ModManagerPage()
         {
             InitializeComponent();
             _config = new ConfigManager();
+            Loaded += OnLoaded;
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
             CheckModLoaderAndUpdateUI();
         }
 
@@ -24,53 +31,119 @@ namespace MusicalNoteLauncher.Pages
         {
             string minecraftPath = _config.GetMinecraftPath();
             string gameVersion = _config.GameVersion;
-            ModLoaderDetector.ModLoaderType modLoaderType = ModLoaderDetector.DetectModLoader(minecraftPath, gameVersion);
-            if (modLoaderType == ModLoaderDetector.ModLoaderType.None)
+
+            if (!string.IsNullOrEmpty(gameVersion))
+            {
+                AppContext.SelectedGameVersion = gameVersion;
+            }
+
+            // 扫描所有已安装的加载器（如果设置了 MC 版本，优先显示该版本的加载器）
+            _detectedLoaders = ModLoaderDetector.DetectAllLoaders(minecraftPath, gameVersion);
+
+            if (txtHintVersion != null)
+            {
+                if (string.IsNullOrEmpty(gameVersion))
+                {
+                    txtHintVersion.Text = "当前未选择游戏版本。以下是 .minecraft 中找到的所有加载器。";
+                }
+                else
+                {
+                    txtHintVersion.Text = "当前游戏版本：Minecraft " + gameVersion
+                                          + "（位置：" + minecraftPath + "）"
+                                          + "，已找到 " + _detectedLoaders.Count + " 个加载器。";
+                }
+            }
+
+            if (_detectedLoaders.Count == 0)
             {
                 if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Visible;
                 if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Collapsed;
                 if (txtLoaderInfo != null) txtLoaderInfo.Text = "（无模组加载器）";
                 return;
             }
+
             if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Collapsed;
             if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Visible;
-            if (txtLoaderInfo != null) txtLoaderInfo.Text = "（" + ModLoaderDetector.GetLoaderDisplayName(modLoaderType) + "）";
+            if (txtLoaderInfo != null)
+            {
+                List<string> names = _detectedLoaders.ConvertAll(l => l.DisplayName);
+                txtLoaderInfo.Text = "（已检测到：" + string.Join(", ", names) + "）";
+            }
             LoadMods();
         }
 
         private string GetModsDirectory()
         {
             string minecraftPath = _config.GetMinecraftPath();
-            if (SettingsManager.Settings.EnableVersionIsolation && !string.IsNullOrEmpty(_config.GameVersion))
+            if (SettingsManager.Settings != null
+                && SettingsManager.Settings.EnableVersionIsolation
+                && !string.IsNullOrEmpty(_config.GameVersion))
             {
-                return Path.Combine(minecraftPath, "versions", _config.GameVersion, "game", "mods");
+                return Path.Combine(minecraftPath, "versions", _config.GameVersion, "mods");
             }
             return Path.Combine(minecraftPath, "mods");
         }
 
         private void LoadMods()
         {
-            if (lstMods != null)
+            if (lstMods == null) return;
+
+            lstMods.Items.Clear();
+
+            string modsDirectory = GetModsDirectory();
+            if (!Directory.Exists(modsDirectory))
             {
-                lstMods.Items.Clear();
-                string modsDirectory = GetModsDirectory();
-                if (!Directory.Exists(modsDirectory))
+                try
                 {
                     Directory.CreateDirectory(modsDirectory);
-                    return;
                 }
+                catch
+                {
+                    // ignore
+                }
+            }
+
+            if (Directory.Exists(modsDirectory))
+            {
                 foreach (string filePath in Directory.GetFiles(modsDirectory, "*.jar"))
                 {
                     string fileName = Path.GetFileName(filePath);
                     bool isEnabled = !fileName.StartsWith(".");
+                    string displayName = isEnabled ? fileName : fileName.Substring(1);
+
                     lstMods.Items.Add(new ModItem
                     {
-                        ModName = (isEnabled ? fileName : fileName.Substring(1)),
-                        ModVersion = GetVersionFromFileName(fileName),
+                        ModName = displayName,
+                        DisplayName = displayName,
+                        ModVersion = GetVersionFromFileName(displayName),
                         IsEnabled = isEnabled,
-                        FilePath = filePath
+                        FilePath = filePath,
+                        StatusText = isEnabled ? "已启用" : "已禁用",
+                        StatusColor = isEnabled ? "#81C784" : "#E57373"
                     });
                 }
+            }
+
+            bool hasItems = lstMods.Items.Count > 0;
+            if (lstMods != null) lstMods.Visibility = hasItems ? Visibility.Visible : Visibility.Collapsed;
+            if (panelEmptyMods != null)
+            {
+                panelEmptyMods.Visibility = hasItems ? Visibility.Collapsed : Visibility.Visible;
+                if (txtEmptyModsHint != null)
+                {
+                    txtEmptyModsHint.Text =
+                        "当前 mods 目录：" + (modsDirectory ?? "(未知)") + "\n"
+                        + "点击下方 “添加模组” 按钮，选择 .jar 文件即可添加。";
+                }
+            }
+
+            if (txtModListTitle != null)
+            {
+                txtModListTitle.Text = "已安装模组";
+            }
+            if (txtModCountBadge != null)
+            {
+                txtModCountBadge.Text = "共 " + lstMods.Items.Count + " 个";
             }
         }
 
@@ -96,95 +169,182 @@ namespace MusicalNoteLauncher.Pages
                 Multiselect = true,
                 Title = "选择模组文件"
             };
+
             if (openFileDialog.ShowDialog().GetValueOrDefault())
             {
                 string modsDirectory = GetModsDirectory();
-                foreach (string filePath in openFileDialog.FileNames)
+                if (!Directory.Exists(modsDirectory))
                 {
-                    string destPath = Path.Combine(modsDirectory, Path.GetFileName(filePath));
-                    if (!File.Exists(destPath))
+                    try { Directory.CreateDirectory(modsDirectory); }
+                    catch (Exception ex)
                     {
-                        File.Copy(filePath, destPath);
+                        MessageBox.Show("无法创建 mods 目录：" + ex.Message, "错误",
+                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        return;
                     }
                 }
+
+                int added = 0;
+                int skipped = 0;
+
+                foreach (string filePath in openFileDialog.FileNames)
+                {
+                    try
+                    {
+                        string destPath = Path.Combine(modsDirectory, Path.GetFileName(filePath));
+                        if (!File.Exists(destPath))
+                        {
+                            File.Copy(filePath, destPath);
+                            added++;
+                        }
+                        else
+                        {
+                            skipped++;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warning("添加模组失败: " + ex.Message);
+                    }
+                }
+
                 LoadMods();
-                MessageBox.Show("模组添加成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+
+                string msg = "已添加 " + added + " 个模组。";
+                if (skipped > 0) msg += " 跳过 " + skipped + " 个已存在的模组。";
+                MessageBox.Show(msg, "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
+        }
+
+        private List<ModItem> GetSelectedItems()
+        {
+            if (lstMods == null) return new List<ModItem>();
+            return lstMods.SelectedItems.Cast<ModItem>().ToList();
         }
 
         private void BtnEnableMods_Click(object sender, RoutedEventArgs e)
         {
-            if (lstMods == null) return;
-            List<ModItem> selectedItems = lstMods.SelectedItems.Cast<ModItem>().ToList();
+            List<ModItem> selectedItems = GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("请先选择要启用的模组", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show("请先在列表中选择要启用的模组（可使用 Ctrl / Shift 多选）。",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+
+            int done = 0;
             foreach (ModItem item in selectedItems)
             {
                 if (!item.IsEnabled)
                 {
-                    string filePath = item.FilePath;
-                    string destFileName = filePath.Replace(Path.GetFileName(filePath), Path.GetFileName(filePath).Substring(1));
-                    File.Move(filePath, destFileName);
-                    item.IsEnabled = true;
+                    try
+                    {
+                        string directory = Path.GetDirectoryName(item.FilePath);
+                        string newFileName = Path.GetFileName(item.FilePath).Substring(1);
+                        string newPath = Path.Combine(directory, newFileName);
+                        File.Move(item.FilePath, newPath);
+                        item.FilePath = newPath;
+                        item.IsEnabled = true;
+                        done++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warning("启用模组失败: " + ex.Message);
+                    }
                 }
             }
+
             LoadMods();
-            MessageBox.Show(string.Format("已启用 {0} 个模组", selectedItems.Count), "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            MessageBox.Show("已启用 " + done + " 个模组。", "提示",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnDisableMods_Click(object sender, RoutedEventArgs e)
         {
-            if (lstMods == null) return;
-            List<ModItem> selectedItems = lstMods.SelectedItems.Cast<ModItem>().ToList();
+            List<ModItem> selectedItems = GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("请先选择要禁用的模组", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show("请先在列表中选择要禁用的模组（可使用 Ctrl / Shift 多选）。",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
+
+            int done = 0;
             foreach (ModItem item in selectedItems)
             {
                 if (item.IsEnabled)
                 {
-                    string filePath = item.FilePath;
-                    string destFileName = filePath.Replace(Path.GetFileName(filePath), "." + Path.GetFileName(filePath));
-                    File.Move(filePath, destFileName);
-                    item.IsEnabled = false;
+                    try
+                    {
+                        string directory = Path.GetDirectoryName(item.FilePath);
+                        string newFileName = "." + Path.GetFileName(item.FilePath);
+                        string newPath = Path.Combine(directory, newFileName);
+                        File.Move(item.FilePath, newPath);
+                        item.FilePath = newPath;
+                        item.IsEnabled = false;
+                        done++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warning("禁用模组失败: " + ex.Message);
+                    }
                 }
             }
+
             LoadMods();
-            MessageBox.Show(string.Format("已禁用 {0} 个模组", selectedItems.Count), "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            MessageBox.Show("已禁用 " + done + " 个模组。", "提示",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private void BtnUninstallMod_Click(object sender, RoutedEventArgs e)
         {
-            if (lstMods == null) return;
-            List<ModItem> selectedItems = lstMods.SelectedItems.Cast<ModItem>().ToList();
+            List<ModItem> selectedItems = GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("请先选择要卸载的模组", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                MessageBox.Show("请先在列表中选择要卸载的模组。",
+                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                 return;
             }
-            if (MessageBox.Show(string.Format("确定要卸载 {0} 个模组吗？此操作不可撤销。", selectedItems.Count), "确认卸载", MessageBoxButton.YesNo, MessageBoxImage.Exclamation) == MessageBoxResult.Yes)
+
+            if (MessageBox.Show(
+                    "确定要卸载 " + selectedItems.Count + " 个模组吗？此操作不可撤销。",
+                    "确认卸载",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
             {
-                foreach (ModItem item in selectedItems)
+                return;
+            }
+
+            int done = 0;
+            foreach (ModItem item in selectedItems)
+            {
+                try
                 {
                     if (File.Exists(item.FilePath))
                     {
                         File.Delete(item.FilePath);
+                        done++;
                     }
                 }
-                LoadMods();
-                MessageBox.Show(string.Format("已卸载 {0} 个模组", selectedItems.Count), "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                catch (Exception ex)
+                {
+                    Logger.Warning("卸载模组失败: " + ex.Message);
+                }
             }
+
+            LoadMods();
+            MessageBox.Show("已卸载 " + done + " 个模组。", "提示",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void BtnRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            CheckModLoaderAndUpdateUI();
         }
 
         private void BtnRefreshMods_Click(object sender, RoutedEventArgs e)
         {
             CheckModLoaderAndUpdateUI();
-            MessageBox.Show("模组列表已刷新", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
         }
 
         private void BtnModMarket_Click(object sender, RoutedEventArgs e)
@@ -194,15 +354,61 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnInstallForge_Click(object sender, RoutedEventArgs e)
         {
-            AppContext.NavigateTo("Dependencies");
+            NavigateToLoaderSelection("Forge");
+        }
+
+        private void BtnOpenLoaderSelection_Click(object sender, RoutedEventArgs e)
+        {
+            NavigateToLoaderSelection(null);
+        }
+
+        private void BtnInstallSpecificLoader_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string loaderType)
+            {
+                NavigateToLoaderSelection(loaderType);
+            }
+        }
+
+        private void NavigateToLoaderSelection(string targetLoaderType)
+        {
+            string gameVersion = _config.GameVersion;
+            if (string.IsNullOrEmpty(gameVersion))
+            {
+                if (MessageBox.Show(
+                        "当前未设置游戏版本，无法继续安装模组加载器。\n是否前往 “游戏版本” 页面选择一个版本？",
+                        "未选择游戏版本",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Information) == MessageBoxResult.Yes)
+                {
+                    AppContext.NavigateTo("GameVersions");
+                }
+                return;
+            }
+
+            AppContext.SelectedGameVersion = gameVersion;
+
+            if (!string.IsNullOrEmpty(targetLoaderType))
+            {
+                // 直接跳转到对应加载器的版本选择页面，更快捷
+                AppContext.SelectedLoaderType = targetLoaderType;
+                AppContext.NavigateTo("LoaderVersion");
+            }
+            else
+            {
+                AppContext.NavigateTo("LoaderSelection");
+            }
         }
 
         public class ModItem
         {
             public string ModName { get; set; }
+            public string DisplayName { get; set; }
             public string ModVersion { get; set; }
             public bool IsEnabled { get; set; }
             public string FilePath { get; set; }
+            public string StatusText { get; set; }
+            public string StatusColor { get; set; }
         }
     }
 }

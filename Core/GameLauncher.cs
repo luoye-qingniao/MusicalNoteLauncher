@@ -1,4 +1,4 @@
-﻿﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -397,47 +397,88 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                // 解析版本号，获取主版本号
-                int majorVersion = 1;
+                // 步骤1：获取实际的 Minecraft 版本号（处理 Fabric/Forge 等继承版本）
+                // 例如 fabric-loader-0.19.3-1.20.1 的 inheritsFrom 是 "1.20.1"
+                string actualVersion = versionId;
                 try
                 {
-                    string[] parts = versionId.Split('.');
-                    if (parts.Length >= 1)
+                    string jsonFile = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.json");
+                    if (File.Exists(jsonFile))
                     {
-                        majorVersion = int.Parse(parts[0]);
-                        if (parts.Length >= 2 && parts[0] == "1")
+                        string jsonContent = File.ReadAllText(jsonFile);
+                        using (JsonDocument doc = JsonDocument.Parse(jsonContent))
                         {
-                            majorVersion = int.Parse(parts[1]);
+                            if (doc.RootElement.TryGetProperty("inheritsFrom", out var inhProp))
+                            {
+                                string inheritName = inhProp.GetString();
+                                if (!string.IsNullOrEmpty(inheritName))
+                                {
+                                    actualVersion = inheritName;
+                                    Log($"[语言] 检测到继承版本，实际 Minecraft 版本: {actualVersion}");
+                                }
+                            }
                         }
+                    }
+                }
+                catch { }
+
+                // 步骤2：解析实际的 Minecraft 版本号，获取次版本号
+                // 例如 "1.20.1" -> 20, "1.16.5" -> 16
+                int majorVersion = 20; // 默认 1.20 兼容大多数版本
+                try
+                {
+                    string[] parts = actualVersion.Split('.');
+                    if (parts.Length >= 2 && parts[0] == "1")
+                    {
+                        // 1.xx.y 格式
+                        if (int.TryParse(parts[1], out int v))
+                        {
+                            majorVersion = v;
+                        }
+                    }
+                    else if (parts.Length >= 1)
+                    {
+                        // 其他格式，尝试直接解析第一个
+                        int.TryParse(parts[0], out majorVersion);
                     }
                 }
                 catch
                 {
-                    // 默认使用1
+                    // 保留默认值
                 }
 
-                // 获取游戏的options.txt路径（使用版本隔离的游戏目录）
+                Log($"[语言] 使用的 Minecraft 次版本号: {majorVersion}");
+
+                // 步骤3：获取游戏的 options.txt 路径（使用版本隔离的游戏目录）
                 string gameDir = _minecraftPath;
                 if (SettingsManager.Settings.EnableVersionIsolation)
                 {
                     gameDir = Path.Combine(_minecraftPath, "versions", versionId, "game");
+                    Directory.CreateDirectory(gameDir);
                 }
                 
                 string optionsPath = Path.Combine(gameDir, "options.txt");
                 
-                // 确保options.txt存在
+                // 步骤4：确保 options.txt 存在
                 if (!File.Exists(optionsPath))
                 {
                     // 尝试从主目录复制
                     string mainOptionsPath = Path.Combine(_minecraftPath, "options.txt");
                     if (File.Exists(mainOptionsPath))
                     {
-                        File.Copy(mainOptionsPath, optionsPath);
-                        Log($"[语言] 已从主目录复制 options.txt 到版本隔离目录");
+                        File.Copy(mainOptionsPath, optionsPath, true);
+                        Log($"[语言] 已从主目录复制 options.txt 到游戏目录");
+                    }
+                    else
+                    {
+                        // 创建最小的 options.txt，至少包含 lang 键
+                        Directory.CreateDirectory(Path.GetDirectoryName(optionsPath));
+                        File.WriteAllText(optionsPath, "lang:zh_cn\n");
+                        Log($"[语言] 主目录没有 options.txt，已创建最小的 options.txt");
                     }
                 }
 
-                // 使用ChineseLaunchHelper设置中文语言（强制设置）
+                // 步骤5：使用 ChineseLaunchHelper 设置中文语言（强制设置）
                 var result = PCLCS.ChineseLaunchHelper.SetupChineseLanguage(
                     optionsPath,
                     majorVersion,
@@ -449,10 +490,76 @@ namespace MusicalNoteLauncher.Core
                 if (result.Success)
                 {
                     Log($"[语言] 中文语言设置成功（当前: {result.CurrentLanguage} -> 目标: {result.TargetLanguage}）");
+                    
+                    // 步骤6：双重保险——直接修改 options.txt 的 lang 键，确保值正确
+                    try
+                    {
+                        string targetLang = majorVersion >= 19 ? "zh_cn" : "zh_cn";
+                        string content = File.ReadAllText(optionsPath);
+                        if (content.Contains("lang:"))
+                        {
+                            // 替换现有 lang 键
+                            var lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
+                            bool found = false;
+                            for (int i = 0; i < lines.Length; i++)
+                            {
+                                if (lines[i].StartsWith("lang:"))
+                                {
+                                    lines[i] = "lang:" + targetLang;
+                                    found = true;
+                                    break;
+                                }
+                            }
+                            if (found)
+                            {
+                                File.WriteAllText(optionsPath, string.Join("\n", lines));
+                                Log($"[语言] 已强制设置 lang={targetLang}");
+                            }
+                        }
+                        else
+                        {
+                            // 追加 lang 键
+                            File.AppendAllText(optionsPath, "\nlang:" + targetLang + "\n");
+                            Log($"[语言] 已追加 lang={targetLang}");
+                        }
+                    }
+                    catch (Exception ex2)
+                    {
+                        Log($"[语言] 手动设置 lang 键时出错: {ex2.Message}");
+                    }
                 }
                 else
                 {
-                    Log($"[语言] 中文语言设置失败: {result.ErrorMessage}");
+                    Log($"[语言] ChineseLaunchHelper 设置失败: {result.ErrorMessage}");
+                    
+                    // 备用方案：直接写入 options.txt
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(optionsPath));
+                        string content = File.Exists(optionsPath) ? File.ReadAllText(optionsPath) : "";
+                        if (content.Contains("lang:"))
+                        {
+                            var lines = content.Split(new[] { '\n', '\r' }, StringSplitOptions.None);
+                            for (int i = 0; i < lines.Length; i++)
+                            {
+                                if (lines[i].StartsWith("lang:"))
+                                {
+                                    lines[i] = "lang:zh_cn";
+                                    break;
+                                }
+                            }
+                            File.WriteAllText(optionsPath, string.Join("\n", lines));
+                        }
+                        else
+                        {
+                            File.WriteAllText(optionsPath, content + "\nlang:zh_cn\n");
+                        }
+                        Log($"[语言] 备用方案：已直接写入 lang:zh_cn");
+                    }
+                    catch (Exception ex2)
+                    {
+                        Log($"[语言] 备用方案也失败: {ex2.Message}");
+                    }
                 }
             }
             catch (Exception ex)
@@ -2111,6 +2218,11 @@ namespace MusicalNoteLauncher.Core
             AddArg("-Dfile.encoding=UTF-8");
             AddArg("-Dstdout.encoding=UTF-8");
             AddArg("-Dstderr.encoding=UTF-8");
+            
+            // 中文语言支持：确保 Java 系统语言环境为中文
+            AddArg("-Duser.language=zh");
+            AddArg("-Duser.country=CN");
+            AddArg("-Duser.region=zh_CN");
 
             AddArg("-XX:+UnlockExperimentalVMOptions");
             AddArg("-XX:+UseG1GC");
@@ -2266,19 +2378,41 @@ namespace MusicalNoteLauncher.Core
                     }
                 }
 
-                // 检查 features 规则（如 "has_custom_resolution"）
+                // 检查 features 规则（如 "has_custom_resolution"、"has_demo_account"、"is_quick_play_*"）
                 if (rule.TryGetProperty("features", out JsonElement features))
                 {
-                    // features 通常是一个对象 { "key": true }，在离线模式下总是通过
-                    // 只要 features 存在且不是明确禁止的，就认为满足
+                    // 根据启动器的实际能力评估各 feature
+                    //  - has_demo_account: 离线模式下没有 Demo 账号，false
+                    //  - has_custom_resolution: 启动器支持自定义分辨率，true
+                    //  - is_quick_play_singleplayer/multiplayer/realms: 未启用 quick play，false
+                    //  - 其他未识别的 feature: 若值为 true 则通过（兼容未知 feature）
                     bool allFeaturesMatched = true;
                     foreach (var feat in features.EnumerateObject())
                     {
-                        if (feat.Value.ValueKind == JsonValueKind.True)
+                        string featName = feat.Name;
+                        bool expectedTrue = feat.Value.ValueKind == JsonValueKind.True;
+
+                        bool actualValue;
+                        switch (featName)
                         {
-                            // 默认允许所有 feature
+                            case "has_demo_account":
+                                actualValue = false; // 离线模式没有 Demo 账号
+                                break;
+                            case "has_custom_resolution":
+                                actualValue = true; // 启动器支持自定义分辨率
+                                break;
+                            case "is_quick_play_singleplayer":
+                            case "is_quick_play_multiplayer":
+                            case "is_quick_play_realms":
+                                actualValue = false; // 未启用 quick play
+                                break;
+                            default:
+                                // 未知 feature：若 JSON 期望 true 则默认通过以兼容
+                                actualValue = expectedTrue;
+                                break;
                         }
-                        else if (feat.Value.ValueKind == JsonValueKind.False)
+
+                        if (actualValue != expectedTrue)
                         {
                             allFeaturesMatched = false;
                             break;
@@ -2302,11 +2436,39 @@ namespace MusicalNoteLauncher.Core
         {
             Dictionary<string, string> argsDict = new Dictionary<string, string>();
 
+            // ====== 身份参数合法性校验 ======
+            // 1. username 必须合法（非空、长度、只含字母/数字/下划线）
+            string cleanUsername = username?.Trim();
+            if (!IsValidUsername(cleanUsername))
+            {
+                Log($"[身份] ⚠️  username 非法（'{username}'）");
+                Log($"[身份] 使用默认玩家名 'Player'（建议在设置中修改）");
+                cleanUsername = "Player";
+            }
+
+            // 2. uuid：强制 36 位 RFC 4122 格式（8-4-4-4-12）
             string uuid = GenerateUUID();
+            if (!IsValidRFCUUID(uuid))
+            {
+                Log($"[身份] ⚠️  刚生成的 UUID 格式异常（{uuid}）");
+                uuid = Guid.NewGuid().ToString("D");
+                Log($"[身份] 已重新生成：{uuid}");
+            }
+
+            // 3. accessToken
             string accessToken = offlineMode ? GenerateOfflineToken(uuid) : "invalid";
+
+            Log($"[身份] username={cleanUsername}");
+            Log($"[身份]     uuid={uuid}");
+            Log($"[身份] accessToken={new string('*', Math.Min(accessToken.Length, 8))}...");
+            // =========================================================
+
             string assetIndexId = GetAssetIndexId(versionInfo);
 
-            argsDict["--username"] = username;
+            // 身份参数必须先写入，避免后续从 version.json 解析出的占位符覆盖
+            argsDict["--username"] = cleanUsername;
+            argsDict["--uuid"] = uuid;
+            argsDict["--accessToken"] = accessToken;
             argsDict["--version"] = versionId;
 
             // 版本隔离功能：如果启用，每个版本使用独立的游戏目录
@@ -2365,7 +2527,7 @@ namespace MusicalNoteLauncher.Core
                     if (arg.ValueKind == JsonValueKind.String)
                     {
                         string argStr = arg.GetString();
-                        argStr = ReplaceArgumentPlaceholders(argStr, versionId, username, uuid, accessToken, assetIndexId);
+                        argStr = ReplaceArgumentPlaceholders(argStr, versionId, cleanUsername, uuid, accessToken, assetIndexId);
 
                         if (argStr.StartsWith("--"))
                         {
@@ -2374,6 +2536,14 @@ namespace MusicalNoteLauncher.Core
                             {
                                 string key = parts[0];
                                 string value = parts.Length > 1 ? string.Join(" ", parts.Skip(1)) : "";
+
+                                // ====== 安全层：离线模式下跳过与 Demo/QuickPlay 相关的参数 ======
+                                // 这些参数会让 Minecraft 认为用户没有完整账号，从而进入 Demo 模式
+                                if (key == "--demo" || key == "--clientId" || key == "--xuid" ||
+                                    key.StartsWith("--quickPlay"))
+                                {
+                                    continue;
+                                }
 
                                 if (!argsDict.ContainsKey(key))
                                 {
@@ -2404,7 +2574,7 @@ namespace MusicalNoteLauncher.Core
                             var argsFromObject = new List<string>();
                             if (value.ValueKind == JsonValueKind.String)
                             {
-                                string s = ReplaceArgumentPlaceholders(value.GetString(), versionId, username, uuid, accessToken, assetIndexId);
+                                string s = ReplaceArgumentPlaceholders(value.GetString(), versionId, cleanUsername, uuid, accessToken, assetIndexId);
                                 argsFromObject.Add(s);
                             }
                             else if (value.ValueKind == JsonValueKind.Array)
@@ -2413,7 +2583,7 @@ namespace MusicalNoteLauncher.Core
                                 {
                                     if (v.ValueKind == JsonValueKind.String)
                                     {
-                                        string s = ReplaceArgumentPlaceholders(v.GetString(), versionId, username, uuid, accessToken, assetIndexId);
+                                        string s = ReplaceArgumentPlaceholders(v.GetString(), versionId, cleanUsername, uuid, accessToken, assetIndexId);
                                         argsFromObject.Add(s);
                                     }
                                 }
@@ -2430,6 +2600,19 @@ namespace MusicalNoteLauncher.Core
                                 {
                                     // 这是一个 key，下一个元素可能是 value
                                     string key = s;
+
+                                    // 安全层：跳过 --demo、--clientId、--xuid、--quickPlay*
+                                    if (key == "--demo" || key == "--clientId" || key == "--xuid" ||
+                                        key.StartsWith("--quickPlay"))
+                                    {
+                                        // 同时跳过可能跟在后面的 value（如 "${quickPlayPath}" 等）
+                                        if (i + 1 < argsFromObject.Count && !argsFromObject[i + 1].StartsWith("--"))
+                                        {
+                                            i++;
+                                        }
+                                        continue;
+                                    }
+
                                     if (!argsDict.ContainsKey(key))
                                     {
                                         if (i + 1 < argsFromObject.Count && !argsFromObject[i + 1].StartsWith("--"))
@@ -2450,6 +2633,14 @@ namespace MusicalNoteLauncher.Core
                                     if (parts.Length >= 1)
                                     {
                                         string key = parts[0];
+
+                                        // 安全层：跳过 --demo、--clientId、--xuid、--quickPlay*
+                                        if (key == "--demo" || key == "--clientId" || key == "--xuid" ||
+                                            key.StartsWith("--quickPlay"))
+                                        {
+                                            continue;
+                                        }
+
                                         if (!argsDict.ContainsKey(key))
                                         {
                                             argsDict[key] = parts.Length > 1 ? string.Join(" ", parts.Skip(1)).Trim('"') : "";
@@ -2863,14 +3054,64 @@ namespace MusicalNoteLauncher.Core
             return "legacy";
         }
 
+        /// <summary>
+        /// 生成一个标准的 RFC 4122 36 位 UUID（格式：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx）。
+        /// 注意：必须带 4 个横杠，否则游戏会识别为非法身份，进入 Demo 模式。
+        /// </summary>
         private string GenerateUUID()
         {
-            return Guid.NewGuid().ToString("N");
+            return Guid.NewGuid().ToString("D");
         }
 
+        /// <summary>
+        /// 生成离线模式 accessToken（同样使用 36 位格式，保持与 uuid 一致）。
+        /// 游戏对 accessToken 的格式不像 uuid 那么严格，但仍推荐长度一致以避免被某些 Mod 校验拒绝。
+        /// </summary>
         private string GenerateOfflineToken(string uuid)
         {
-            return Guid.NewGuid().ToString("N");
+            // 基于 uuid 派生一个确定性的 accessToken：去掉横杠 + 小写
+            string baseToken = uuid.Replace("-", string.Empty).ToLowerInvariant();
+            // 末尾追加一个小后缀，保证长度 ≥ 32 且与 uuid 不同，避免某些启动器把 accessToken 当作 uuid
+            return baseToken + "00000000000000000000000000000000".Substring(0, 32 - Math.Min(32, baseToken.Length));
+        }
+
+        /// <summary>
+        /// 校验字符串是否为标准 RFC 4122 格式 UUID（36 位，含 4 个 '-'）。
+        /// 合法示例：01234567-89ab-cdef-0123-456789abcdef
+        /// </summary>
+        private static bool IsValidRFCUUID(string uuid)
+        {
+            if (string.IsNullOrEmpty(uuid)) return false;
+            if (uuid.Length != 36) return false;
+            // 验证横杠位置：8-4-4-4-12
+            if (uuid[8] != '-' || uuid[13] != '-' || uuid[18] != '-' || uuid[23] != '-') return false;
+
+            // 其余字符必须是 0-9 / a-f / A-F
+            for (int i = 0; i < uuid.Length; i++)
+            {
+                if (i == 8 || i == 13 || i == 18 || i == 23) continue;
+                char c = uuid[i];
+                if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+                    return false;
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// 校验 username 是否合法：非空、非空白、长度 3-16、不含非法字符。
+        /// 游戏启动后 username 会被用来做玩家显示名，包含空格或特殊字符会导致 auth 失败。
+        /// </summary>
+        private static bool IsValidUsername(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return false;
+            if (username.Length < 3 || username.Length > 16) return false;
+            // Minecraft 正版允许：字母、数字、下划线；离线模式也同样推荐。
+            foreach (char c in username)
+            {
+                if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'))
+                    return false;
+            }
+            return true;
         }
 
         private string FindJavaPath()

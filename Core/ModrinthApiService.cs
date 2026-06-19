@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -166,10 +167,10 @@ namespace MusicalNoteLauncher.Core
             {
                 string url = $"{BaseUrl}/project/{projectId}/version";
                 System.Diagnostics.Debug.WriteLine($"Requesting URL: {url}");
-                
+
                 var response = await _httpClient.GetAsync(url);
                 System.Diagnostics.Debug.WriteLine($"Response status: {response.StatusCode}");
-                
+
                 if (!response.IsSuccessStatusCode)
                 {
                     string errorContent = await response.Content.ReadAsStringAsync();
@@ -179,7 +180,7 @@ namespace MusicalNoteLauncher.Core
 
                 var content = await response.Content.ReadAsStringAsync();
                 System.Diagnostics.Debug.WriteLine($"Response content length: {content.Length} characters");
-                
+
                 // 打印前500个字符用于调试
                 if (content.Length > 0)
                 {
@@ -214,6 +215,56 @@ namespace MusicalNoteLauncher.Core
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// 获取指定项目的所有可用版本
+        /// </summary>
+        public async Task<List<ModrinthVersion>> GetProjectVersions(string projectId, string gameVersion = null)
+        {
+            try
+            {
+                string url = $"{BaseUrl}/project/{projectId}/version";
+                if (!string.IsNullOrEmpty(gameVersion))
+                {
+                    url += $"?game_versions={Uri.EscapeDataString("[\"" + gameVersion + "\"]")}";
+                }
+
+                System.Diagnostics.Debug.WriteLine($"GetProjectVersions URL: {url}");
+
+                var response = await _httpClient.GetAsync(url);
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorContent = await response.Content.ReadAsStringAsync();
+                    System.Diagnostics.Debug.WriteLine($"Modrinth API Error: {response.StatusCode} - {errorContent}");
+                    return new List<ModrinthVersion>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                var versions = JsonSerializer.Deserialize<List<ModrinthVersion>>(content);
+
+                if (versions == null || versions.Count == 0)
+                {
+                    return new List<ModrinthVersion>();
+                }
+
+                // 按版本类型排序（release > beta > alpha），然后按日期降序
+                var sortedVersions = versions.OrderByDescending(v => v.VersionType switch
+                {
+                    "release" => 3,
+                    "beta" => 2,
+                    "alpha" => 1,
+                    _ => 0
+                }).ThenByDescending(v => v.DatePublished ?? DateTime.MinValue).ToList();
+
+                System.Diagnostics.Debug.WriteLine($"GetProjectVersions: Found {sortedVersions.Count} versions");
+                return sortedVersions;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"GetProjectVersions Exception: {ex.Message}");
+                return new List<ModrinthVersion>();
+            }
         }
     }
 
@@ -268,13 +319,78 @@ namespace MusicalNoteLauncher.Core
 
     public class ModrinthVersion
     {
+        [JsonPropertyName("id")]
+        public string Id { get; set; }
+
+        [JsonPropertyName("project_id")]
+        public string ProjectId { get; set; }
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; }
+
+        [JsonPropertyName("version_number")]
+        public string VersionNumber { get; set; }
+
+        [JsonPropertyName("changelog")]
+        public string Changelog { get; set; }
+
+        [JsonPropertyName("game_versions")]
+        public List<string> GameVersions { get; set; }
+
+        [JsonPropertyName("version_type")]
+        public string VersionType { get; set; }
+
+        [JsonPropertyName("loaders")]
+        public List<string> Loaders { get; set; }
+
+        [JsonPropertyName("date_published")]
+        public DateTime? DatePublished { get; set; }
+
         [JsonPropertyName("files")]
         public List<ModrinthFile> Files { get; set; }
+
+        public string DisplayName => !string.IsNullOrEmpty(VersionNumber) ? VersionNumber : Name ?? "未知版本";
+
+        public string DisplayGameVersions => GameVersions != null && GameVersions.Count > 0
+            ? string.Join(", ", GameVersions.Take(3))
+            : "未知";
+
+        public string DisplayLoaders => Loaders != null && Loaders.Count > 0
+            ? string.Join(", ", Loaders)
+            : "未知";
+
+        public string DownloadUrl => Files != null && Files.Count > 0 ? Files[0].Url : null;
+
+        public long FileSize => Files != null && Files.Count > 0 ? Files[0].Size : 0;
+
+        public string FileName => Files != null && Files.Count > 0 ? Files[0].FileName : "unknown";
+
+        public bool IsRecommended => VersionType == "release";
+
+        public string VersionTypeText
+        {
+            get
+            {
+                switch (VersionType)
+                {
+                    case "release": return "正式版";
+                    case "beta": return "测试版";
+                    case "alpha": return "预览版";
+                    default: return "未知";
+                }
+            }
+        }
     }
 
     public class ModrinthFile
     {
         [JsonPropertyName("url")]
         public string Url { get; set; }
+
+        [JsonPropertyName("filename")]
+        public string FileName { get; set; }
+
+        [JsonPropertyName("size")]
+        public long Size { get; set; }
     }
 }
