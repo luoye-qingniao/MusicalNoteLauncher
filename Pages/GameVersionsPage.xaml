@@ -640,7 +640,7 @@
 																				FontSize="12"
 																				FontWeight="Bold"
 																				FontFamily="Microsoft YaHei"
-																				Content="{Binding StatusText}"
+																				Content="{Binding StatusText}" Click="BtnDownload_Click"
 																				IsEnabled="{Binding CanDownload}">
 																				<Control.Background>
 																					<LinearGradientBrush
@@ -891,6 +891,7 @@
 																				<!--未知连接 ID：11-->
 																				<Button
 																					Content="启动"
+																					Click="BtnLaunchGame_Click"
 																					Cursor="Hand"
 																					VerticalAlignment="Center"
 																					Width="70"
@@ -957,6 +958,7 @@
 																				<!--未知连接 ID：12-->
 																				<Button
 																					Content="删除"
+																					Click="BtnDeleteVersion_Click"
 																					Cursor="Hand"
 																					VerticalAlignment="Center"
 																					Width="70"

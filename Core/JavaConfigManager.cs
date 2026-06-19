@@ -271,11 +271,23 @@ namespace MusicalNoteLauncher.Core
                 {
                     int major = int.Parse(parts[0]);
                     int minor = int.Parse(parts[1]);
+                    int patch = 0;
+                    if (parts.Length >= 3 && int.TryParse(parts[2], out int p))
+                    {
+                        patch = p;
+                    }
 
-                    if (major > 1 || (major == 1 && minor >= 17))
+                    // 1.20.5 及以上版本需要 Java 21
+                    if (major > 1 || (major == 1 && minor > 20) || (major == 1 && minor == 20 && patch >= 5))
+                    {
+                        return 21;
+                    }
+                    // 1.17 - 1.20.4 使用 Java 17
+                    else if (major == 1 && minor >= 17)
                     {
                         return 17;
                     }
+                    // 1.9 - 1.16 使用 Java 11
                     else if (major == 1 && minor >= 9)
                     {
                         return 11;

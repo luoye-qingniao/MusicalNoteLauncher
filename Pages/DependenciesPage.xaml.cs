@@ -18,10 +18,6 @@ namespace MusicalNoteLauncher.Pages
             _modrinthApi = new ModrinthApiService();
             _curseForgeApi = new CurseForgeApiService();
             LoadDependencies();
-            if (btnLoadMore != null)
-            {
-                btnLoadMore.Visibility = Visibility.Collapsed;
-            }
         }
 
         private void LoadDependencies()

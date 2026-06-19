@@ -1113,8 +1113,7 @@
 								Background="#000000"
 								CornerRadius="8"
 								Padding="12"
-								MinHeight="100"
-								MaxHeight="250">
+								Height="250">
 								<TextBox
 									Name="txtConsole"
 									Text="&gt; 正在初始化游戏...&#xA;&gt; 加载资源包...&#xA;&gt; 准备启动..."

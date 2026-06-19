@@ -652,16 +652,14 @@ namespace MusicalNoteLauncher.Core
                 taskInfo.Status = "正在下载版本JSON";
                 taskInfo.CurrentFile = $"{version.Id}.json";
 
-                await DownloadFileWithProgressAsync(version.Url, jsonFile, progress, cancellationToken);
-                progress?.Report(new DownloadProgressInfo { Progress = 5, Status = "[1/5] 版本JSON下载完成", CurrentFile = $"{version.Id}.json" });
+                await DownloadFileWithProgressAsync(version.Url, jsonFile, progress, cancellationToken, 0, 5);
 
                 string jarUrl = await GetJarDownloadUrlAsync(jsonFile);
                 StatusChanged?.Invoke($"正在下载游戏本体: {version.Id}...");
                 taskInfo.Status = "正在下载游戏本体";
                 taskInfo.CurrentFile = $"{version.Id}.jar";
 
-                await DownloadFileWithProgressAsync(jarUrl, jarFile, progress, cancellationToken);
-                progress?.Report(new DownloadProgressInfo { Progress = 10, Status = "[2/5] 游戏本体下载完成", CurrentFile = $"{version.Id}.jar" });
+                await DownloadFileWithProgressAsync(jarUrl, jarFile, progress, cancellationToken, 5, 25);
 
                 var libraries = await GetLibrariesToDownloadAsync(jsonFile);
                 StatusChanged?.Invoke($"正在下载 {libraries.Count} 个依赖库...");
@@ -669,30 +667,46 @@ namespace MusicalNoteLauncher.Core
 
                 int libIndex = 0;
                 int totalFiles = libraries.Count;
+                int libStart = 25;
+                int libEnd = 55;
                 foreach (var lib in libraries)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
+                    int segStart = libStart + (int)((double)libIndex / Math.Max(totalFiles, 1) * (libEnd - libStart));
+                    int segEnd = libStart + (int)((double)(libIndex + 1) / Math.Max(totalFiles, 1) * (libEnd - libStart));
                     if (!string.IsNullOrEmpty(lib.Url) && !string.IsNullOrEmpty(lib.Path))
                     {
-                        await DownloadFileWithProgressAsync(lib.Url, lib.Path, progress, cancellationToken);
+                        taskInfo.CurrentFile = lib.Name;
+                        await DownloadFileWithProgressAsync(lib.Url, lib.Path, progress, cancellationToken, segStart, segEnd);
                     }
                     libIndex++;
-                    int progressValue = 10 + (int)((double)libIndex / totalFiles * 40);
-                    progress?.Report(new DownloadProgressInfo { Progress = Math.Min(progressValue, 50), Status = $"[库] {libIndex}/{totalFiles}: {lib.Name}", CurrentFile = lib.Name });
+                    progress?.Report(new DownloadProgressInfo
+                    {
+                        Progress = segEnd,
+                        Status = $"[库] {libIndex}/{totalFiles}: {lib.Name}",
+                        CurrentFile = lib.Name
+                    });
                 }
-                progress?.Report(new DownloadProgressInfo { Progress = 50, Status = $"[3/5] 依赖库下载完成 ({libraries.Count}个)", CurrentFile = "" });
 
                 var natives = await GetNativesToDownloadAsync(jsonFile);
                 if (natives.Count > 0)
                 {
                     StatusChanged?.Invoke($"正在下载 {natives.Count} 个natives库...");
+                    taskInfo.Status = $"正在下载 {natives.Count} 个natives库";
+                    int natStart = 55;
+                    int natEnd = 65;
+                    int nativeIndex = 0;
                     foreach (var native in natives)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
+                        int segStart = natStart + (int)((double)nativeIndex / Math.Max(natives.Count, 1) * (natEnd - natStart));
+                        int segEnd = natStart + (int)((double)(nativeIndex + 1) / Math.Max(natives.Count, 1) * (natEnd - natStart));
                         if (!string.IsNullOrEmpty(native.Url) && !string.IsNullOrEmpty(native.Path))
                         {
-                            await DownloadFileWithProgressAsync(native.Url, native.Path, progress, cancellationToken);
+                            taskInfo.CurrentFile = native.Name;
+                            await DownloadFileWithProgressAsync(native.Url, native.Path, progress, cancellationToken, segStart, segEnd);
                         }
+                        nativeIndex++;
                     }
                     StatusChanged?.Invoke($"正在解压natives文件...");
                     await ExtractNativesAsync(version.Id, jsonFile, cancellationToken);
@@ -702,11 +716,13 @@ namespace MusicalNoteLauncher.Core
                 if (!string.IsNullOrEmpty(assetIndex.Url) && !string.IsNullOrEmpty(assetIndex.Path))
                 {
                     StatusChanged?.Invoke($"正在下载资源索引...");
-                    await DownloadFileWithProgressAsync(assetIndex.Url, assetIndex.Path, progress, cancellationToken);
+                    taskInfo.Status = "正在下载资源索引";
+                    await DownloadFileWithProgressAsync(assetIndex.Url, assetIndex.Path, progress, cancellationToken, 65, 67);
 
                     StatusChanged?.Invoke($"正在下载资源文件...");
-                    int assetCount = await DownloadAssetsAsync(assetIndex.Path, cancellationToken);
-                    progress?.Report(new DownloadProgressInfo { Progress = 90, Status = $"资源文件下载完成 ({assetCount}个)", CurrentFile = "" });
+                    taskInfo.Status = "正在下载资源文件";
+                    int assetCount = await DownloadAssetsAsync(assetIndex.Path, cancellationToken, progress, 67, 92);
+                    progress?.Report(new DownloadProgressInfo { Progress = 92, Status = $"资源文件下载完成 ({assetCount}个)", CurrentFile = "" });
                 }
 
                 progress?.Report(new DownloadProgressInfo { Progress = 95, Status = "正在校验版本完整性...", CurrentFile = "" });
@@ -813,7 +829,7 @@ namespace MusicalNoteLauncher.Core
             }
         }
 
-        private async Task DownloadFileWithProgressAsync(string url, string savePath, DownloadProgress progress, CancellationToken cancellationToken)
+        private async Task DownloadFileWithProgressAsync(string url, string savePath, DownloadProgress progress, CancellationToken cancellationToken, int startProgress = 0, int endProgress = 100)
         {
             using (var client = new WebClient())
             {
@@ -829,14 +845,14 @@ namespace MusicalNoteLauncher.Core
 
                     if (totalBytes > 0)
                     {
-                        double progressPercent = (double)downloadedBytes / totalBytes * 100;
+                        double fileProgress = (double)downloadedBytes / totalBytes;
+                        double mappedProgress = startProgress + fileProgress * (endProgress - startProgress);
                         progress?.Report(new DownloadProgressInfo
                         {
-                            Progress = progressPercent,
+                            Progress = mappedProgress,
                             DownloadedBytes = downloadedBytes,
                             TotalBytes = totalBytes,
-                            CurrentFile = Path.GetFileName(savePath),
-                            Status = "下载中"
+                            CurrentFile = Path.GetFileName(savePath)
                         });
                     }
                 };
@@ -985,7 +1001,7 @@ namespace MusicalNoteLauncher.Core
             }
         }
 
-        private async Task<int> DownloadAssetsAsync(string assetIndexPath, CancellationToken cancellationToken)
+        private async Task<int> DownloadAssetsAsync(string assetIndexPath, CancellationToken cancellationToken, DownloadProgress progress = null, int startProgress = 0, int endProgress = 100)
         {
             int assetCount = 0;
             try
@@ -1002,7 +1018,6 @@ namespace MusicalNoteLauncher.Core
                     if (doc.RootElement.TryGetProperty("objects", out JsonElement objects))
                     {
                         var assetList = new List<(string hash, string path)>();
-                        // objects 是一个对象，不是数组，需要使用 EnumerateObject()
                         int totalInIndex = 0;
                         foreach (var obj in objects.EnumerateObject())
                         {
@@ -1026,6 +1041,7 @@ namespace MusicalNoteLauncher.Core
                         int threadCount = SettingsManager.Settings.DownloadThreads;
                         var semaphore = new SemaphoreSlim(threadCount);
                         var tasks = new List<Task>();
+                        int lastReported = -1;
                         
                         foreach (var asset in assetList)
                         {
@@ -1042,9 +1058,22 @@ namespace MusicalNoteLauncher.Core
                                     await DownloadFileAsync(url, asset.path, cancellationToken);
                                     
                                     int current = Interlocked.Increment(ref idx);
-                                    if (current % 100 == 0)
+                                    // 每完成一个资源，平滑推进整体进度
+                                    if (progress != null && assetList.Count > 0)
                                     {
-                                        StatusChanged?.Invoke($"[资源] {current}/{assetList.Count}");
+                                        double mapped = startProgress + (double)current / assetList.Count * (endProgress - startProgress);
+                                        // 只在整数百分比变化时报告，避免过度通知
+                                        int intProg = (int)mapped;
+                                        if (intProg != lastReported)
+                                        {
+                                            lastReported = intProg;
+                                            progress.Report(new DownloadProgressInfo
+                                            {
+                                                Progress = mapped,
+                                                Status = $"[资源] {current}/{assetList.Count}",
+                                                CurrentFile = string.Empty
+                                            });
+                                        }
                                     }
                                 }
                                 finally

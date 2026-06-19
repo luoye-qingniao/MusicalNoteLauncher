@@ -4,6 +4,8 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
+using System.Windows.Threading;
 using MusicalNoteLauncher.Core;
 
 namespace MusicalNoteLauncher.ViewModels
@@ -33,73 +35,73 @@ namespace MusicalNoteLauncher.ViewModels
         public string Status
         {
             get => _status;
-            set => SetProperty(ref _status, value);
+            set { SetProperty(ref _status, value, nameof(Status)); OnPropertyChanged(nameof(IsDownloading)); OnPropertyChanged(nameof(StatusIcon)); }
         }
 
         public double Progress
         {
             get => _progress;
-            set => SetProperty(ref _progress, value);
+            set { SetProperty(ref _progress, value, nameof(Progress)); OnPropertyChanged(nameof(ProgressText)); }
         }
 
         public long DownloadedBytes
         {
             get => _downloadedBytes;
-            set => SetProperty(ref _downloadedBytes, value);
+            set { SetProperty(ref _downloadedBytes, value, nameof(DownloadedBytes)); OnPropertyChanged(nameof(FileSize)); OnPropertyChanged(nameof(SizeText)); }
         }
 
         public long TotalBytes
         {
             get => _totalBytes;
-            set => SetProperty(ref _totalBytes, value);
+            set { SetProperty(ref _totalBytes, value, nameof(TotalBytes)); OnPropertyChanged(nameof(FileSize)); OnPropertyChanged(nameof(SizeText)); }
         }
 
         public string CurrentFile
         {
             get => _currentFile;
-            set => SetProperty(ref _currentFile, value);
+            set { SetProperty(ref _currentFile, value, nameof(CurrentFile)); OnPropertyChanged(nameof(FileName)); }
         }
 
         public string DownloadSpeed
         {
             get => _downloadSpeed;
-            set => SetProperty(ref _downloadSpeed, value);
+            set { SetProperty(ref _downloadSpeed, value, nameof(DownloadSpeed)); OnPropertyChanged(nameof(Speed)); }
         }
 
         public string RemainingTime
         {
             get => _remainingTime;
-            set => SetProperty(ref _remainingTime, value);
+            set { SetProperty(ref _remainingTime, value, nameof(RemainingTime)); }
         }
 
         public bool IsCompleted
         {
             get => _isCompleted;
-            set => SetProperty(ref _isCompleted, value);
+            set { SetProperty(ref _isCompleted, value, nameof(IsCompleted)); OnPropertyChanged(nameof(IsDownloading)); }
         }
 
         public bool IsFailed
         {
             get => _isFailed;
-            set => SetProperty(ref _isFailed, value);
+            set { SetProperty(ref _isFailed, value, nameof(IsFailed)); OnPropertyChanged(nameof(IsDownloading)); }
         }
 
         public bool IsCancelled
         {
             get => _isCancelled;
-            set => SetProperty(ref _isCancelled, value);
+            set { SetProperty(ref _isCancelled, value, nameof(IsCancelled)); OnPropertyChanged(nameof(IsDownloading)); }
         }
 
         public bool IsPaused
         {
             get => _isPaused;
-            set => SetProperty(ref _isPaused, value);
+            set { SetProperty(ref _isPaused, value, nameof(IsPaused)); OnPropertyChanged(nameof(IsDownloading)); }
         }
 
         public string ErrorMessage
         {
             get => _errorMessage;
-            set => SetProperty(ref _errorMessage, value);
+            set { SetProperty(ref _errorMessage, value, nameof(ErrorMessage)); }
         }
 
         public bool IsDownloading => !IsCompleted && !IsFailed && !IsCancelled && Status == "下载中";
@@ -110,12 +112,38 @@ namespace MusicalNoteLauncher.ViewModels
         private DateTime _startTime;
         private long _lastBytes;
         private DateTime _lastTime;
+        private long _lastFileTotal;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            var handler = PropertyChanged;
+            if (handler == null) return;
+
+            // PropertyChanged 由 WPF 绑定目标监听，必须在 UI 线程触发
+            Dispatcher dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null)
+            {
+                handler(this, new PropertyChangedEventArgs(propertyName));
+                return;
+            }
+            if (dispatcher.CheckAccess())
+            {
+                handler(this, new PropertyChangedEventArgs(propertyName));
+            }
+            else
+            {
+                try
+                {
+                    dispatcher.BeginInvoke(DispatcherPriority.DataBind,
+                        new Action(() => handler(this, new PropertyChangedEventArgs(propertyName))));
+                }
+                catch
+                {
+                    handler(this, new PropertyChangedEventArgs(propertyName));
+                }
+            }
         }
 
         protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
@@ -147,8 +175,9 @@ namespace MusicalNoteLauncher.ViewModels
 
             _cts = new CancellationTokenSource();
             _startTime = DateTime.Now;
-            _lastBytes = DownloadedBytes;
+            _lastBytes = 0;
             _lastTime = DateTime.Now;
+            _lastFileTotal = 0;
 
             Status = "下载中";
             IsCompleted = false;
@@ -209,9 +238,19 @@ namespace MusicalNoteLauncher.ViewModels
 
         private void OnProgressChanged(DownloadProgressInfo info)
         {
+            // 当文件切换（TotalBytes 发生变化或文件变小）时重置速度基准。
+            // 避免 "下载一个新文件时 bytesDelta 为负 -> 速度显示负数" 的问题。
+            long total = info.TotalBytes;
+            if (_lastFileTotal <= 0 || total != _lastFileTotal || info.DownloadedBytes < _lastBytes)
+            {
+                _lastFileTotal = total;
+                _lastBytes = info.DownloadedBytes;
+                _lastTime = DateTime.Now;
+            }
+
             Progress = info.Progress;
             DownloadedBytes = info.DownloadedBytes;
-            TotalBytes = info.TotalBytes;
+            TotalBytes = total;
             CurrentFile = info.CurrentFile;
 
             CalculateSpeedAndTime();
@@ -225,6 +264,13 @@ namespace MusicalNoteLauncher.ViewModels
             if (elapsed.TotalSeconds >= 1 && TotalBytes > 0)
             {
                 long bytesDelta = DownloadedBytes - _lastBytes;
+                if (bytesDelta < 0)
+                {
+                    // 文件切换导致 bytesDelta 异常，重置基准后下次再计算
+                    _lastBytes = DownloadedBytes;
+                    _lastTime = now;
+                    return;
+                }
                 double bytesPerSecond = bytesDelta / elapsed.TotalSeconds;
 
                 DownloadSpeed = FormatSpeed(bytesPerSecond);
@@ -243,6 +289,7 @@ namespace MusicalNoteLauncher.ViewModels
 
         private string FormatSpeed(double bytesPerSecond)
         {
+            if (bytesPerSecond < 0) bytesPerSecond = 0;
             if (bytesPerSecond < 1024)
                 return $"{bytesPerSecond:F1} B/s";
             if (bytesPerSecond < 1024 * 1024)
@@ -273,7 +320,7 @@ namespace MusicalNoteLauncher.ViewModels
 
             IsPaused = true;
             _cts?.Cancel();
-            Logger.Info($"[下载任务] 已暂停任务: {VersionId}");
+            Logger.Info($"[下载任务] 已暂停任务 {VersionId}");
         }
 
         public string ProgressText => $"{Progress:F1}%";

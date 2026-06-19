@@ -25,7 +25,8 @@ namespace MusicalNoteLauncher
         {
             InitializeComponent();
             _config = new ConfigManager();
-            AppContext.Initialize(username, isOfflineMode, config: _config);
+            string effectiveMcPath = _config.GetMinecraftPath();
+            AppContext.Initialize(username, isOfflineMode, minecraftPath: effectiveMcPath, config: _config);
             _launcherCore = new LauncherCore(_config);
             AppContext.NavigateRequested += pageKey => Dispatcher.Invoke(() => ShowPage(pageKey));
             Loaded += (s, e) => ShowPage("Home");
@@ -56,6 +57,8 @@ namespace MusicalNoteLauncher
                 case "DownloadTask": return new DownloadTaskPage();
                 case "Login": return new LoginPage();
                 case "RecommendDetail": return new RecommendDetailPage();
+                case "LoaderSelection": return new LoaderSelectionPage();
+                case "LoaderVersion": return new LoaderVersionPage();
                 default: return null;
             }
         }

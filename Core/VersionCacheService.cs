@@ -35,7 +35,7 @@ namespace MusicalNoteLauncher.Core
         {
             if (forceRefresh)
             {
-                Logger.Info("[版本缓存] 强制刷新模式，清除缓存...");
+                Logger.Info("[版本缓存] 强制刷新模式，清除缓�?..");
                 ClearCache();
             }
 
@@ -59,7 +59,7 @@ namespace MusicalNoteLauncher.Core
             if (_isLoaded && !forceRefresh)
             {
                 TimeSpan elapsed = DateTime.Now - _lastLoadTime;
-                Logger.Info($"[版本缓存] 缓存已加载 (距上次加载: {elapsed.TotalMinutes:F1}分钟前)，跳过重复加载");
+                Logger.Info($"[版本缓存] 缓存已加载(距上次加载 {elapsed.TotalMinutes:F1}分钟)，跳过重复加载");
                 return;
             }
 
@@ -102,7 +102,7 @@ namespace MusicalNoteLauncher.Core
                         }
                     }
 
-                    Logger.Info($"[版本缓存] 成功预加载 {_cachedVersions.Count} 个版本");
+                    Logger.Info($"[版本缓存] 成功预加载了 {_cachedVersions.Count} 个版本");
                     _isLoaded = true;
                     _lastLoadTime = DateTime.Now;
                     OnPropertyChanged(nameof(IsLoaded));
@@ -142,7 +142,7 @@ namespace MusicalNoteLauncher.Core
             OnPropertyChanged(nameof(IsLoaded));
             OnPropertyChanged(nameof(IsLoading));
             OnPropertyChanged(nameof(LastLoadTime));
-            Logger.Info("[版本缓存] 缓存已清除");
+            Logger.Info("[版本缓存] 缓存已清空");
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

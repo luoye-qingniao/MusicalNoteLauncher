@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -28,7 +28,7 @@ namespace MusicalNoteLauncher.Pages
         public GameVersionsPage()
         {
             InitializeComponent();
-            _minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+            _minecraftPath = AppContext.MinecraftPath;
             _downloadService = new VersionDownloadService(_minecraftPath);
             lvLatestVersions.ItemsSource = _latestVersions;
             icVersions.ItemsSource = _versionGroups;
@@ -176,7 +176,8 @@ namespace MusicalNoteLauncher.Pages
                         VersionType = info.Type,
                         ReleaseTime = info.ReleaseTime,
                         Status = isDownloaded ? "已下载" : "可下载",
-                        DownloadProgress = isDownloaded ? 100.0 : 0.0
+                        DownloadProgress = isDownloaded ? 100.0 : 0.0,
+                        DownloadUrl = info.Url
                     });
                 }
                 BindVersionData(items);
@@ -255,7 +256,7 @@ namespace MusicalNoteLauncher.Pages
         {
             try
             {
-                string versionDir = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft"), "versions", versionId);
+                string versionDir = Path.Combine(AppContext.MinecraftPath, "versions", versionId);
                 if (!Directory.Exists(versionDir))
                     return false;
                 string jsonPath = Path.Combine(versionDir, versionId + ".json");
@@ -268,7 +269,7 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
-        private async void BtnDownload_Click(object sender, RoutedEventArgs e)
+        private void BtnDownload_Click(object sender, RoutedEventArgs e)
         {
             Button btn = sender as Button;
             if (btn == null) return;
@@ -280,31 +281,15 @@ namespace MusicalNoteLauncher.Pages
 
             try
             {
-                item.Status = "下载中";
-                item.DownloadProgress = 0.0;
-
-                var downloader = new VersionDownloader(_minecraftPath);
-                downloader.ShowDialog();
-
-                VersionScanService.Instance.ScanAsync("下载窗口关闭");
-                
-                bool isDownloaded = CheckVersionDownloaded(item.VersionId);
-                if (isDownloaded)
-                {
-                    item.Status = "已下载";
-                    item.DownloadProgress = 100.0;
-                }
-                else
-                {
-                    item.Status = "可下载";
-                    item.DownloadProgress = 0.0;
-                }
+                AppContext.SelectedGameVersion = item.VersionId;
+                AppContext.SelectedGameVersionUrl = item.DownloadUrl;
+                AppContext.SelectedLoaderType = null;
+                AppContext.NavigateTo("LoaderSelection");
             }
             catch (Exception ex)
             {
-                Logger.Error("[下载] 启动下载失败: " + ex.Message);
-                item.Status = "可下载";
-                item.DownloadProgress = 0.0;
+                Logger.Error("[下载] 跳转至加载器选择页失败: " + ex.Message);
+                MessageBox.Show("打开失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -399,7 +384,8 @@ namespace MusicalNoteLauncher.Pages
                         VersionType = versionType,
                         ReleaseTime = releaseTime,
                         Status = "已下载",
-                        DownloadProgress = 100.0
+                        DownloadProgress = 100.0,
+                        DownloadUrl = "installed"
                     };
                 }
             }
@@ -442,7 +428,7 @@ namespace MusicalNoteLauncher.Pages
             try
             {
                 Logger.Info("[游戏启动] 尝试启动版本: " + item.VersionId);
-                string minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+                string minecraftPath = AppContext.MinecraftPath;
                 var javaConfig = new JavaConfigManager(minecraftPath);
                 new GameLauncher(minecraftPath, javaConfig).LaunchGameAsync(item.VersionId, "Player", 2048, 4096, "", true, SettingsManager.Settings.Resolution, false).ContinueWith(task =>
                 {
@@ -467,7 +453,7 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
-        private void BtnDeleteVersion_Click(object sender, RoutedEventArgs e)
+        private async void BtnDeleteVersion_Click(object sender, RoutedEventArgs e)
         {
             Button button = sender as Button;
             if (button == null) return;
@@ -477,22 +463,41 @@ namespace MusicalNoteLauncher.Pages
 
             if (MessageBox.Show($"确定要删除版本 {versionItem.VersionId} 吗？\n此操作将删除该版本的所有文件，且无法撤销。", "确认删除", MessageBoxButton.OKCancel, MessageBoxImage.Exclamation) == MessageBoxResult.OK)
             {
-                DeleteVersion(versionItem.VersionId);
+                await DeleteVersion(versionItem.VersionId);
             }
         }
 
-        private async void DeleteVersion(string versionId)
+        private async Task DeleteVersion(string versionId)
         {
             try
             {
-                string versionDir = Path.Combine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft"), "versions", versionId);
+                string versionDir = Path.Combine(AppContext.MinecraftPath, "versions", versionId);
                 if (Directory.Exists(versionDir))
                 {
                     Directory.Delete(versionDir, true);
                     Logger.Info("[版本删除] 成功删除版本: " + versionId);
-                    RefreshDownloadPageStatus(versionId);
-                    VersionScanService.Instance.ScanAsync("删除版本后刷新");
                 }
+
+                // 1. 从已安装版本列表中移除（同时清理缓存和显示列表，不依赖异步扫描事件）
+                foreach (var group in _installedVersionGroups.ToList())
+                {
+                    group.RemoveVersion(versionId);
+                    // 如果组内没有版本了，也移除整个组
+                    if (!group.HasVersions)
+                    {
+                        _installedVersionGroups.Remove(group);
+                    }
+                }
+
+                // 2. 更新下载页版本状态
+                RefreshDownloadPageStatus(versionId);
+
+                // 3. 清除扫描缓存并重新扫描（确保状态同步）
+                VersionScanService.Instance.ClearCache();
+                await VersionScanService.Instance.ScanAsync("删除版本后刷新");
+
+                // 4. 重新加载已安装版本列表，确保UI完全同步
+                LoadInstalledVersionsAsync();
             }
             catch (Exception ex)
             {

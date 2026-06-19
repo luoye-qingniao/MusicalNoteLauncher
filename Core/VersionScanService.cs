@@ -127,10 +127,53 @@ namespace MusicalNoteLauncher.Core
                         string jsonFile = Path.Combine(dir, $"{versionId}.json");
                         string jarFile = Path.Combine(dir, $"{versionId}.jar");
 
-                        if (!File.Exists(jsonFile) || !File.Exists(jarFile))
+                        // 必须有 JSON 文件
+                        if (!File.Exists(jsonFile))
                         {
-                            Logger.Info($"[版本扫描] [序号:{sequence}] 跳过无效Java版本: {versionId} (缺少jar或json文件)");
+                            Logger.Info($"[版本扫描] [序号:{sequence}] 跳过无效Java版本: {versionId} (缺少json文件)");
                             continue;
+                        }
+
+                        // JAR 文件检查：如果是继承版本（如 Fabric/Forge/NeoForge），不需要自己的 jar
+                        bool hasJar = File.Exists(jarFile);
+                        bool isInheritsVersion = false;
+                        if (!hasJar)
+                        {
+                            try
+                            {
+                                string jsonContent = File.ReadAllText(jsonFile);
+                                using (var doc = JsonDocument.Parse(jsonContent))
+                                {
+                                    if (doc.RootElement.TryGetProperty("inheritsFrom", out var inh))
+                                    {
+                                        string parent = inh.GetString();
+                                        if (!string.IsNullOrEmpty(parent))
+                                        {
+                                            string parentJar = Path.Combine(_minecraftPath, "versions", parent, $"{parent}.jar");
+                                            if (File.Exists(parentJar))
+                                            {
+                                                isInheritsVersion = true;
+                                                Logger.Info($"[版本扫描] [序号:{sequence}] 发现继承版本: {versionId} (继承自 {parent})");
+                                            }
+                                            else
+                                            {
+                                                Logger.Info($"[版本扫描] [序号:{sequence}] 跳过无效继承版本: {versionId} (父版本 {parent} 的jar不存在)");
+                                                continue;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Warning($"[版本扫描] [序号:{sequence}] 解析版本JSON失败: {versionId}, 错误: {ex.Message}");
+                            }
+
+                            if (!isInheritsVersion)
+                            {
+                                Logger.Info($"[版本扫描] [序号:{sequence}] 跳过无效Java版本: {versionId} (缺少jar文件且无inheritsFrom)");
+                                continue;
+                            }
                         }
 
                         var versionInfo = ParseJavaVersionInfo(jsonFile, versionId);

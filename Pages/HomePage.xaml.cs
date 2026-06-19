@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management;
@@ -35,7 +35,7 @@ namespace MusicalNoteLauncher.Pages
             
             _username = AppContext.Username ?? "Player";
             _isOfflineMode = AppContext.IsOfflineMode;
-            _minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+            _minecraftPath = AppContext.MinecraftPath;
 
             var javaConfig = new JavaConfigManager(_minecraftPath);
             _gameLauncher = new GameLauncher(_minecraftPath, javaConfig);

@@ -115,8 +115,18 @@ namespace MusicalNoteLauncher.Pages
                     Button btn = obj as Button;
                     if (btn != null)
                     {
-                        btn.Background = ((btn == button) ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")) : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D")));
-                        btn.Foreground = ((btn == button) ? Brushes.White : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAAAAA")));
+                        if (btn == button)
+                        {
+                            btn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"));
+                            btn.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1976D2"));
+                            btn.Foreground = Brushes.White;
+                        }
+                        else
+                        {
+                            btn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D"));
+                            btn.BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A"));
+                            btn.Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAAAAA"));
+                        }
                     }
                 }
                 LoadModsByCategory(_currentCategory);

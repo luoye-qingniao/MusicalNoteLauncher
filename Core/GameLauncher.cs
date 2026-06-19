@@ -1,4 +1,4 @@
-using System;
+﻿﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -500,6 +500,7 @@ namespace MusicalNoteLauncher.Core
                     }
 
                     Log($"[Java] Java版本检查:");
+                    int detectedJavaMajor = 0;
                     try
                     {
                         var javaVersionInfo = new ProcessStartInfo
@@ -514,6 +515,12 @@ namespace MusicalNoteLauncher.Core
                         {
                             string javaVersion = proc.StandardError.ReadToEnd();
                             proc.WaitForExit();
+                            // 解析主版本号，如 "java version \"21.0.1\" 2023-10-17 LTS"
+                            var match = System.Text.RegularExpressions.Regex.Match(javaVersion, @"version\s+""(\d+)");
+                            if (match.Success && int.TryParse(match.Groups[1].Value, out int major))
+                            {
+                                detectedJavaMajor = major;
+                            }
                             foreach (var line in javaVersion.Split('\n').Take(3))
                             {
                                 if (!string.IsNullOrWhiteSpace(line))
@@ -580,6 +587,36 @@ namespace MusicalNoteLauncher.Core
                     if (versionInfo.TryGetProperty("inheritsFrom", out var inheritsElement))
                     {
                         Log($"[版本] 继承自: {inheritsElement.GetString()}");
+                    }
+
+                    // 检测版本所需的最低 Java 版本
+                    int requiredJavaMajor = 0;
+                    if (versionInfo.TryGetProperty("javaVersion", out var javaVersionElement))
+                    {
+                        if (javaVersionElement.TryGetProperty("majorVersion", out var majorEl))
+                        {
+                            requiredJavaMajor = majorEl.GetInt32();
+                            Log($"[Java] 版本要求: 需要 Java {requiredJavaMajor}（来自版本JSON）");
+                        }
+                        else
+                        {
+                            string versionStr = javaVersionElement.GetString();
+                            if (!string.IsNullOrEmpty(versionStr))
+                            {
+                                var m = System.Text.RegularExpressions.Regex.Match(versionStr, @"(\d+)");
+                                if (m.Success && int.TryParse(m.Groups[1].Value, out int v))
+                                {
+                                    requiredJavaMajor = v;
+                                    Log($"[Java] 版本要求: 需要 Java {requiredJavaMajor}（来自版本JSON）");
+                                }
+                            }
+                        }
+                    }
+
+                    if (requiredJavaMajor > 0 && detectedJavaMajor > 0 && detectedJavaMajor < requiredJavaMajor)
+                    {
+                        Log($"[警告] 当前 Java 版本 ({detectedJavaMajor}) 低于版本要求 ({requiredJavaMajor})，可能导致游戏启动失败！");
+                        Log($"[警告] 建议安装 Java {requiredJavaMajor} 或更高版本");
                     }
 
                     Log("【步骤4.5】提取Natives库...");
@@ -666,7 +703,6 @@ namespace MusicalNoteLauncher.Core
                     ProcessStartInfo startInfo = new ProcessStartInfo
                     {
                         FileName = validatedJavaPath,
-                        Arguments = launchInfo.FullCommand,
                         WorkingDirectory = workingDir,
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
@@ -675,6 +711,17 @@ namespace MusicalNoteLauncher.Core
                         StandardOutputEncoding = Encoding.UTF8,
                         StandardErrorEncoding = Encoding.UTF8
                     };
+
+                    if (launchInfo.ArgumentList != null && launchInfo.ArgumentList.Count > 0)
+                    {
+                        startInfo.Arguments = BuildArgumentString(launchInfo.ArgumentList);
+                        Log($"[启动] 使用参数列表模式传递 {launchInfo.ArgumentList.Count} 个参数（避免含空格参数被错误拆分）");
+                    }
+                    else
+                    {
+                        startInfo.Arguments = launchInfo.FullCommand;
+                        Log($"[启动] 使用字符串模式传递命令（fallback）");
+                    }
 
                     _gameProcess = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
 
@@ -949,13 +996,23 @@ namespace MusicalNoteLauncher.Core
                     {
                         if (downloads.TryGetProperty("classifiers", out JsonElement classifiers))
                         {
-                            // 检查windows natives
-                            if (classifiers.TryGetProperty("natives-windows", out JsonElement windowsNative))
+                            // 检查 windows natives：1.21+ 使用 natives-windows-x64，之前版本使用 natives-windows-amd64
+                            if (classifiers.TryGetProperty("natives-windows-amd64", out _))
+                            {
+                                isNatives = true;
+                                classifier = "natives-windows-amd64";
+                            }
+                            else if (classifiers.TryGetProperty("natives-windows-x64", out _))
+                            {
+                                isNatives = true;
+                                classifier = "natives-windows-x64";
+                            }
+                            else if (classifiers.TryGetProperty("natives-windows", out _))
                             {
                                 isNatives = true;
                                 classifier = "natives-windows";
                             }
-                            else if (classifiers.TryGetProperty("natives-windows-64", out JsonElement windows64Native))
+                            else if (classifiers.TryGetProperty("natives-windows-64", out _))
                             {
                                 isNatives = true;
                                 classifier = "natives-windows-64";
@@ -1412,15 +1469,51 @@ namespace MusicalNoteLauncher.Core
                 return false;
             }
 
-            if (!File.Exists(jarFile))
-            {
-                Log($"Jar文件不存在: {jarFile}");
-                return false;
-            }
-
             if (!File.Exists(jsonFile))
             {
                 Log($"JSON文件不存在: {jsonFile}");
+                return false;
+            }
+
+            // 检查是否有 inheritsFrom（Fabric/Forge/NeoForge 等加载器版本）
+            // 这类版本没有自己的独立 jar 文件，它们的 jar 来自继承的父版本
+            string inheritsFrom = null;
+            try
+            {
+                string jsonContent = File.ReadAllText(jsonFile);
+                using (JsonDocument doc = JsonDocument.Parse(jsonContent))
+                {
+                    if (doc.RootElement.TryGetProperty("inheritsFrom", out var inhProp))
+                    {
+                        inheritsFrom = inhProp.GetString();
+                    }
+                }
+            }
+            catch { }
+
+            if (!string.IsNullOrEmpty(inheritsFrom))
+            {
+                // 这是一个继承版本（如 Fabric），通过 FindMainJarPath 沿继承链查找主 jar（支持多级继承）
+                Log($"[版本] {versionId} 是继承版本，继承自: {inheritsFrom}");
+                string parentJar = FindMainJarPath(versionId, "[版本]");
+                string parentJson = Path.Combine(_minecraftPath, "versions", inheritsFrom, $"{inheritsFrom}.json");
+                if (parentJar == null)
+                {
+                    Log($"[版本] 错误: 无法在继承链中找到主 jar 文件。请确保原版 {inheritsFrom} 版本已正确安装（包含 jar 和 json）。");
+                    return false;
+                }
+                if (!File.Exists(parentJson))
+                {
+                    Log($"[版本] 警告: 父版本 {inheritsFrom} 的 json 文件不存在: {parentJson}");
+                }
+                Log($"版本 {versionId} 继承校验通过（使用主 JAR: {parentJar}）");
+                return true;
+            }
+
+            // 普通版本，需要自己的 jar
+            if (!File.Exists(jarFile))
+            {
+                Log($"Jar文件不存在: {jarFile}");
                 return false;
             }
 
@@ -1428,16 +1521,340 @@ namespace MusicalNoteLauncher.Core
             return true;
         }
 
+        /// <summary>
+        /// 沿 inheritsFrom 链查找主 JAR 文件路径。支持 Fabric/Forge/NeoForge 等继承版本。
+        /// 返回找到的 JAR 路径，如果都找不到则返回 null。
+        /// </summary>
+        private string FindMainJarPath(string versionId, string logPrefix = "[CP]")
+        {
+            // 先找当前版本的 jar
+            string jarPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
+            if (File.Exists(jarPath))
+            {
+                return jarPath;
+            }
+
+            // 当前版本没有 jar，检查 inheritsFrom，递归查找父版本的 jar
+            string currentCheck = versionId;
+            int checkDepth = 0;
+            while (checkDepth < 10)
+            {
+                string jsonPath = Path.Combine(_minecraftPath, "versions", currentCheck, $"{currentCheck}.json");
+                if (!File.Exists(jsonPath)) break;
+
+                try
+                {
+                    string jsonContent = File.ReadAllText(jsonPath);
+                    using (var doc = JsonDocument.Parse(jsonContent))
+                    {
+                        if (!doc.RootElement.TryGetProperty("inheritsFrom", out var inh))
+                        {
+                            break;
+                        }
+                        string parent = inh.GetString();
+                        if (string.IsNullOrEmpty(parent)) break;
+
+                        string parentJar = Path.Combine(_minecraftPath, "versions", parent, $"{parent}.jar");
+                        if (File.Exists(parentJar))
+                        {
+                            Log($"{logPrefix} 使用继承版本的主JAR: {parent}");
+                            return parentJar;
+                        }
+                        currentCheck = parent;
+                    }
+                }
+                catch
+                {
+                    break;
+                }
+                checkDepth++;
+            }
+
+            return null;
+        }
+
         private JsonElement LoadVersionInfo(string versionId)
         {
             try
             {
-                string jsonPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.json");
-                string jsonContent = File.ReadAllText(jsonPath);
+                // 收集继承链上的所有版本 JSON（从当前版本到最顶层的父版本）
+                var chain = new List<JsonDocument>();
+                string currentId = versionId;
+                var visited = new HashSet<string>();
+                int depth = 0;
+                const int maxDepth = 10;
 
-                using (JsonDocument doc = JsonDocument.Parse(jsonContent))
+                while (!string.IsNullOrEmpty(currentId) && depth < maxDepth)
                 {
-                    return doc.RootElement.Clone();
+                    if (!visited.Add(currentId))
+                    {
+                        Log($"[版本] 警告: 检测到循环继承: {currentId}，已停止");
+                        break;
+                    }
+
+                    string jsonPath = Path.Combine(_minecraftPath, "versions", currentId, $"{currentId}.json");
+                    if (!File.Exists(jsonPath))
+                    {
+                        Log($"[版本] 警告: 继承链中的版本 JSON 不存在: {jsonPath}");
+                        break;
+                    }
+
+                    string jsonContent = File.ReadAllText(jsonPath);
+                    var doc = JsonDocument.Parse(jsonContent);
+                    chain.Add(doc);
+
+                    // 检查是否有 inheritsFrom
+                    if (doc.RootElement.TryGetProperty("inheritsFrom", out var inhProp))
+                    {
+                        string next = inhProp.GetString();
+                        if (!string.IsNullOrEmpty(next))
+                        {
+                            Log($"[版本] {currentId} 继承自: {next}");
+                            currentId = next;
+                            depth++;
+                            continue;
+                        }
+                    }
+                    break;
+                }
+
+                if (chain.Count == 1)
+                {
+                    // 没有继承关系，直接返回原始 JSON
+                    var result = chain[0].RootElement.Clone();
+                    chain[0].Dispose();
+                    Log($"[版本] 版本 JSON 加载成功（无继承）");
+                    return result;
+                }
+
+                // 合并继承链：libraries 合并（子版本覆盖父版本同名校），其他属性子版本覆盖父版本
+                // chain[0] 是当前版本，chain[1] 是父版本，chain[2] 是祖父版本...
+                Log($"[版本] 合并继承链，共 {chain.Count} 个版本");
+
+                using (var mergedStream = new MemoryStream())
+                using (var writer = new Utf8JsonWriter(mergedStream))
+                {
+                    writer.WriteStartObject();
+
+                    var currentDoc = chain[0];
+
+                    // 收集所有库文件（从最底层父版本到当前版本，后处理的同名库覆盖先处理的）
+                    var allLibraries = new List<JsonElement>();
+                    var libNameSet = new HashSet<string>(StringComparer.Ordinal);
+
+                    // 从最顶层父版本开始，最后是当前版本，这样当前版本的同名库会覆盖父版本
+                    for (int i = chain.Count - 1; i >= 0; i--)
+                    {
+                        var doc = chain[i];
+                        if (doc.RootElement.TryGetProperty("libraries", out var libs))
+                        {
+                            foreach (var lib in libs.EnumerateArray())
+                            {
+                                string libName = null;
+                                if (lib.TryGetProperty("name", out var nameProp))
+                                {
+                                    libName = nameProp.GetString();
+                                }
+
+                                if (!string.IsNullOrEmpty(libName))
+                                {
+                                    if (libNameSet.Contains(libName))
+                                    {
+                                        // 移除已有的旧条目
+                                        allLibraries.RemoveAll(l =>
+                                        {
+                                            if (l.TryGetProperty("name", out var ln))
+                                            {
+                                                return ln.GetString() == libName;
+                                            }
+                                            return false;
+                                        });
+                                    }
+                                    libNameSet.Add(libName);
+                                }
+                                allLibraries.Add(lib.Clone());
+                            }
+                        }
+                    }
+
+                    // mainClass - 当前版本优先，父版本补充
+                    string finalMainClass = null;
+                    for (int i = 0; i < chain.Count; i++)
+                    {
+                        if (chain[i].RootElement.TryGetProperty("mainClass", out var mc))
+                        {
+                            finalMainClass = mc.GetString();
+                            if (!string.IsNullOrEmpty(finalMainClass)) break;
+                        }
+                    }
+
+                    // inheritsFrom - 保留当前版本的
+                    string finalInheritsFrom = null;
+                    if (currentDoc.RootElement.TryGetProperty("inheritsFrom", out var inh))
+                    {
+                        finalInheritsFrom = inh.GetString();
+                    }
+
+                    // assetIndex - 当前版本优先
+                    JsonElement finalAssetIndex = default;
+                    for (int i = 0; i < chain.Count; i++)
+                    {
+                        if (chain[i].RootElement.TryGetProperty("assetIndex", out var ai))
+                        {
+                            finalAssetIndex = ai.Clone();
+                            break;
+                        }
+                    }
+
+                    // arguments - 合并所有版本的 jvm 和 game（父版本在前，子版本在后）
+                    var jvmArgsList = new List<JsonElement>();
+                    var gameArgsList = new List<JsonElement>();
+                    for (int i = chain.Count - 1; i >= 0; i--)
+                    {
+                        if (chain[i].RootElement.TryGetProperty("arguments", out var args))
+                        {
+                            if (args.TryGetProperty("jvm", out var jvmArr))
+                            {
+                                foreach (var a in jvmArr.EnumerateArray())
+                                {
+                                    jvmArgsList.Add(a.Clone());
+                                }
+                            }
+                            if (args.TryGetProperty("game", out var gameArr))
+                            {
+                                foreach (var a in gameArr.EnumerateArray())
+                                {
+                                    gameArgsList.Add(a.Clone());
+                                }
+                            }
+                        }
+                    }
+
+                    // downloads - 当前版本优先
+                    JsonElement finalDownloads = default;
+                    for (int i = 0; i < chain.Count; i++)
+                    {
+                        if (chain[i].RootElement.TryGetProperty("downloads", out var dl))
+                        {
+                            finalDownloads = dl.Clone();
+                            break;
+                        }
+                    }
+
+                    // id - 使用当前版本的 id
+                    if (currentDoc.RootElement.TryGetProperty("id", out var idProp))
+                    {
+                        writer.WriteString("id", idProp.GetString());
+                    }
+                    else
+                    {
+                        writer.WriteString("id", versionId);
+                    }
+
+                    // inheritsFrom
+                    if (!string.IsNullOrEmpty(finalInheritsFrom))
+                    {
+                        writer.WriteString("inheritsFrom", finalInheritsFrom);
+                    }
+
+                    // 其他简单属性 - 从当前版本优先，父版本补充
+                    string[] simpleProps = { "type", "releaseTime", "time", "minimumLauncherVersion", "complianceLevel" };
+                    foreach (var prop in simpleProps)
+                    {
+                        if (currentDoc.RootElement.TryGetProperty(prop, out var val))
+                        {
+                            writer.WritePropertyName(prop);
+                            val.WriteTo(writer);
+                        }
+                        else
+                        {
+                            for (int i = 1; i < chain.Count; i++)
+                            {
+                                if (chain[i].RootElement.TryGetProperty(prop, out var pval))
+                                {
+                                    writer.WritePropertyName(prop);
+                                    pval.WriteTo(writer);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // mainClass
+                    if (!string.IsNullOrEmpty(finalMainClass))
+                    {
+                        writer.WriteString("mainClass", finalMainClass);
+                    }
+
+                    // assetIndex
+                    if (finalAssetIndex.ValueKind != JsonValueKind.Undefined)
+                    {
+                        writer.WritePropertyName("assetIndex");
+                        finalAssetIndex.WriteTo(writer);
+                    }
+
+                    // downloads
+                    if (finalDownloads.ValueKind != JsonValueKind.Undefined)
+                    {
+                        writer.WritePropertyName("downloads");
+                        finalDownloads.WriteTo(writer);
+                    }
+
+                    // libraries - 合并后的完整库列表
+                    writer.WritePropertyName("libraries");
+                    writer.WriteStartArray();
+                    foreach (var lib in allLibraries)
+                    {
+                        lib.WriteTo(writer);
+                    }
+                    writer.WriteEndArray();
+                    Log($"[版本] 合并后共 {allLibraries.Count} 个库文件");
+
+                    // arguments - 合并后的参数
+                    if (jvmArgsList.Count > 0 || gameArgsList.Count > 0)
+                    {
+                        writer.WritePropertyName("arguments");
+                        writer.WriteStartObject();
+
+                        if (jvmArgsList.Count > 0)
+                        {
+                            writer.WritePropertyName("jvm");
+                            writer.WriteStartArray();
+                            foreach (var a in jvmArgsList)
+                            {
+                                a.WriteTo(writer);
+                            }
+                            writer.WriteEndArray();
+                        }
+
+                        if (gameArgsList.Count > 0)
+                        {
+                            writer.WritePropertyName("game");
+                            writer.WriteStartArray();
+                            foreach (var a in gameArgsList)
+                            {
+                                a.WriteTo(writer);
+                            }
+                            writer.WriteEndArray();
+                        }
+
+                        writer.WriteEndObject();
+                    }
+
+                    writer.WriteEndObject();
+                    writer.Flush();
+
+                    mergedStream.Position = 0;
+                    var mergedDoc = JsonDocument.Parse(mergedStream);
+
+                    // 释放原始文档
+                    foreach (var doc in chain)
+                    {
+                        doc.Dispose();
+                    }
+
+                    Log($"[版本] 版本 JSON 加载并合并成功（继承链共 {chain.Count} 层）");
+                    return mergedDoc.RootElement.Clone();
                 }
             }
             catch (Exception ex)
@@ -1475,7 +1892,7 @@ namespace MusicalNoteLauncher.Core
 
             BuildGameArgs(launchInfo, versionId, versionInfo, username, offlineMode, additionalArgs, resolution);
 
-            launchInfo.FullCommand = await BuildFullCommandAsync(launchInfo.JvmArgs, classpath, mainClass, launchInfo.GameArgs);
+            launchInfo.FullCommand = await BuildFullCommandAsync(launchInfo.JvmArgs, classpath, mainClass, launchInfo.GameArgs, launchInfo);
 
             await ValidateLaunchInfoAsync(launchInfo);
 
@@ -1489,7 +1906,52 @@ namespace MusicalNoteLauncher.Core
             return launchInfo;
         }
 
-        private async Task<string> BuildFullCommandAsync(List<string> jvmArgs, string classpath, string mainClass, List<string> gameArgs)
+        private string BuildArgumentString(List<string> args)
+        {
+            if (args == null || args.Count == 0)
+                return string.Empty;
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < args.Count; i++)
+            {
+                if (i > 0)
+                    sb.Append(' ');
+
+                string arg = args[i] ?? string.Empty;
+
+                if (arg.Length == 0 || arg.IndexOfAny(new char[] { ' ', '\t', '"', '\n', '\r' }) >= 0)
+                {
+                    sb.Append('"');
+                    for (int j = 0; j < arg.Length; j++)
+                    {
+                        int numBackslashes = 0;
+                        while (j < arg.Length && arg[j] == '\\')
+                        {
+                            numBackslashes++;
+                            j++;
+                        }
+                        if (j < arg.Length && arg[j] == '"')
+                        {
+                            sb.Append('\\', numBackslashes * 2 + 1);
+                            sb.Append('"');
+                        }
+                        else
+                        {
+                            sb.Append('\\', numBackslashes);
+                            if (j < arg.Length)
+                                sb.Append(arg[j]);
+                        }
+                    }
+                    sb.Append('"');
+                }
+                else
+                {
+                    sb.Append(arg);
+                }
+            }
+            return sb.ToString();
+        }
+        private async Task<string> BuildFullCommandAsync(List<string> jvmArgs, string classpath, string mainClass, List<string> gameArgs, LaunchInfo launchInfo)
         {
             Log($"[CMD] ============== 开始构建启动命令 ==============");
             Log($"[CMD] 类路径长度: {classpath.Length}");
@@ -1583,6 +2045,8 @@ namespace MusicalNoteLauncher.Core
             finalArgs.Add(mainClass);
             finalArgs.AddRange(gameArgs);
             
+            launchInfo.ArgumentList = finalArgs;
+            
             Log($"[CMD] 参数列表总数量: {finalArgs.Count}");
             Log($"[CMD] 参数列表内容: {string.Join(" | ", finalArgs)}");
             
@@ -1658,7 +2122,8 @@ namespace MusicalNoteLauncher.Core
             AddArg("-XX:+AlwaysPreTouch");
             AddArg("-XX:+ParallelRefProcEnabled");
 
-            string jarPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
+            // 主 JAR 路径：优先使用当前版本的 jar；如果不存在且有 inheritsFrom，使用父版本的 jar
+            string jarPath = FindMainJarPath(versionId, "[JVM]");
             AddArg($"-Dminecraft.client.jar={jarPath}");
             AddArg("-Dminecraft.launcher.brand=MusicalNoteLauncher");
             AddArg("-Dminecraft.launcher.version=1.0");
@@ -1708,8 +2173,128 @@ namespace MusicalNoteLauncher.Core
                             AddArg(argStr);
                         }
                     }
+                    else if (arg.ValueKind == JsonValueKind.Object)
+                    {
+                        // 处理带 rules 的对象参数（1.21+ 中常见）
+                        if (!EvaluateArgumentRules(arg))
+                            continue;
+
+                        if (arg.TryGetProperty("value", out JsonElement value))
+                        {
+                            // value 可能是字符串或数组
+                            if (value.ValueKind == JsonValueKind.String)
+                            {
+                                string argStr = value.GetString();
+                                if (argStr.Contains("${natives_directory}"))
+                                    argStr = argStr.Replace("${natives_directory}", nativesDir);
+                                if (argStr.Contains("${launcher_name}"))
+                                    argStr = argStr.Replace("${launcher_name}", "MusicalNoteLauncher");
+                                if (argStr.Contains("${launcher_version}"))
+                                    argStr = argStr.Replace("${launcher_version}", "1.0");
+                                if (argStr.Contains("${classpath}"))
+                                    continue;
+                                if (!string.IsNullOrWhiteSpace(argStr) && !argStr.StartsWith("-Djava.library.path") &&
+                                    !argStr.StartsWith("-Dminecraft.client.jar") &&
+                                    !argStr.StartsWith("-Dminecraft.launcher"))
+                                {
+                                    AddArg(argStr);
+                                }
+                            }
+                            else if (value.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var v in value.EnumerateArray())
+                                {
+                                    if (v.ValueKind == JsonValueKind.String)
+                                    {
+                                        string argStr = v.GetString();
+                                        if (argStr.Contains("${natives_directory}"))
+                                            argStr = argStr.Replace("${natives_directory}", nativesDir);
+                                        if (argStr.Contains("${launcher_name}"))
+                                            argStr = argStr.Replace("${launcher_name}", "MusicalNoteLauncher");
+                                        if (argStr.Contains("${launcher_version}"))
+                                            argStr = argStr.Replace("${launcher_version}", "1.0");
+                                        if (argStr.Contains("${classpath}"))
+                                            continue;
+                                        if (!string.IsNullOrWhiteSpace(argStr) && !argStr.StartsWith("-Djava.library.path") &&
+                                            !argStr.StartsWith("-Dminecraft.client.jar") &&
+                                            !argStr.StartsWith("-Dminecraft.launcher"))
+                                        {
+                                            AddArg(argStr);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
+        }
+
+        // 评估一个带 rules 的参数对象，返回是否应被包含
+        private bool EvaluateArgumentRules(JsonElement arg)
+        {
+            if (!arg.TryGetProperty("rules", out JsonElement rules))
+                return true; // 没有 rules 默认包含
+
+            // 默认不包含，只有当有 allow 规则且满足时才包含
+            bool allowed = false;
+
+            foreach (JsonElement rule in rules.EnumerateArray())
+            {
+                string action = null;
+                if (rule.TryGetProperty("action", out JsonElement actionEl))
+                    action = actionEl.GetString();
+
+                // 检查 os 规则
+                bool osMatch = true;
+                if (rule.TryGetProperty("os", out JsonElement os))
+                {
+                    osMatch = false;
+                    if (os.TryGetProperty("name", out JsonElement osName))
+                    {
+                        if (osName.GetString() == "windows")
+                            osMatch = true;
+                    }
+                    if (os.TryGetProperty("arch", out JsonElement archName))
+                    {
+                        string arch = archName.GetString();
+                        // Windows 64 位 x86_64；如果指定为 x86 则在 64 位系统上不匹配
+                        if (arch == "x86" && Environment.Is64BitOperatingSystem)
+                            osMatch = false;
+                        if (arch == "x86_64" && !Environment.Is64BitOperatingSystem)
+                            osMatch = false;
+                    }
+                }
+
+                // 检查 features 规则（如 "has_custom_resolution"）
+                if (rule.TryGetProperty("features", out JsonElement features))
+                {
+                    // features 通常是一个对象 { "key": true }，在离线模式下总是通过
+                    // 只要 features 存在且不是明确禁止的，就认为满足
+                    bool allFeaturesMatched = true;
+                    foreach (var feat in features.EnumerateObject())
+                    {
+                        if (feat.Value.ValueKind == JsonValueKind.True)
+                        {
+                            // 默认允许所有 feature
+                        }
+                        else if (feat.Value.ValueKind == JsonValueKind.False)
+                        {
+                            allFeaturesMatched = false;
+                            break;
+                        }
+                    }
+                    if (!allFeaturesMatched)
+                        continue;
+                }
+
+                if (action == "allow" && osMatch)
+                    allowed = true;
+                else if (action == "disallow" && osMatch)
+                    allowed = false;
+            }
+
+            return allowed;
         }
 
         private void BuildGameArgs(LaunchInfo launchInfo, string versionId, JsonElement versionInfo, 
@@ -1803,6 +2388,72 @@ namespace MusicalNoteLauncher.Core
                                     else
                                     {
                                         Log($"[参数] 跳过JSON中的重复参数: {key}");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else if (arg.ValueKind == JsonValueKind.Object)
+                    {
+                        // 处理带 rules 的对象参数
+                        if (!EvaluateArgumentRules(arg))
+                            continue;
+
+                        if (arg.TryGetProperty("value", out JsonElement value))
+                        {
+                            var argsFromObject = new List<string>();
+                            if (value.ValueKind == JsonValueKind.String)
+                            {
+                                string s = ReplaceArgumentPlaceholders(value.GetString(), versionId, username, uuid, accessToken, assetIndexId);
+                                argsFromObject.Add(s);
+                            }
+                            else if (value.ValueKind == JsonValueKind.Array)
+                            {
+                                foreach (var v in value.EnumerateArray())
+                                {
+                                    if (v.ValueKind == JsonValueKind.String)
+                                    {
+                                        string s = ReplaceArgumentPlaceholders(v.GetString(), versionId, username, uuid, accessToken, assetIndexId);
+                                        argsFromObject.Add(s);
+                                    }
+                                }
+                            }
+
+                            // 解析每个字符串，处理 key 和 value
+                            for (int i = 0; i < argsFromObject.Count; i++)
+                            {
+                                string s = argsFromObject[i];
+                                if (string.IsNullOrWhiteSpace(s))
+                                    continue;
+
+                                if (s.StartsWith("--") && !s.Contains(" "))
+                                {
+                                    // 这是一个 key，下一个元素可能是 value
+                                    string key = s;
+                                    if (!argsDict.ContainsKey(key))
+                                    {
+                                        if (i + 1 < argsFromObject.Count && !argsFromObject[i + 1].StartsWith("--"))
+                                        {
+                                            argsDict[key] = argsFromObject[i + 1].Trim('"');
+                                            i++;
+                                        }
+                                        else
+                                        {
+                                            argsDict[key] = "";
+                                        }
+                                    }
+                                }
+                                else if (s.StartsWith("--"))
+                                {
+                                    // "--key value" 格式
+                                    string[] parts = s.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+                                    if (parts.Length >= 1)
+                                    {
+                                        string key = parts[0];
+                                        if (!argsDict.ContainsKey(key))
+                                        {
+                                            argsDict[key] = parts.Length > 1 ? string.Join(" ", parts.Skip(1)).Trim('"') : "";
+                                        }
                                     }
                                 }
                             }
@@ -1908,7 +2559,7 @@ namespace MusicalNoteLauncher.Core
                     {
                         Log($"[修复] 移除重复的--version参数...");
                         launchInfo.GameArgs = RemoveDuplicateArgs(launchInfo.GameArgs, "--version");
-                        launchInfo.FullCommand = await BuildFullCommandAsync(launchInfo.JvmArgs, launchInfo.Classpath, launchInfo.MainClass, launchInfo.GameArgs);
+                        launchInfo.FullCommand = await BuildFullCommandAsync(launchInfo.JvmArgs, launchInfo.Classpath, launchInfo.MainClass, launchInfo.GameArgs, launchInfo);
                         Log($"[修复] 重复参数已移除");
                     }
                 }
@@ -1980,16 +2631,21 @@ namespace MusicalNoteLauncher.Core
         {
             List<string> classpathList = new List<string>();
 
-            string jarPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
-            if (File.Exists(jarPath))
+            // 主 JAR 路径：优先使用当前版本的 jar；如果不存在且有 inheritsFrom，使用父版本的 jar
+            string jarPath = FindMainJarPath(versionId, "[CP]");
+
+            if (jarPath != null)
             {
                 classpathList.Add(jarPath);
                 Log($"[CP] 添加主JAR: {jarPath}");
             }
             else
             {
-                Log($"[CP] 错误: 主JAR不存在: {jarPath}");
-                throw new FileNotFoundException($"游戏主JAR文件不存在: {jarPath}");
+                string expectedJar = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
+                Log($"[CP] 错误: 主JAR不存在: {expectedJar}");
+                Log($"[CP]   如果这是 Fabric/Forge/NeoForge 等继承版本，请确保父版本（如 1.21）的 jar 文件存在。");
+                Log($"[CP]   解决方法：先下载原版 {versionId} 基础版本（即 inheritsFrom 指向的版本），再启动本版本。");
+                throw new FileNotFoundException($"游戏主JAR文件不存在: {expectedJar}。如果这是加载器版本（Fabric/Forge/NeoForge），请先安装原版 {versionId} 版本。");
             }
 
             if (versionInfo.TryGetProperty("libraries", out JsonElement libraries))
@@ -2132,26 +2788,17 @@ namespace MusicalNoteLauncher.Core
                 bool hasX86 = classifiers.TryGetProperty("natives-windows-x86", out _);
                 bool hasArm64 = classifiers.TryGetProperty("natives-windows-arm64", out _);
 
-                // 仅保留 natives-windows-amd64 架构的库
-                if (hasX86)
-                {
-                    return false;
-                }
-
-                if (hasArm64)
-                {
-                    return false;
-                }
-
-                // 确保只有 natives-windows-amd64 的库才被允许
-                if ((hasX86 || hasArm64) && !hasAmd64)
-                {
-                    return false;
-                }
-
+                // 1.21+ 使用 natives-windows-x64，之前版本使用 natives-windows-amd64
+                // 只要存在 amd64 或 x64 的 classifier，就允许该库进入类路径
                 if (hasAmd64 || hasX64)
                 {
                     return true;
+                }
+
+                // 只有 x86 或 arm64 的 natives，则在 64 位 Windows 上过滤
+                if (hasX86 || hasArm64)
+                {
+                    return false;
                 }
             }
 
@@ -2451,10 +3098,11 @@ namespace MusicalNoteLauncher.Core
             string lowerPath = path.ToLower();
             int score = 0;
 
-            if (lowerPath.Contains("jdk-17") || lowerPath.Contains("jdk17") || lowerPath.Contains("java17"))
+            // 1.21+ 需要 Java 21，因此 Java 21 优先级最高
+            if (lowerPath.Contains("jdk-21") || lowerPath.Contains("jdk21") || lowerPath.Contains("java21"))
+                score = 120;
+            else if (lowerPath.Contains("jdk-17") || lowerPath.Contains("jdk17") || lowerPath.Contains("java17"))
                 score = 100;
-            else if (lowerPath.Contains("jdk-21") || lowerPath.Contains("jdk21") || lowerPath.Contains("java21"))
-                score = 90;
             else if (lowerPath.Contains("jdk-11") || lowerPath.Contains("jdk11") || lowerPath.Contains("java11"))
                 score = 50;
             else if (lowerPath.Contains("jdk1.8") || lowerPath.Contains("java8") || lowerPath.Contains("jdk-8"))
@@ -2555,5 +3203,6 @@ namespace MusicalNoteLauncher.Core
         public List<string> JvmArgs { get; set; } = new List<string>();
         public List<string> GameArgs { get; set; } = new List<string>();
         public string FullCommand { get; set; }
+        public List<string> ArgumentList { get; set; } = new List<string>();
     }
 }

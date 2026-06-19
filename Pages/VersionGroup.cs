@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -53,6 +53,32 @@ namespace MusicalNoteLauncher.Pages
         public void SetCachedVersions(List<VersionItem> versions)
         {
             _cachedVersions = versions;
+        }
+
+        public bool RemoveVersion(string versionId)
+        {
+            bool removed = false;
+            // 从缓存列表中移除
+            if (_cachedVersions != null)
+            {
+                int removedCount = _cachedVersions.RemoveAll(v => v.VersionId == versionId);
+                if (removedCount > 0) removed = true;
+            }
+            // 从显示列表中移除
+            for (int i = Versions.Count - 1; i >= 0; i--)
+            {
+                if (Versions[i].VersionId == versionId)
+                {
+                    Versions.RemoveAt(i);
+                    removed = true;
+                }
+            }
+            return removed;
+        }
+
+        public bool HasVersions
+        {
+            get { return (_cachedVersions != null && _cachedVersions.Count > 0) || Versions.Count > 0; }
         }
 
         private async void LoadVersionsAsync()

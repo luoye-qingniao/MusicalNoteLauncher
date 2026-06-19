@@ -20,7 +20,7 @@ namespace MusicalNoteLauncher.Core
         public event Action<string, string> RepairCompleted;
         public event Action<string, string> RepairFailed;
         public event Action<int, string> DownloadProgressChanged;
-        public event Action<DownloadProgressInfo> DownloadProgressInfoChanged;  // 新增：完整进度信息事件
+        public event Action<DownloadProgressInfo> DownloadProgressInfoChanged;
 
         private static readonly string[] _libraryMirrors = new[]
         {
@@ -36,7 +36,6 @@ namespace MusicalNoteLauncher.Core
 
         private const int MaxRetryAttempts = 3;
 
-        // 用于速度计算的时间戳和字节数
         private long _lastBytesReceived = 0;
         private DateTime _lastProgressTime = DateTime.Now;
 
@@ -110,7 +109,7 @@ namespace MusicalNoteLauncher.Core
 
                     if (missingJar)
                     {
-                        StatusChanged?.Invoke($"[修复] 正在下载主JAR文件...");
+                        StatusChanged?.Invoke("[修复] 正在下载主JAR文件...");
                         await DownloadMainJarAsync(versionId, versionInfo, (progress) =>
                         {
                             int overallProgress = (int)((repaired + progress * 0.5) / total * 100);
@@ -173,7 +172,7 @@ namespace MusicalNoteLauncher.Core
 
                 ProgressChanged?.Invoke(0);
                 DownloadProgressChanged?.Invoke(0, "下载JSON配置: 0%");
-                StatusChanged?.Invoke($"[1/7] 下载JSON配置文件...");
+                StatusChanged?.Invoke("[1/7] 下载JSON配置文件...");
                 await DownloadFileWithRetryAsync(versionUrl, jsonFile, 0, 5, cancellationToken);
                 ProgressChanged?.Invoke(5);
                 DownloadProgressChanged?.Invoke(5, "JSON下载完成");
@@ -220,7 +219,7 @@ namespace MusicalNoteLauncher.Core
                 DownloadProgressChanged?.Invoke(55, "Natives解压完成");
 
                 string jarUrl = await GetJarDownloadUrlAsync(versionInfo, cancellationToken);
-                StatusChanged?.Invoke($"[6/7] 下载主JAR文件...");
+                StatusChanged?.Invoke("[6/7] 下载主JAR文件...");
                 await DownloadFileWithRetryAsync(jarUrl, jarFile, 55, 100, cancellationToken);
                 ProgressChanged?.Invoke(100);
                 DownloadProgressChanged?.Invoke(100, "[7/7] 下载完成!");
@@ -233,7 +232,7 @@ namespace MusicalNoteLauncher.Core
             catch (OperationCanceledException)
             {
                 result.ErrorMessage = "下载已取消";
-                StatusChanged?.Invoke($"[警告] 下载已取消");
+                StatusChanged?.Invoke("[警告] 下载已取消");
             }
             catch (Exception ex)
             {
@@ -266,7 +265,18 @@ namespace MusicalNoteLauncher.Core
 
         private async Task<string> GetJarDownloadUrlAsync(JsonElement versionInfo, CancellationToken cancellationToken)
         {
-            if (versionInfo.TryGetProperty("downloads", out JsonElement downloads) &&
+            JsonElement effectiveInfo = versionInfo;
+            string parentId = GetInheritsFrom(versionInfo);
+            if (!string.IsNullOrEmpty(parentId))
+            {
+                JsonElement parentInfo = LoadVersionInfo(parentId);
+                if (parentInfo.ValueKind != JsonValueKind.Undefined)
+                {
+                    effectiveInfo = parentInfo;
+                }
+            }
+
+            if (effectiveInfo.TryGetProperty("downloads", out JsonElement downloads) &&
                 downloads.TryGetProperty("client", out JsonElement client) &&
                 client.TryGetProperty("url", out JsonElement urlElement))
             {
@@ -381,7 +391,6 @@ namespace MusicalNoteLauncher.Core
                             {
                                 client.Headers.Add(HttpRequestHeader.UserAgent, _userAgent);
                                 
-                                // 添加实时进度回调
                                 client.DownloadProgressChanged += (sender, e) =>
                                 {
                                     if (e.TotalBytesToReceive > 0)
@@ -389,7 +398,6 @@ namespace MusicalNoteLauncher.Core
                                         double fileProgress = (double)e.BytesReceived / e.TotalBytesToReceive;
                                         int overallProgress = progressStart + (int)(fileProgress * (progressEnd - progressStart));
                                         
-                                        // 计算下载速度
                                         DateTime now = DateTime.Now;
                                         TimeSpan timeDiff = now - _lastProgressTime;
                                         long bytesDiff = e.BytesReceived - _lastBytesReceived;
@@ -400,17 +408,14 @@ namespace MusicalNoteLauncher.Core
                                             speedBps = bytesDiff / timeDiff.TotalSeconds;
                                         }
                                         
-                                        // 更新时间戳和字节数
                                         _lastProgressTime = now;
                                         _lastBytesReceived = e.BytesReceived;
                                         
-                                        // 格式化大小和速度
                                         string downloadedSize = FileSizeFormatter.FormatFileSize(e.BytesReceived);
                                         string totalSize = FileSizeFormatter.FormatFileSize(e.TotalBytesToReceive);
                                         string speed = FileSizeFormatter.FormatSpeed(speedBps);
                                         string fileName = Path.GetFileName(savePath);
                                         
-                                        // 触发完整进度信息事件
                                         DownloadProgressInfoChanged?.Invoke(new DownloadProgressInfo
                                         {
                                             Progress = (double)overallProgress,
@@ -423,14 +428,12 @@ namespace MusicalNoteLauncher.Core
                                             CurrentFile = fileName
                                         });
                                         
-                                        // 保持原有事件兼容性
                                         ProgressChanged?.Invoke(overallProgress);
                                         DownloadProgressChanged?.Invoke(overallProgress, $"正在下载: {fileName} ({downloadedSize}/{totalSize} @ {speed})");
                                     }
                                 };
 
                                 var downloadTask = client.DownloadFileTaskAsync(new Uri(fullUrl), savePath);
-                                // 使用 Task.WhenAny 实现取消支持（兼容 .NET Framework 4.8）
                                 var completedTask = await Task.WhenAny(downloadTask, Task.Delay(-1, cancellationToken));
                                 if (completedTask != downloadTask)
                                 {
@@ -465,17 +468,64 @@ namespace MusicalNoteLauncher.Core
             return false;
         }
 
+        private string GetInheritsFrom(JsonElement versionInfo)
+        {
+            if (versionInfo.TryGetProperty("inheritsFrom", out JsonElement inheritsElement))
+            {
+                string value = inheritsElement.GetString();
+                if (!string.IsNullOrEmpty(value))
+                {
+                    return value;
+                }
+            }
+            return null;
+        }
+
         private async Task<bool> CheckMainJarAsync(string versionId, JsonElement versionInfo, CancellationToken cancellationToken)
         {
             string jarFile = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
-            return await Task.FromResult(!File.Exists(jarFile));
+            if (File.Exists(jarFile))
+            {
+                return await Task.FromResult(false);
+            }
+
+            string parentId = GetInheritsFrom(versionInfo);
+            if (!string.IsNullOrEmpty(parentId))
+            {
+                string parentJar = Path.Combine(_minecraftPath, "versions", parentId, $"{parentId}.jar");
+                if (File.Exists(parentJar))
+                {
+                    return await Task.FromResult(false);
+                }
+
+                JsonElement parentInfo = LoadVersionInfo(parentId);
+                if (parentInfo.ValueKind != JsonValueKind.Undefined)
+                {
+                    return await CheckMainJarAsync(parentId, parentInfo, cancellationToken);
+                }
+            }
+
+            return await Task.FromResult(true);
         }
 
         private async Task DownloadMainJarAsync(string versionId, JsonElement versionInfo, Action<double> progressCallback, CancellationToken cancellationToken)
         {
-            string jarFile = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
+            JsonElement effectiveInfo = versionInfo;
+            string targetVersionId = versionId;
+            string parentId = GetInheritsFrom(versionInfo);
+            if (!string.IsNullOrEmpty(parentId))
+            {
+                JsonElement parentInfo = LoadVersionInfo(parentId);
+                if (parentInfo.ValueKind != JsonValueKind.Undefined)
+                {
+                    effectiveInfo = parentInfo;
+                    targetVersionId = parentId;
+                }
+            }
 
-            if (versionInfo.TryGetProperty("downloads", out JsonElement downloads) &&
+            string jarFile = Path.Combine(_minecraftPath, "versions", targetVersionId, $"{targetVersionId}.jar");
+
+            if (effectiveInfo.TryGetProperty("downloads", out JsonElement downloads) &&
                 downloads.TryGetProperty("client", out JsonElement client) &&
                 client.TryGetProperty("url", out JsonElement urlElement))
             {
@@ -615,14 +665,35 @@ namespace MusicalNoteLauncher.Core
 
         private async Task<bool> ValidateIntegrityAsync(string versionId, JsonElement versionInfo, CancellationToken cancellationToken)
         {
-            // 使用版本独立的natives目录
-            string versionPath = Path.Combine(_minecraftPath, "versions", versionId);
-            string nativesDir = Path.Combine(versionPath, $"{versionId}-natives");
+            string effectiveVersionId = versionId;
+            JsonElement effectiveInfo = versionInfo;
+
+            string parentId = GetInheritsFrom(versionInfo);
+            if (!string.IsNullOrEmpty(parentId))
+            {
+                JsonElement parentInfo = LoadVersionInfo(parentId);
+                if (parentInfo.ValueKind != JsonValueKind.Undefined)
+                {
+                    effectiveVersionId = parentId;
+                    effectiveInfo = parentInfo;
+                }
+            }
+
+            string versionPath = Path.Combine(_minecraftPath, "versions", effectiveVersionId);
+            string nativesDir = Path.Combine(versionPath, $"{effectiveVersionId}-natives");
 
             if (!Directory.Exists(nativesDir))
             {
-                Logger.Warning($"[校验] natives目录不存在: {nativesDir}");
-                return false;
+                string fallbackDir = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}-natives");
+                if (Directory.Exists(fallbackDir))
+                {
+                    nativesDir = fallbackDir;
+                }
+                else
+                {
+                    Logger.Warning($"[校验] natives目录不存在: {nativesDir}");
+                    return false;
+                }
             }
 
             string[] dllFiles = Directory.GetFiles(nativesDir, "*.dll");
@@ -686,9 +757,22 @@ namespace MusicalNoteLauncher.Core
 
         private async Task ReExtractNativesAsync(string versionId, JsonElement versionInfo, CancellationToken cancellationToken)
         {
-            // 使用版本独立的natives目录，避免版本冲突
-            string versionPath = Path.Combine(_minecraftPath, "versions", versionId);
-            string nativesDir = Path.Combine(versionPath, $"{versionId}-natives");
+            string effectiveVersionId = versionId;
+            JsonElement effectiveInfo = versionInfo;
+
+            string parentId = GetInheritsFrom(versionInfo);
+            if (!string.IsNullOrEmpty(parentId))
+            {
+                JsonElement parentInfo = LoadVersionInfo(parentId);
+                if (parentInfo.ValueKind != JsonValueKind.Undefined)
+                {
+                    effectiveVersionId = parentId;
+                    effectiveInfo = parentInfo;
+                }
+            }
+
+            string versionPath = Path.Combine(_minecraftPath, "versions", effectiveVersionId);
+            string nativesDir = Path.Combine(versionPath, $"{effectiveVersionId}-natives");
             nativesDir = Path.GetFullPath(nativesDir);
 
             await Task.Run(() =>
@@ -707,9 +791,9 @@ namespace MusicalNoteLauncher.Core
                         Directory.CreateDirectory(nativesDir);
                     }
 
-                    string nativeClassifier = GetNativeClassifier(versionInfo);
+                    string nativeClassifier = GetNativeClassifier(effectiveInfo);
 
-                    if (versionInfo.TryGetProperty("libraries", out JsonElement libraries))
+                    if (effectiveInfo.TryGetProperty("libraries", out JsonElement libraries))
                     {
                         foreach (JsonElement library in libraries.EnumerateArray())
                         {
@@ -761,7 +845,6 @@ namespace MusicalNoteLauncher.Core
                 {
                     foreach (var entry in zipArchive.Entries)
                     {
-                        // 只提取根目录下的 .dll 文件，忽略子文件夹（如 META-INF）
                         if (!entry.FullName.Contains("/") && entry.Name.EndsWith(".dll", StringComparison.OrdinalIgnoreCase))
                         {
                             string destFilePath = Path.Combine(destDir, entry.Name);
@@ -864,13 +947,118 @@ namespace MusicalNoteLauncher.Core
 
                 using (JsonDocument doc = JsonDocument.Parse(jsonContent))
                 {
-                    return doc.RootElement.Clone();
+                    JsonElement root = doc.RootElement;
+                    string parentId = GetInheritsFrom(root);
+
+                    if (string.IsNullOrEmpty(parentId))
+                    {
+                        return root.Clone();
+                    }
+
+                    JsonElement parentInfo = LoadVersionInfo(parentId);
+                    if (parentInfo.ValueKind == JsonValueKind.Undefined)
+                    {
+                        return root.Clone();
+                    }
+
+                    return MergeVersionInfo(root, parentInfo, versionId);
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error($"[版本信息] 读取失败: {ex.Message}");
                 return default;
+            }
+        }
+
+        private JsonElement MergeVersionInfo(JsonElement current, JsonElement parent, string currentVersionId)
+        {
+            using (var ms = new MemoryStream())
+            {
+                using (var writer = new Utf8JsonWriter(ms))
+                {
+                    writer.WriteStartObject();
+
+                    writer.WriteString("id", currentVersionId);
+
+                    if (current.TryGetProperty("inheritsFrom", out JsonElement inheritsElement))
+                    {
+                        writer.WritePropertyName("inheritsFrom");
+                        inheritsElement.WriteTo(writer);
+                    }
+
+                    string[] stringProps = { "mainClass", "minecraftArguments", "type", "releaseTime", "time", "assetIndex", "assets" };
+                    foreach (var prop in stringProps)
+                    {
+                        if (current.TryGetProperty(prop, out JsonElement curVal))
+                        {
+                            writer.WritePropertyName(prop);
+                            curVal.WriteTo(writer);
+                        }
+                        else if (parent.TryGetProperty(prop, out JsonElement parVal))
+                        {
+                            writer.WritePropertyName(prop);
+                            parVal.WriteTo(writer);
+                        }
+                    }
+
+                    if (current.TryGetProperty("arguments", out JsonElement argsCur))
+                    {
+                        writer.WritePropertyName("arguments");
+                        argsCur.WriteTo(writer);
+                    }
+                    else if (parent.TryGetProperty("arguments", out JsonElement argsPar))
+                    {
+                        writer.WritePropertyName("arguments");
+                        argsPar.WriteTo(writer);
+                    }
+
+                    if (current.TryGetProperty("downloads", out JsonElement dlCur) &&
+                        dlCur.TryGetProperty("client", out _))
+                    {
+                        writer.WritePropertyName("downloads");
+                        dlCur.WriteTo(writer);
+                    }
+                    else if (parent.TryGetProperty("downloads", out JsonElement dlPar))
+                    {
+                        writer.WritePropertyName("downloads");
+                        dlPar.WriteTo(writer);
+                    }
+                    else if (current.TryGetProperty("downloads", out JsonElement dlCurFallback))
+                    {
+                        writer.WritePropertyName("downloads");
+                        dlCurFallback.WriteTo(writer);
+                    }
+
+                    writer.WritePropertyName("libraries");
+                    writer.WriteStartArray();
+
+                    if (parent.TryGetProperty("libraries", out JsonElement parentLibs))
+                    {
+                        foreach (JsonElement lib in parentLibs.EnumerateArray())
+                        {
+                            lib.WriteTo(writer);
+                        }
+                    }
+
+                    if (current.TryGetProperty("libraries", out JsonElement currentLibs))
+                    {
+                        foreach (JsonElement lib in currentLibs.EnumerateArray())
+                        {
+                            lib.WriteTo(writer);
+                        }
+                    }
+
+                    writer.WriteEndArray();
+
+                    writer.WriteEndObject();
+                }
+
+                ms.Position = 0;
+                using (JsonDocument mergedDoc = JsonDocument.Parse(ms.ToArray()))
+                {
+                    return mergedDoc.RootElement.Clone();
+                }
             }
         }
 
