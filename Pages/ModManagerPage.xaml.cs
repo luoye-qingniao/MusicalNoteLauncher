@@ -20,11 +20,32 @@ namespace MusicalNoteLauncher.Pages
             InitializeComponent();
             _config = new ConfigManager();
             Loaded += OnLoaded;
+            Unloaded += OnUnloaded;
+            VersionScanService.Instance.ScanCompleted += OnVersionScanCompleted;
+        }
+
+        private void OnUnloaded(object sender, RoutedEventArgs e)
+        {
+            VersionScanService.Instance.ScanCompleted -= OnVersionScanCompleted;
+        }
+
+        private void OnVersionScanCompleted(VersionScanResult result)
+        {
+            // 扫描完成后用 UI 线程重新填充下拉框与模组列表
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                PopulateVersionComboBox();
+                LoadMods();
+            }));
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // 先尽可能用当前缓存填充（如果有），保证进入页面能立即显示
             CheckModLoaderAndUpdateUI();
+
+            // 同时触发一次异步扫描：确保已安装版本列表是最新的
+            _ = VersionScanService.Instance.ScanAsync("模组管理页面加载");
         }
 
         private void CheckModLoaderAndUpdateUI()
@@ -54,6 +75,9 @@ namespace MusicalNoteLauncher.Pages
                 }
             }
 
+            // 填充版本切换下拉框
+            PopulateVersionComboBox();
+
             if (_detectedLoaders.Count == 0)
             {
                 if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Visible;
@@ -70,6 +94,107 @@ namespace MusicalNoteLauncher.Pages
                 txtLoaderInfo.Text = "（已检测到：" + string.Join(", ", names) + "）";
             }
             LoadMods();
+        }
+
+        private void PopulateVersionComboBox()
+        {
+            if (cmbVersion == null) return;
+
+            string currentVersion = _config.GameVersion ?? "";
+            cmbVersion.SelectionChanged -= CmbVersion_SelectionChanged;
+
+            cmbVersion.Items.Clear();
+
+            // 优先使用 VersionScanService 的缓存；如果缓存为空（比如首次进入页面），
+            // 直接从磁盘的 versions 目录同步读取一次，保证下拉框能立即显示版本。
+            var installedVersions = VersionScanService.Instance.GetInstalledJavaVersions();
+            if (installedVersions == null || installedVersions.Count == 0)
+            {
+                installedVersions = ScanVersionsFallback();
+            }
+
+            // 添加 "全局" 选项（使用 .minecraft/mods 目录）
+            cmbVersion.Items.Add("全局");
+            foreach (var version in installedVersions)
+            {
+                if (!cmbVersion.Items.Contains(version))
+                    cmbVersion.Items.Add(version);
+            }
+
+            // 将当前版本也加入列表（即使未安装）
+            if (!string.IsNullOrEmpty(currentVersion) && !cmbVersion.Items.Contains(currentVersion))
+            {
+                cmbVersion.Items.Add(currentVersion);
+            }
+
+            // 选中当前版本
+            if (!string.IsNullOrEmpty(currentVersion) && cmbVersion.Items.Contains(currentVersion))
+            {
+                cmbVersion.SelectedItem = currentVersion;
+            }
+            else
+            {
+                cmbVersion.SelectedItem = "全局";
+            }
+
+            cmbVersion.SelectionChanged += CmbVersion_SelectionChanged;
+        }
+
+        /// <summary>
+        /// 直接从 versions 目录读取已安装版本名，不需要依赖 VersionScanService 的缓存。
+        /// 作为首次进入页面时的兜底逻辑。
+        /// </summary>
+        private List<string> ScanVersionsFallback()
+        {
+            var result = new List<string>();
+            try
+            {
+                string minecraftPath = _config.GetMinecraftPath();
+                if (string.IsNullOrEmpty(minecraftPath)) return result;
+
+                string versionsDir = Path.Combine(minecraftPath, "versions");
+                if (!Directory.Exists(versionsDir)) return result;
+
+                foreach (var dir in Directory.GetDirectories(versionsDir))
+                {
+                    string dirName = Path.GetFileName(dir);
+                    // 只保留看起来像版本目录的（目录内必须存在相同名称的 .json 或 .jar 文件）
+                    string json = Path.Combine(dir, dirName + ".json");
+                    string jar = Path.Combine(dir, dirName + ".jar");
+                    if (File.Exists(json) || File.Exists(jar))
+                    {
+                        result.Add(dirName);
+                    }
+                }
+
+                result.Sort((a, b) => string.Compare(b, a, StringComparison.Ordinal));
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning("[模组管理] 回退扫描版本失败: " + ex.Message);
+            }
+            return result;
+        }
+
+        private bool _suppressVersionChange;
+        private void CmbVersion_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressVersionChange || cmbVersion.SelectedItem == null) return;
+
+            string selectedVersion = cmbVersion.SelectedItem.ToString();
+
+            if (selectedVersion == "全局")
+            {
+                _config.GameVersion = "";
+            }
+            else
+            {
+                _config.GameVersion = selectedVersion;
+            }
+
+            _suppressVersionChange = true;
+            CheckModLoaderAndUpdateUI();
+            _suppressVersionChange = false;
         }
 
         private string GetModsDirectory()
@@ -366,7 +491,24 @@ namespace MusicalNoteLauncher.Pages
         {
             if (sender is Button btn && btn.Tag is string loaderType)
             {
-                NavigateToLoaderSelection(loaderType);
+                string gameVersion = _config.GameVersion;
+                if (string.IsNullOrEmpty(gameVersion))
+                {
+                    if (MessageBox.Show(
+                            "当前未设置游戏版本，无法继续安装模组加载器。\n是否前往【游戏版本】页面选择一个版本？",
+                            "未选择游戏版本",
+                            MessageBoxButton.YesNo,
+                            MessageBoxImage.Information) == MessageBoxResult.Yes)
+                    {
+                        AppContext.NavigateTo("GameVersions");
+                    }
+                    return;
+                }
+
+                AppContext.SelectedGameVersion = gameVersion;
+                // 设置 loaderType 让 LoaderSelection 页面知道要预选哪个加载器
+                AppContext.SelectedLoaderType = loaderType;
+                AppContext.NavigateTo("LoaderSelection");
             }
         }
 

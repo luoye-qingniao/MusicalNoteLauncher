@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -76,6 +76,9 @@ namespace MusicalNoteLauncher.Pages
 
         private CancellationTokenSource _cancellation;
 
+        // 来自 ModManagerPage 的加载器类型提示（仅设置类型，尚未选版本）
+        private string _pendingAutoNavigateLoaderType;
+
         public LoaderSelectionPage()
         {
             _forgeInstaller = new ForgeInstaller(_mcPath);
@@ -114,6 +117,12 @@ namespace MusicalNoteLauncher.Pages
                 _selectedLoaders[type] = AppContext.SelectedLoaderVersion;
                 AppContext.SelectedLoaderType = null;
                 AppContext.SelectedLoaderVersion = null;
+            }
+            else if (!string.IsNullOrEmpty(type))
+            {
+                // 来自 ModManagerPage 的加载器安装提示：先记录，等版本列表加载完后自动跳转
+                _pendingAutoNavigateLoaderType = type;
+                AppContext.SelectedLoaderType = null;
             }
 
             SetIcon(imgForge, "Forge");
@@ -163,6 +172,7 @@ namespace MusicalNoteLauncher.Pages
                 UpdateCardAfterFetch("NeoForge", AppContext.NeoForgeVersions);
                 UpdateCardAfterFetch("OptiFine", AppContext.OptiFineVersions);
                 RefreshAllCards();
+                TryAutoNavigateToLoader();
                 return;
             }
 
@@ -239,6 +249,26 @@ namespace MusicalNoteLauncher.Pages
             // 在 UI 线程更新这张卡片的状态（已选状态由 RefreshAllCards 里的 UpdateCardState 处理）
             UpdateCardAfterFetch(loaderKey, list);
             RefreshAllCards();
+            TryAutoNavigateToLoader();
+        }
+
+        /// <summary>
+        /// 如果有来自 ModManagerPage 的待处理加载器类型提示，且对应加载器已有可用版本，则自动跳转到版本选择页
+        /// </summary>
+        private void TryAutoNavigateToLoader()
+        {
+            if (_pendingAutoNavigateLoaderType == null) return;
+
+            var loaderType = _pendingAutoNavigateLoaderType;
+            if (_fetchInProgress.TryGetValue(loaderType, out var inProgress) && inProgress) return;
+
+            // 清除待处理标记（无论有无版本，只尝试一次）
+            _pendingAutoNavigateLoaderType = null;
+
+            if (_hasAvailableVersions.TryGetValue(loaderType, out var hasVer) && hasVer)
+            {
+                GoToLoaderVersionPage(loaderType);
+            }
         }
 
         private async Task<List<T>> SafeGetAsync<T>(Func<Task<List<T>>> fetch)

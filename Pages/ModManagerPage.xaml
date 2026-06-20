@@ -127,14 +127,25 @@
 		<!-- ========== 顶部标题栏 ========== -->
 		<Border Grid.Row="0" Background="#2D2D2D" Padding="24,18">
 			<Grid>
-				<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition Width="Auto"/>
+					<ColumnDefinition Width="Auto"/>
+					<ColumnDefinition Width="*"/>
+				</Grid.ColumnDefinitions>
+
+				<StackPanel Grid.Column="0" VerticalAlignment="Center" Orientation="Horizontal">
 					<Border Background="#2196F3" CornerRadius="4" Width="4" Height="26" VerticalAlignment="Center" Margin="0,0,14,0" />
 					<StackPanel VerticalAlignment="Center">
 						<TextBlock Text="模组管理" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
-						<TextBlock Name="txtLoaderInfo" FontSize="12" Foreground="#AAAAAA" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" />
+						<TextBlock Name="txtLoaderInfo" FontSize="12" Foreground="#AAAAAA" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" MaxWidth="500" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
 					</StackPanel>
 				</StackPanel>
-				<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+
+				<!-- 版本切换 -->
+				<ComboBox Grid.Column="1" Name="cmbVersion" Width="120" Margin="20,0,0,0" VerticalAlignment="Center"
+						  Style="{StaticResource ModernComboBox}" SelectionChanged="CmbVersion_SelectionChanged"/>
+
+				<StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
 					<Button Name="btnRefresh" Content="🔄 刷新" Style="{StaticResource CardButtonStyle}" Margin="0,0,10,0" Click="BtnRefresh_Click" Padding="14,8" />
 					<Button Name="btnChangeLoader" Content="安装 / 切换加载器" Style="{StaticResource PrimaryButtonStyle}" Padding="14,8" Click="BtnOpenLoaderSelection_Click" />
 				</StackPanel>
@@ -180,8 +191,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#2196F3" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="🔧" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border Background="#3A3A3A" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
+									<Image Source="pack://application:,,,/提取的模组加载器图标/Anvil.png" Stretch="Uniform" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="Forge" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
@@ -213,8 +224,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#2ECC71" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="🧵" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border Background="#3A3A3A" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
+									<Image Source="pack://application:,,,/提取的模组加载器图标/Fabric.png" Stretch="Uniform" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="Fabric" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
@@ -246,8 +257,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#9B59B6" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="🆕" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border Background="#3A3A3A" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
+									<Image Source="pack://application:,,,/提取的模组加载器图标/NeoForge.png" Stretch="Uniform" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="NeoForge" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
@@ -279,8 +290,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#F39C12" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="✨" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border Background="#3A3A3A" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
+									<Image Source="pack://application:,,,/提取的模组加载器图标/GrassPath.png" Stretch="Uniform" Width="34" Height="34" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="OptiFine" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
