@@ -1,0 +1,19 @@
+{
+  "AutoLogin": false,
+  "MinimizeToTray": false,
+  "CheckUpdate": true,
+  "ShowSplash": true,
+  "HardwareAcceleration": true,
+  "GamePath": "%appdata%\\.minecraft",
+  "MaxMemory": 4096,
+  "MinMemory": 2048,
+  "Resolution": "1920x1080",
+  "Fullscreen": false,
+  "JavaPath": "",
+  "JavaArgs": "-XX:\u002BUnlockExperimentalVMOptions -XX:\u002BUseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M",
+  "DownloadThreads": 64,
+  "DownloadPath": "",
+  "AutoInstallDependencies": true,
+  "EnableVersionIsolation": false,
+  "ToolDownloadVersion": 0
+}

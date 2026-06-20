@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "MusicalNoteLauncher (Debug)",
+            "type": "clr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/MusicalNoteLauncher-main/bin/Debug/net48/MusicalNoteLauncher.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}/MusicalNoteLauncher-main",
+            "stopAtEntry": false
+        }
+    ]
+}
