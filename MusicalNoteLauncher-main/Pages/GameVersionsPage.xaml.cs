@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,18 +22,29 @@ namespace MusicalNoteLauncher.Pages
         private readonly string _minecraftPath;
         private bool _isLoading;
         private bool _isInstalledLoading;
+        private bool _isLatestLoaded;
+        private bool _isInstalledLoaded;
+        private bool _isBedrockLoaded;
         private ObservableCollection<VersionItem> _latestVersions = new ObservableCollection<VersionItem>();
         private ObservableCollection<VersionGroup> _versionGroups = new ObservableCollection<VersionGroup>();
         private ObservableCollection<VersionGroup> _installedVersionGroups = new ObservableCollection<VersionGroup>();
+
+        // [增量新增] 基岩版相关
+        private ObservableCollection<BedrockVersionGroup> _bedrockVersionGroups = new ObservableCollection<BedrockVersionGroup>();
+        private BedrockEnhancedDownloadService _bedrockService;
+        private CancellationTokenSource _bedrockCts;
+        private bool _bedrockIsDownloading;
 
         public GameVersionsPage()
         {
             InitializeComponent();
             _minecraftPath = AppContext.MinecraftPath;
             _downloadService = new VersionDownloadService(_minecraftPath);
+            _bedrockService = new BedrockEnhancedDownloadService(_minecraftPath);
             lvLatestVersions.ItemsSource = _latestVersions;
             icVersions.ItemsSource = _versionGroups;
             icInstalledVersions.ItemsSource = _installedVersionGroups;
+            icBedrockVersions.ItemsSource = _bedrockVersionGroups;
             VersionTabControl.SelectionChanged += VersionTabControl_SelectionChanged;
             Loaded += GameVersionsPage_Loaded;
             VersionScanService.Instance.ScanCompleted += OnVersionScanCompleted;
@@ -112,8 +124,29 @@ namespace MusicalNoteLauncher.Pages
         private async void GameVersionsPage_Loaded(object sender, RoutedEventArgs e)
         {
             Loaded -= GameVersionsPage_Loaded;
-            await LoadVersionListAsync();
             VersionScanService.Instance.ClearCache();
+
+            // 并行加载全部三个 Tab 的数据
+            var tasks = new List<Task>();
+            if (!_isLatestLoaded)
+            {
+                tasks.Add(LoadVersionListAsync());
+                _isLatestLoaded = true;
+            }
+            if (!_isInstalledLoaded)
+            {
+                tasks.Add(LoadInstalledVersionsAsync());
+                _isInstalledLoaded = true;
+            }
+            if (!_isBedrockLoaded)
+            {
+                tasks.Add(LoadBedrockVersionsAsync());
+                _isBedrockLoaded = true;
+            }
+
+            if (tasks.Count > 0)
+                await Task.WhenAll(tasks);
+
             VersionScanService.Instance.ScanAsync("GameVersionsPage 初始化");
         }
 
@@ -300,19 +333,26 @@ namespace MusicalNoteLauncher.Pages
 
         private void VersionTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (VersionTabControl.SelectedIndex == 0)
+            if (VersionTabControl.SelectedIndex == 0 && !_isLatestLoaded)
             {
+                _isLatestLoaded = true;
                 VersionScanService.Instance.ScanAsync("切换到下载页");
                 LoadVersionListAsync();
             }
-            else if (VersionTabControl.SelectedIndex == 1)
+            else if (VersionTabControl.SelectedIndex == 1 && !_isInstalledLoaded)
             {
+                _isInstalledLoaded = true;
                 VersionScanService.Instance.ScanAsync("切换到已安装页");
                 LoadInstalledVersionsAsync();
             }
+            else if (VersionTabControl.SelectedIndex == 2 && !_isBedrockLoaded)
+            {
+                _isBedrockLoaded = true;
+                LoadBedrockVersionsAsync();
+            }
         }
 
-        private async void LoadInstalledVersionsAsync()
+        private async Task LoadInstalledVersionsAsync()
         {
             if (_isInstalledLoading) return;
             _isInstalledLoading = true;
@@ -527,6 +567,149 @@ namespace MusicalNoteLauncher.Pages
                     }
                 }
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // [增量新增] 基岩版下载逻辑
+        // ═══════════════════════════════════════════════════════════════
+
+        private bool _isBedrockLoading;
+
+        private async Task LoadBedrockVersionsAsync()
+        {
+            if (_isBedrockLoading) return;
+            _isBedrockLoading = true;
+
+            try
+            {
+                txtBedrockStatus.Text = "正在获取基岩版版本列表...";
+                btnBedrockRefresh.IsEnabled = false;
+
+                var versions = await _bedrockService.GetRemoteVersionsAsync();
+
+                // 按 GroupType 分组（正式版 / 预览版 / 测试版 / 其他）
+                _bedrockVersionGroups.Clear();
+                var groupOrder = new Dictionary<string, int>
+                {
+                    { "正式版", 0 },
+                    { "预览版", 1 },
+                    { "测试版", 2 },
+                    { "其他", 3 }
+                };
+
+                var sortedVersions = versions.OrderByDescending(v => v.ReleaseTime).ToList();
+                foreach (var grouping in sortedVersions.GroupBy(v => v.GroupType)
+                             .OrderBy(g => groupOrder.TryGetValue(g.Key, out var order) ? order : 99))
+                {
+                    var group = new BedrockVersionGroup
+                    {
+                        Name = $"{grouping.Key} ({grouping.Count()})",
+                        IsExpanded = true
+                    };
+                    group.SetCachedVersions(grouping.ToList());
+                    // 直接填充（已展开）
+                    foreach (var v in grouping)
+                        group.Versions.Add(v);
+                    _bedrockVersionGroups.Add(group);
+                }
+
+                txtBedrockStatus.Text = $"就绪 ({versions.Count} 个版本)";
+            }
+            catch (Exception ex)
+            {
+                txtBedrockStatus.Text = "获取失败";
+                Logger.Error("加载基岩版版本失败: " + ex.Message);
+            }
+            finally
+            {
+                _isBedrockLoading = false;
+                btnBedrockRefresh.IsEnabled = true;
+            }
+        }
+
+        private async void BtnBedrockRefresh_Click(object sender, RoutedEventArgs e)
+        {
+            LoadBedrockVersionsAsync();
+        }
+
+        private async void BtnBedrockDownload_Click(object sender, RoutedEventArgs e)
+        {
+            if (_bedrockIsDownloading) return;
+
+            if (sender is Button btn && btn.Tag is BedrockVersionInfo version)
+            {
+                if (version.IsDownloaded) return;
+
+                try
+                {
+                    _bedrockIsDownloading = true;
+                    btnBedrockRefresh.IsEnabled = false;
+                    btnBedrockCancel.Visibility = Visibility.Visible;
+                    panelBedrockProgress.Visibility = Visibility.Visible;
+                    txtBedrockPercent.Text = "0%";
+                    txtBedrockSize.Text = "";
+                    barBedrockProgress.Value = 0;
+                    txtBedrockStatus.Text = $"正在下载 {version.Id}...";
+
+                    // 创建共享进度报告器（与 Java 下载逻辑一致）
+                    var progress = new DownloadProgress();
+                    progress.ProgressChanged += OnBedrockProgressChanged;
+                    _bedrockService.StatusChanged += OnBedrockStatusChanged;
+
+                    _bedrockCts = new CancellationTokenSource();
+                    var result = await _bedrockService.StartDownloadAsync(version, progress, _bedrockCts.Token);
+
+                    if (result.IsCompleted)
+                    {
+                        txtBedrockStatus.Text = $"{version.Id} 下载完成";
+                        // 刷新列表标记已安装
+                        LoadBedrockVersionsAsync();
+                    }
+                    else if (result.Status == "已取消")
+                    {
+                        txtBedrockStatus.Text = "下载已取消";
+                    }
+                    else
+                    {
+                        txtBedrockStatus.Text = $"下载失败: {result.ErrorMessage}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    txtBedrockStatus.Text = "下载异常";
+                    Logger.Error("基岩版下载异常: " + ex.Message);
+                }
+                finally
+                {
+                    _bedrockIsDownloading = false;
+                    btnBedrockRefresh.IsEnabled = true;
+                    btnBedrockCancel.Visibility = Visibility.Collapsed;
+                    _bedrockService.StatusChanged -= OnBedrockStatusChanged;
+                }
+            }
+        }
+
+        private void BtnBedrockCancel_Click(object sender, RoutedEventArgs e)
+        {
+            _bedrockCts?.Cancel();
+            txtBedrockStatus.Text = "正在取消...";
+        }
+
+        private void OnBedrockStatusChanged(string status)
+        {
+            Dispatcher.Invoke(() => txtBedrockStatus.Text = status);
+        }
+
+        private void OnBedrockProgressChanged(DownloadProgressInfo info)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                barBedrockProgress.Value = info.Progress;
+                txtBedrockPercent.Text = $"{info.Progress:0.0}%";
+                txtBedrockSize.Text = info.TotalBytes > 0
+                    ? $"{FileSizeFormatter.FormatFileSize(info.DownloadedBytes)} / {FileSizeFormatter.FormatFileSize(info.TotalBytes)}"
+                    : FileSizeFormatter.FormatFileSize(info.DownloadedBytes);
+            });
         }
     }
 }

@@ -8,6 +8,25 @@ namespace MusicalNoteLauncher
 {
     public partial class App : Application
     {
+        /// <summary>全局基岩版增强下载服务实例（单例，按需初始化）</summary>
+        public static BedrockEnhancedDownloadService BedrockDownloadService { get; private set; }
+        /// <summary>全局基岩版离线启动器实例（单例，按需初始化）</summary>
+        public static BedrockOfflineLauncher BedrockOfflineLauncher { get; private set; }
+
+        /// <summary>初始化基岩版服务（在MainWindow初始化后调用）</summary>
+        public static void InitializeBedrockServices(string minecraftPath)
+        {
+            if (BedrockDownloadService == null)
+            {
+                BedrockDownloadService = new BedrockEnhancedDownloadService(minecraftPath);
+                Logger.Info("基岩版下载服务已初始化");
+            }
+            if (BedrockOfflineLauncher == null)
+            {
+                BedrockOfflineLauncher = new BedrockOfflineLauncher(minecraftPath);
+                Logger.Info("基岩版离线启动器已初始化");
+            }
+        }
         protected override void OnStartup(StartupEventArgs e)
         {
             base.OnStartup(e);

@@ -144,8 +144,13 @@
 							Style="{StaticResource CardBorder}"
 							Margin="10,0,0,0">
 							<StackPanel>
+								<!-- [增量新增] 游戏类型切换 -->
+								<StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+									<RadioButton x:Name="rbJava" Content="Java版" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,16,0" GroupName="GameType" Click="RbJava_Click"/>
+									<RadioButton x:Name="rbBedrock" Content="基岩版" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" GroupName="GameType" Click="RbBedrock_Click"/>
+								</StackPanel>
 								<Grid
-									Margin="0,0,0,15">
+									Margin="0,0,0,15" x:Name="panelJavaVersion">
 									<Grid.ColumnDefinitions>
 										<ColumnDefinition
 											Width="*" />
@@ -168,6 +173,7 @@
 										Click="BtnRefreshVersions_Click" />
 									<Button
 										Grid.Column="2"
+										x:Name="btnDownloadVersion"
 										Style="{StaticResource PrimaryButton}"
 										Content="下载版本"
 										Margin="5,0,0,0"
@@ -177,7 +183,7 @@
 									Text="选择版本"
 									FontSize="12"
 									Foreground="{StaticResource TextSecondaryBrush}"
-									Margin="0,0,0,5" />
+									Margin="0,0,0,5" x:Name="lblVersionSelect"/>
 								<ComboBox
 									Name="cmbGameVersion"
 									Background="{StaticResource SurfaceBrush}"
@@ -186,6 +192,12 @@
 									Padding="12,10"
 									Margin="0,0,0,15"
 									SelectionChanged="CmbGameVersion_SelectionChanged" />
+								<!-- [增量新增] 基岩版离线用户名（基岩模式下显示） -->
+								<StackPanel x:Name="panelBedrockUser" Visibility="Collapsed" Margin="0,0,0,15">
+									<TextBlock Text="离线用户名" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+									<TextBox x:Name="txtBedrockUsername" Style="{StaticResource ModernTextBox}" Text="Player"/>
+									<TextBlock Text="⚠ 离线模式不支持多人联机" FontSize="11" Foreground="#FF9800" Margin="0,4,0,0"/>
+								</StackPanel>
 								<TextBlock
 									Text="游戏目录"
 									FontSize="12"

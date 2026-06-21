@@ -14,6 +14,9 @@ namespace MusicalNoteLauncher.Pages
     {
         private readonly ConfigManager _config;
         private List<ModLoaderDetector.LoaderInfo> _detectedLoaders = new List<ModLoaderDetector.LoaderInfo>();
+        private List<ModLoaderDetector.LoaderInfo> _allLoaders = new List<ModLoaderDetector.LoaderInfo>();
+        private string _selectedVersion;
+        private bool _suppressVersionChangeEvent;
 
         public ModManagerPage()
         {
@@ -37,21 +40,52 @@ namespace MusicalNoteLauncher.Pages
                 AppContext.SelectedGameVersion = gameVersion;
             }
 
-            // 扫描所有已安装的加载器（如果设置了 MC 版本，优先显示该版本的加载器）
-            _detectedLoaders = ModLoaderDetector.DetectAllLoaders(minecraftPath, gameVersion);
+            // 扫描所有版本的所有加载器（用于版本列表）
+            _allLoaders = ModLoaderDetector.DetectAllLoaders(minecraftPath, null);
+
+            // 默认选中当前配置的版本
+            if (string.IsNullOrEmpty(_selectedVersion))
+            {
+                _selectedVersion = gameVersion;
+            }
+
+            // 填充版本选择器
+            PopulateVersionSelector();
+
+            // 扫描当前选中版本的加载器（用 VersionId 精确匹配目录名）
+            _detectedLoaders = _allLoaders
+                .Where(l => string.IsNullOrEmpty(_selectedVersion)
+                    || l.VersionId == _selectedVersion)
+                .ToList();
+
+            // 如果当前版本没找到加载器但有其版本目录，也允许进入模组管理
+            if (_detectedLoaders.Count == 0 && !string.IsNullOrEmpty(_selectedVersion))
+            {
+                // 版本目录存在但没有加载器——仍然显示模组列表
+            }
 
             if (txtHintVersion != null)
             {
-                if (string.IsNullOrEmpty(gameVersion))
+                if (string.IsNullOrEmpty(_selectedVersion))
                 {
-                    txtHintVersion.Text = "当前未选择游戏版本。以下是 .minecraft 中找到的所有加载器。";
+                    txtHintVersion.Text = "当前使用全局 mods 目录。";
                 }
                 else
                 {
-                    txtHintVersion.Text = "当前游戏版本：Minecraft " + gameVersion
+                    txtHintVersion.Text = "当前游戏版本：Minecraft " + _selectedVersion
                                           + "（位置：" + minecraftPath + "）"
                                           + "，已找到 " + _detectedLoaders.Count + " 个加载器。";
                 }
+            }
+
+            // 全局模式直接显示模组列表
+            if (string.IsNullOrEmpty(_selectedVersion))
+            {
+                if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Collapsed;
+                if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Visible;
+                if (txtLoaderInfo != null) txtLoaderInfo.Text = "（全局 mods 目录）";
+                LoadMods();
+                return;
             }
 
             if (_detectedLoaders.Count == 0)
@@ -72,14 +106,156 @@ namespace MusicalNoteLauncher.Pages
             LoadMods();
         }
 
+        /// <summary>
+        /// 填充版本选择下拉框：显示 versions 目录下所有版本（每个加载器版本独立显示）
+        /// </summary>
+        private void PopulateVersionSelector()
+        {
+            if (cmbVersionSelector == null) return;
+
+            _suppressVersionChangeEvent = true;
+
+            cmbVersionSelector.Items.Clear();
+
+            HashSet<string> versions = new HashSet<string>();
+            string minecraftPath = _config.GetMinecraftPath();
+            string versionsDir = Path.Combine(minecraftPath, "versions");
+
+            if (Directory.Exists(versionsDir))
+            {
+                foreach (string dir in Directory.GetDirectories(versionsDir))
+                {
+                    string verName = Path.GetFileName(dir);
+                    if (!string.IsNullOrEmpty(verName))
+                        versions.Add(verName);
+                }
+            }
+
+            // 加入全局 mods 目录的版本标记
+            string globalModsDir = Path.Combine(minecraftPath, "mods");
+            if (Directory.Exists(globalModsDir) && Directory.GetFiles(globalModsDir, "*.jar").Length > 0)
+            {
+                versions.Add("(全局)");
+            }
+
+            // 如果设置了游戏版本且不在列表中，也添加
+            if (!string.IsNullOrEmpty(_config.GameVersion))
+            {
+                versions.Add(_config.GameVersion);
+            }
+
+            // 按版本号排序
+            var sorted = versions
+                .OrderBy(v => v == "(全局)" ? "zzzzz" : v)
+                .ThenBy(v =>
+                {
+                    string[] parts = v.Split('.');
+                    if (parts.Length >= 2 && int.TryParse(parts[0], out _))
+                        return 0;
+                    return 1;
+                })
+                .ToList();
+
+            foreach (string ver in sorted)
+            {
+                cmbVersionSelector.Items.Add(ver);
+            }
+
+            // 选中当前版本
+            if (!string.IsNullOrEmpty(_selectedVersion) && cmbVersionSelector.Items.Contains(_selectedVersion))
+            {
+                cmbVersionSelector.SelectedItem = _selectedVersion;
+            }
+            else if (cmbVersionSelector.Items.Count > 0)
+            {
+                cmbVersionSelector.SelectedIndex = 0;
+            }
+
+            _suppressVersionChangeEvent = false;
+        }
+
+        private void CmbVersionSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressVersionChangeEvent) return;
+            if (cmbVersionSelector.SelectedItem == null) return;
+
+            string newVersion = cmbVersionSelector.SelectedItem.ToString();
+
+            // "(全局)" 表示使用全局 mods 目录（不清除版本隔离的版本路径）
+            if (newVersion == "(全局)")
+            {
+                _selectedVersion = null;
+            }
+            else
+            {
+                _selectedVersion = newVersion;
+            }
+
+            // 重新检测加载器并刷新 UI
+            string minecraftPath = _config.GetMinecraftPath();
+
+            if (!string.IsNullOrEmpty(_selectedVersion))
+            {
+                _detectedLoaders = _allLoaders
+                    .Where(l => l.VersionId == _selectedVersion)
+                    .ToList();
+            }
+            else
+            {
+                _detectedLoaders = new List<ModLoaderDetector.LoaderInfo>();
+            }
+
+            // 更新顶部信息
+            if (txtLoaderInfo != null)
+            {
+                if (_detectedLoaders.Count > 0)
+                {
+                    List<string> names = _detectedLoaders.ConvertAll(l => l.DisplayName);
+                    txtLoaderInfo.Text = "（已检测到：" + string.Join(", ", names) + "）";
+                }
+                else if (!string.IsNullOrEmpty(_selectedVersion))
+                {
+                    txtLoaderInfo.Text = "（无模组加载器）";
+                }
+                else
+                {
+                    txtLoaderInfo.Text = "（全局 mods 目录）";
+                }
+            }
+
+            // 根据是否有加载器显示对应页面
+            // 全局模式不需要加载器，直接显示模组列表
+            if (string.IsNullOrEmpty(_selectedVersion))
+            {
+                if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Collapsed;
+                if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Visible;
+                if (txtHintVersion != null) txtHintVersion.Text = "当前使用全局 mods 目录。";
+                LoadMods();
+            }
+            else if (_detectedLoaders.Count == 0)
+            {
+                // 无加载器：显示加载器安装引导页
+                if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Visible;
+                if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Collapsed;
+                if (txtHintVersion != null)
+                    txtHintVersion.Text = "当前游戏版本：Minecraft " + _selectedVersion
+                                          + " — 未检测到模组加载器，请先安装。";
+            }
+            else
+            {
+                // 有加载器：显示模组列表
+                if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Collapsed;
+                if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Visible;
+                LoadMods();
+            }
+        }
+
         private string GetModsDirectory()
         {
             string minecraftPath = _config.GetMinecraftPath();
-            if (SettingsManager.Settings != null
-                && SettingsManager.Settings.EnableVersionIsolation
-                && !string.IsNullOrEmpty(_config.GameVersion))
+            if (!string.IsNullOrEmpty(_selectedVersion))
             {
-                return Path.Combine(minecraftPath, "versions", _config.GameVersion, "mods");
+                return Path.Combine(minecraftPath, "versions", _selectedVersion, "mods");
             }
             return Path.Combine(minecraftPath, "mods");
         }
@@ -378,7 +554,7 @@ namespace MusicalNoteLauncher.Pages
 
         private void NavigateToLoaderSelection(string targetLoaderType)
         {
-            string gameVersion = _config.GameVersion;
+            string gameVersion = _selectedVersion ?? _config.GameVersion;
             if (string.IsNullOrEmpty(gameVersion))
             {
                 if (MessageBox.Show(

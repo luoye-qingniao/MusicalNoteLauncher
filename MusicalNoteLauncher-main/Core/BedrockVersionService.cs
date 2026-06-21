@@ -19,11 +19,50 @@ namespace MusicalNoteLauncher.Core
         public string InstallerUrl { get; set; }
         public DateTime ReleaseTime { get; set; }
         public bool IsDownloaded { get; set; }
+
+        /// <summary>按钮文字：已下载 / 一键下载</summary>
+        public string StatusText => IsDownloaded ? "已下载" : "一键下载";
+        /// <summary>是否可点击下载</summary>
+        public bool CanDownload => !IsDownloaded && !string.IsNullOrEmpty(InstallerUrl);
+        /// <summary>版本类型显示友好名称</summary>
+        public string TypeDisplay
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Type)) return "未知";
+                return Type.ToLowerInvariant() switch
+                {
+                    "release" => "正式版",
+                    "preview" => "预览版",
+                    "beta" => "测试版",
+                    _ => Type
+                };
+            }
+        }
+        /// <summary>分组名（正式版 / 预览版 / 测试版 / 其他）</summary>
+        public string GroupType
+        {
+            get
+            {
+                if (string.IsNullOrEmpty(Type)) return "其他";
+                return Type.ToLowerInvariant() switch
+                {
+                    "release" => "正式版",
+                    "preview" => "预览版",
+                    "beta" => "测试版",
+                    _ => "其他"
+                };
+            }
+        }
+        /// <summary>版本描述（版本号 + 日期）</summary>
+        public string Description => ReleaseTime != default
+            ? $"版本 {Version} · {ReleaseTime:yyyy-MM-dd}"
+            : $"版本 {Version}";
     }
 
     public class BedrockDownloadService
     {
-        private const string BEDROCK_MANIFEST_URL = "https://bmclapi2.bangbang93.com/bedrock/version_manifest_v2.json";
+        private const string BEDROCK_MANIFEST_URL = "https://data.mcappx.com/v2/bedrock.json";
         private readonly string _minecraftPath;
         private readonly HttpClient _httpClient;
 
@@ -61,20 +100,53 @@ namespace MusicalNoteLauncher.Core
                 using (JsonDocument doc = JsonDocument.Parse(json))
                 {
                     JsonElement root = doc.RootElement;
-                    if (root.TryGetProperty("versions", out JsonElement versionsElement))
+                    // mcappx.com API: dictionary format
+                    if (root.TryGetProperty("From_mcappx.com", out JsonElement versionsDict))
                     {
-                        foreach (JsonElement item in versionsElement.EnumerateArray())
+                        foreach (var kv in versionsDict.EnumerateObject())
                         {
                             try
                             {
+                                string versionKey = kv.Name;
+                                var item = kv.Value;
+
+                                string type = "release";
+                                if (item.TryGetProperty("Type", out var t))
+                                {
+                                    string typeStr = t.GetString() ?? "";
+                                    type = typeStr.ToLowerInvariant();
+                                }
+
+                                string id = item.TryGetProperty("ID", out var vid) ? vid.GetString() : versionKey;
+                                string date = item.TryGetProperty("Date", out var d) ? d.GetString() : "";
+
+                                string installerUrl = null;
+                                if (item.TryGetProperty("Variations", out var variations))
+                                {
+                                    foreach (var v in variations.EnumerateArray())
+                                    {
+                                        string arch = v.TryGetProperty("Arch", out var a) ? a.GetString() : "";
+                                        if (arch != "x64") continue;
+                                        if (v.TryGetProperty("MetaData", out var md) && md.GetArrayLength() > 0)
+                                        {
+                                            string metaFirst = md[0].GetString();
+                                            if (!string.IsNullOrEmpty(metaFirst) && metaFirst.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                                installerUrl = metaFirst;
+                                        }
+                                        break;
+                                    }
+                                }
+
                                 BedrockVersionInfo info = new BedrockVersionInfo
                                 {
-                                    Id = item.GetProperty("id").GetString(),
-                                    Version = item.GetProperty("version").GetString(),
-                                    Type = item.GetProperty("type").GetString(),
-                                    Url = item.TryGetProperty("url", out var url) ? url.GetString() : null,
-                                    InstallerUrl = item.TryGetProperty("installerUrl", out var installerUrl) ? installerUrl.GetString() : null
+                                    Id = id,
+                                    Version = versionKey,
+                                    Type = type,
+                                    InstallerUrl = installerUrl
                                 };
+
+                                if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var releaseTime))
+                                    info.ReleaseTime = releaseTime;
 
                                 if (!string.IsNullOrEmpty(info.Id))
                                 {

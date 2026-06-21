@@ -28,6 +28,7 @@ namespace MusicalNoteLauncher
             string effectiveMcPath = _config.GetMinecraftPath();
             AppContext.Initialize(username, isOfflineMode, minecraftPath: effectiveMcPath, config: _config);
             _launcherCore = new LauncherCore(_config);
+            App.InitializeBedrockServices(effectiveMcPath);
             AppContext.NavigateRequested += pageKey => Dispatcher.Invoke(() => ShowPage(pageKey));
             Loaded += (s, e) => ShowPage("Home");
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Management;
@@ -19,7 +19,14 @@ namespace MusicalNoteLauncher.Pages
         private readonly string _minecraftPath;
         private readonly string _username;
         private readonly bool _isOfflineMode;
-        
+
+        // 基岩版服务
+        private BedrockEnhancedDownloadService _bedrockDownloadService;
+        private BedrockOfflineLauncher _bedrockOfflineLauncher;
+        private List<BedrockVersionInfo> _bedrockVersionList = new List<BedrockVersionInfo>();
+        private bool _isBedrockMode;
+        private bool _isSwitchingType;
+
         private readonly ModrinthApiService _modrinthApi;
         private readonly CurseForgeApiService _curseForgeApi;
         
@@ -39,6 +46,8 @@ namespace MusicalNoteLauncher.Pages
 
             var javaConfig = new JavaConfigManager(_minecraftPath);
             _gameLauncher = new GameLauncher(_minecraftPath, javaConfig);
+            _bedrockDownloadService = new BedrockEnhancedDownloadService(_minecraftPath);
+            _bedrockOfflineLauncher = new BedrockOfflineLauncher(_minecraftPath);
             _modrinthApi = new ModrinthApiService();
             _curseForgeApi = new CurseForgeApiService();
 
@@ -207,6 +216,12 @@ namespace MusicalNoteLauncher.Pages
         {
             try
             {
+                if (_isBedrockMode)
+                {
+                    await LaunchBedrockGame();
+                    return;
+                }
+
                 string gameVersion = (cboGameVersion?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
                 string username = (cboPlayerName?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _username;
                 int maxMemory = 4096;
@@ -248,6 +263,31 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
+        private async Task LaunchBedrockGame()
+        {
+            string versionId = (cboGameVersion?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
+            string username = _username;
+
+            if (string.IsNullOrEmpty(versionId) || versionId == "无可用基岩版版本" || versionId == "正在获取基岩版版本...")
+            {
+                MessageBox.Show("请先选择基岩版版本", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            btnLaunchGame.IsEnabled = false;
+            btnLaunchGame.Content = "启动中...";
+
+            try
+            {
+                await _bedrockOfflineLauncher.LaunchOfflineAsync(versionId, username);
+            }
+            finally
+            {
+                btnLaunchGame.IsEnabled = true;
+                btnLaunchGame.Content = "启动游戏";
+            }
+        }
+
         private void BtnClearConsole_Click(object sender, RoutedEventArgs e)
         {
             if (txtConsole != null) txtConsole.Text = "";
@@ -277,37 +317,114 @@ namespace MusicalNoteLauncher.Pages
         private void BtnGoToStore_Click(object sender, RoutedEventArgs e) { AppContext.NavigateTo("ComponentStore"); }
         private void BtnJavaConfig_Click(object sender, RoutedEventArgs e) { AppContext.NavigateTo("JavaConfig"); }
 
-        private void BtnVersionType_Click(object sender, RoutedEventArgs e)
+        private async void BtnVersionType_Click(object sender, RoutedEventArgs e)
         {
+            if (_isSwitchingType) return;
+
             if (sender is Button button)
             {
                 string tag = button.Tag as string;
                 if (tag == "Java")
                 {
-                    if (btnJavaVersion != null)
+                    if (_isBedrockMode)
                     {
-                        btnJavaVersion.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
-                        btnJavaVersion.Foreground = Brushes.White;
-                    }
-                    if (btnBedrockVersion != null)
-                    {
-                        btnBedrockVersion.Background = new SolidColorBrush(Color.FromRgb(51, 51, 51));
-                        btnBedrockVersion.Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170));
+                        _isBedrockMode = false;
+                        UpdateVersionTypeButtons(isJava: true);
+                        lblVersionLabel.Text = "游戏版本";
+                        LoadInstalledVersions();
                     }
                 }
                 else if (tag == "Bedrock")
                 {
-                    if (btnBedrockVersion != null)
+                    if (!_isBedrockMode)
                     {
-                        btnBedrockVersion.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
-                        btnBedrockVersion.Foreground = Brushes.White;
-                    }
-                    if (btnJavaVersion != null)
-                    {
-                        btnJavaVersion.Background = new SolidColorBrush(Color.FromRgb(51, 51, 51));
-                        btnJavaVersion.Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170));
+                        _isBedrockMode = true;
+                        UpdateVersionTypeButtons(isJava: false);
+                        lblVersionLabel.Text = "选择基岩版版本";
+                        await LoadBedrockVersionsAsync();
                     }
                 }
+            }
+        }
+
+        private void UpdateVersionTypeButtons(bool isJava)
+        {
+            if (isJava)
+            {
+                btnJavaVersion.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
+                btnJavaVersion.Foreground = Brushes.White;
+                btnBedrockVersion.Background = new SolidColorBrush(Color.FromRgb(51, 51, 51));
+                btnBedrockVersion.Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170));
+            }
+            else
+            {
+                btnBedrockVersion.Background = new SolidColorBrush(Color.FromRgb(33, 150, 243));
+                btnBedrockVersion.Foreground = Brushes.White;
+                btnJavaVersion.Background = new SolidColorBrush(Color.FromRgb(51, 51, 51));
+                btnJavaVersion.Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170));
+            }
+        }
+
+        private async Task LoadBedrockVersionsAsync()
+        {
+            _isSwitchingType = true;
+            try
+            {
+                cboGameVersion.Items.Clear();
+                cboGameVersion.Items.Add(new ComboBoxItem
+                {
+                    Content = "正在获取基岩版版本...",
+                    Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
+                    Foreground = Brushes.White,
+                    Padding = new Thickness(12, 10, 12, 10)
+                });
+                cboGameVersion.SelectedIndex = 0;
+
+                _bedrockVersionList = await _bedrockDownloadService.GetRemoteVersionsAsync();
+
+                cboGameVersion.Items.Clear();
+                if (_bedrockVersionList.Count == 0)
+                {
+                    cboGameVersion.Items.Add(new ComboBoxItem
+                    {
+                        Content = "无可用基岩版版本",
+                        Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
+                        Foreground = Brushes.White,
+                        Padding = new Thickness(12, 10, 12, 10)
+                    });
+                    cboGameVersion.SelectedIndex = 0;
+                }
+                else
+                {
+                    foreach (var v in _bedrockVersionList)
+                    {
+                        cboGameVersion.Items.Add(new ComboBoxItem
+                        {
+                            Content = v.Id,
+                            Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
+                            Foreground = Brushes.White,
+                            Padding = new Thickness(12, 10, 12, 10)
+                        });
+                    }
+                    cboGameVersion.SelectedIndex = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                cboGameVersion.Items.Clear();
+                cboGameVersion.Items.Add(new ComboBoxItem
+                {
+                    Content = "获取基岩版版本失败",
+                    Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
+                    Foreground = Brushes.White,
+                    Padding = new Thickness(12, 10, 12, 10)
+                });
+                cboGameVersion.SelectedIndex = 0;
+                Logger.Error("[HomePage] 加载基岩版版本失败: " + ex.Message);
+            }
+            finally
+            {
+                _isSwitchingType = false;
             }
         }
 

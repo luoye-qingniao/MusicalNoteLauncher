@@ -7,9 +7,15 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.IO;
+using System.Windows.Media.Imaging;
+using System.Windows.Media.Media3D;
+using MusicalNoteLauncher.Controls;
 using MusicalNoteLauncher.Core;
 using PCL.Account;
 using PCL.Auth.Microsoft;
+using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -103,50 +109,68 @@ namespace MusicalNoteLauncher.Pages
         {
             _gameAccounts.Clear();
 
-            // 加载离线账号
-            foreach (string name in AccountManager.GetLegacyAccounts())
+            try
             {
-                _gameAccounts.Add(new GameAccount
+                // 加载离线账号
+                foreach (string name in AccountManager.GetLegacyAccounts())
                 {
-                    Name = name,
-                    Type = AccountType.Offline,
-                    Uuid = GenerateOfflineUuid(name)
-                });
-            }
+                    var account = new GameAccount
+                    {
+                        Name = name,
+                        Type = AccountType.Offline,
+                        Uuid = GenerateOfflineUuid(name)
+                    };
+                    LoadAccountHeadImage(account);
+                    _gameAccounts.Add(account);
+                }
 
-            // 加载微软账号
-            foreach (var ms in AccountManager.GetMsAccounts())
-            {
-                _gameAccounts.Add(new GameAccount
+                // 加载微软账号
+                foreach (var ms in AccountManager.GetMsAccounts())
                 {
-                    Name = ms.UserName,
-                    Type = AccountType.Microsoft,
-                    Uuid = ms.Uuid ?? GenerateOfflineUuid(ms.UserName)
-                });
-            }
+                    var account = new GameAccount
+                    {
+                        Name = ms.UserName,
+                        Type = AccountType.Microsoft,
+                        Uuid = ms.Uuid ?? GenerateOfflineUuid(ms.UserName)
+                    };
+                    LoadAccountHeadImage(account);
+                    _gameAccounts.Add(account);
+                }
 
-            // 加载外置登录账号
-            foreach (var record in AccountManager.GetServerLoginRecords("Auth"))
-            {
-                _gameAccounts.Add(new GameAccount
+                // 加载外置登录账号
+                foreach (var record in AccountManager.GetServerLoginRecords("Auth"))
                 {
-                    Name = record.Item1,
-                    Type = AccountType.AuthlibInjector,
-                    AuthServer = AccountManager.GetAuthServer(),
-                    Uuid = GenerateOfflineUuid(record.Item1)
-                });
+                    var account = new GameAccount
+                    {
+                        Name = record.Item1,
+                        Type = AccountType.AuthlibInjector,
+                        AuthServer = AccountManager.GetAuthServer(),
+                        Uuid = GenerateOfflineUuid(record.Item1)
+                    };
+                    LoadAccountHeadImage(account);
+                    _gameAccounts.Add(account);
+                }
+            }
+            catch (Exception ex)
+            {
+                // 即使加载头像失败也应显示账号卡片
+                System.Diagnostics.Debug.WriteLine("LoadGameAccounts error: " + ex.Message);
             }
 
             // 恢复当前选中状态
-            string currentType = AccountManager.GetLoginType().ToString();
-            string currentName = txtUsername.Text;
-            var selected = _gameAccounts.FirstOrDefault(a =>
-                a.Name == currentName &&
-                (a.Type == AccountType.Offline && currentType == "Legacy" ||
-                 a.Type == AccountType.Microsoft && currentType == "Ms" ||
-                 a.Type == AccountType.AuthlibInjector && currentType == "Auth"));
-            if (selected != null)
-                SelectAccount(selected);
+            try
+            {
+                string currentType = AccountManager.GetLoginType().ToString();
+                string currentName = txtUsername.Text;
+                var selected = _gameAccounts.FirstOrDefault(a =>
+                    a.Name == currentName &&
+                    (a.Type == AccountType.Offline && currentType == "Legacy" ||
+                     a.Type == AccountType.Microsoft && currentType == "Ms" ||
+                     a.Type == AccountType.AuthlibInjector && currentType == "Auth"));
+                if (selected != null)
+                    SelectAccount(selected);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -160,6 +184,34 @@ namespace MusicalNoteLauncher.Pages
         #endregion
 
         #region 青鸟账号按钮
+
+        private void BtnEditSkin_Click(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is Button btn && btn.Tag is GameAccount account)) return;
+
+            bool currentSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{account.Uuid}");
+            string currentSkinFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins", $"{account.Uuid}.png");
+            bool hasCustomSkin = File.Exists(currentSkinFile);
+
+            var dialog = new SkinEditDialog(account.Name, hasCustomSkin ? currentSkinFile : null, currentSlim);
+            dialog.Owner = Window.GetWindow(this);
+
+            if (dialog.ShowDialog() == true)
+            {
+                if (dialog.IsDefault)
+                {
+                    DeleteCustomSkin(account);
+                    PCL.Account.Settings.Set($"SkinSlim_{account.Uuid}", dialog.IsSlim);
+                }
+                else if (!string.IsNullOrEmpty(dialog.SkinFilePath))
+                {
+                    SaveCustomSkin(account, dialog.SkinFilePath, dialog.IsSlim);
+                }
+
+                LoadAccountHeadImage(account);
+            }
+        }
+
 
         private void BtnEditProfile_Click(object sender, RoutedEventArgs e)
         {
@@ -231,6 +283,7 @@ namespace MusicalNoteLauncher.Pages
                     Type = AccountType.Offline,
                     Uuid = uuid
                 };
+                LoadAccountHeadImage(account);
                 _gameAccounts.Add(account);
                 SelectAccount(account);
             }
@@ -274,6 +327,7 @@ namespace MusicalNoteLauncher.Pages
                     if (existing != null)
                         _gameAccounts.Remove(existing);
 
+                    LoadAccountHeadImage(account);
                     _gameAccounts.Insert(0, account);
                     SelectAccount(account);
 
@@ -410,6 +464,7 @@ namespace MusicalNoteLauncher.Pages
                     AuthServer = server,
                     Uuid = GenerateOfflineUuid(name)
                 };
+                LoadAccountHeadImage(account);
                 _gameAccounts.Add(account);
                 SelectAccount(account);
             }
@@ -466,6 +521,9 @@ namespace MusicalNoteLauncher.Pages
         /// <summary>
         /// 选中指定账号并同步到全局上下文
         /// </summary>
+
+
+
         private void SelectAccount(GameAccount account)
         {
             foreach (var a in _gameAccounts)
@@ -508,7 +566,166 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
+
+        private void SaveCustomSkin(GameAccount account, string sourceFile, bool isSlim)
+        {
+            string skinsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
+            if (!Directory.Exists(skinsDir))
+                Directory.CreateDirectory(skinsDir);
+
+            string destFile = Path.Combine(skinsDir, $"{account.Uuid}.png");
+
+            // 先把源文件完整读进内存流，彻底释放文件句柄
+            // 这样既避免了 sourceFile == destFile 的自引用冲突，也避免了
+            // 3D 预览控件中 ImageBrush/BitmapImage 持有文件句柄导致的 IOException
+            byte[] rawData = File.ReadAllBytes(sourceFile);
+
+            var decoder = BitmapDecoder.Create(
+                new MemoryStream(rawData),
+                BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+            var frame = decoder.Frames[0];
+
+            if (frame.PixelWidth == 64 && frame.PixelHeight == 32)
+            {
+                var drawingVisual = new DrawingVisual();
+                using (var ctx = drawingVisual.RenderOpen())
+                {
+                    ctx.DrawImage(frame, new Rect(0, 0, 64, 32));
+                }
+                var bmp = new RenderTargetBitmap(64, 64, 96, 96, PixelFormats.Pbgra32);
+                bmp.Render(drawingVisual);
+
+                var encoder = new PngBitmapEncoder();
+                encoder.Frames.Add(BitmapFrame.Create(bmp));
+                using (var ms = new MemoryStream())
+                {
+                    encoder.Save(ms);
+                    ms.Position = 0;
+                    // 以覆盖方式写回目标文件（FileShare.ReadWrite 避免被自身占用）
+                    using (var fs = new FileStream(destFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                    {
+                        ms.CopyTo(fs);
+                    }
+                }
+            }
+            else
+            {
+                // 以覆盖方式写回目标文件（允许 FileShare.ReadWrite，避免被自身占用）
+                using (var fs = new FileStream(destFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                {
+                    fs.Write(rawData, 0, rawData.Length);
+                }
+            }
+
+            PCL.Account.Settings.Set($"SkinSlim_{account.Uuid}", isSlim);
+        }
+
+        private void DeleteCustomSkin(GameAccount account)
+        {
+            string skinFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins", $"{account.Uuid}.png");
+            try
+            {
+                if (File.Exists(skinFile))
+                    File.Delete(skinFile);
+            }
+            catch { }
+            PCL.Account.Settings.Set($"SkinSlim_{account.Uuid}", false);
+        }
+
         /// <summary>
+        /// 从皮肤文件中裁剪头部（8×8 区域，位于 64×64 皮肤的 x=8,y=8 处）
+        /// </summary>
+        private void LoadAccountHeadImage(GameAccount account)
+        {
+            try
+            {
+                string skinsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
+                string skinFile = Path.Combine(skinsDir, $"{account.Uuid}.png");
+
+                if (File.Exists(skinFile))
+                {
+                    var decoder = BitmapDecoder.Create(
+                        new Uri(skinFile), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                    var fullFrame = decoder.Frames[0];
+
+                    int headX = 8, headY = 8, headSize = 8;
+                    if (fullFrame.PixelWidth < headX + headSize || fullFrame.PixelHeight < headY + headSize)
+                    {
+                        var bmp = new BitmapImage();
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.UriSource = new Uri(skinFile);
+                        bmp.EndInit();
+                        bmp.Freeze();
+                        account.HeadImage = bmp;
+                        return;
+                    }
+
+                    var cropped = new CroppedBitmap(fullFrame,
+                        new Int32Rect(headX, headY, headSize, headSize));
+                    var scaled = new TransformedBitmap(cropped, new ScaleTransform(8, 8));
+
+                    var encoder = new PngBitmapEncoder();
+                    encoder.Frames.Add(BitmapFrame.Create(scaled));
+                    var ms = new MemoryStream();
+                    encoder.Save(ms);
+                    ms.Position = 0;
+
+                    var result = new BitmapImage();
+                    result.BeginInit();
+                    result.CacheOption = BitmapCacheOption.OnLoad;
+                    result.StreamSource = ms;
+                    result.EndInit();
+                    result.Freeze();
+
+                    account.HeadImage = result;
+                }
+                else
+                {
+                    bool isSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{account.Uuid}");
+                    account.HeadImage = GenerateDefaultHead(isSlim);
+                }
+            }
+            catch
+            {
+                account.HeadImage = null;
+            }
+        }
+
+        /// <summary>
+        /// 生成默认头部（8x8 肤色方块放大到 64x64）
+        /// </summary>
+        private BitmapImage GenerateDefaultHead(bool isSlim)
+        {
+            const int size = 8;
+            var wb = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgra32, null);
+            var pixels = new byte[size * size * 4];
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    int idx = (y * size + x) * 4;
+                    pixels[idx + 0] = 75;
+                    pixels[idx + 1] = 105;
+                    pixels[idx + 2] = 141;
+                    pixels[idx + 3] = 255;
+                }
+            wb.WritePixels(new Int32Rect(0, 0, size, size), pixels, size * 4, 0);
+
+            var scaled = new TransformedBitmap(wb, new ScaleTransform(8, 8));
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(scaled));
+            var ms = new MemoryStream();
+            encoder.Save(ms);
+            ms.Position = 0;
+
+            var result = new BitmapImage();
+            result.BeginInit();
+            result.CacheOption = BitmapCacheOption.OnLoad;
+            result.StreamSource = ms;
+            result.EndInit();
+            result.Freeze();
+            return result;
+        }        /// <summary>
         /// 获取账号类型对应的颜色画刷
         /// </summary>
         private Brush GetTypeColor(AccountType type)
@@ -530,6 +747,19 @@ namespace MusicalNoteLauncher.Pages
         }
 
         #endregion
+        private void BtnRefreshAccount_Click(object sender, RoutedEventArgs e)
+        {
+            LoadGameAccounts();
+        }
+
+        private void BtnCopyUuid_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is GameAccount acc)
+            {
+                try { Clipboard.SetText(acc.Uuid); } catch { }
+            }
+        }
+
     }
 
     #region 离线账号创建对话框
@@ -804,6 +1034,13 @@ namespace MusicalNoteLauncher.Pages
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand
             };
+            var border_btnCancel = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnCancel
+            };
             btnCancel.Click += (s, ev) => { DialogResult = false; Close(); };
 
             var btnOk = new Button
@@ -819,6 +1056,13 @@ namespace MusicalNoteLauncher.Pages
                 FontWeight = FontWeights.SemiBold,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand
+            };
+            var border_btnOk = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnOk
             };
             btnOk.Click += (s, ev) =>
             {
@@ -843,8 +1087,8 @@ namespace MusicalNoteLauncher.Pages
                 }
             };
 
-            btnPanel.Children.Add(btnCancel);
-            btnPanel.Children.Add(btnOk);
+            btnPanel.Children.Add(border_btnCancel);
+            btnPanel.Children.Add(border_btnOk);
             Grid.SetRow(btnPanel, 11);
             grid.Children.Add(btnPanel);
 
@@ -1078,6 +1322,13 @@ namespace MusicalNoteLauncher.Pages
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand
             };
+            var border_btnCancel = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnCancel
+            };
             btnCancel.Click += (s, ev) => { DialogResult = false; Close(); };
 
             var btnOk = new Button
@@ -1094,6 +1345,13 @@ namespace MusicalNoteLauncher.Pages
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand
             };
+            var border_btnOk = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnOk
+            };
             btnOk.Click += (s, ev) =>
             {
                 Username = _txtUsername.Text;
@@ -1102,8 +1360,8 @@ namespace MusicalNoteLauncher.Pages
                 Close();
             };
 
-            btnPanel.Children.Add(btnCancel);
-            btnPanel.Children.Add(btnOk);
+            btnPanel.Children.Add(border_btnCancel);
+            btnPanel.Children.Add(border_btnOk);
             Grid.SetRow(btnPanel, 4);
             grid.Children.Add(btnPanel);
 
@@ -1130,6 +1388,917 @@ namespace MusicalNoteLauncher.Pages
                 st.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
                 _txtUsername.Focus();
             };
+        }
+    }
+
+    #endregion
+
+﻿    #region 皮肤编辑对话框
+
+    public class SkinEditDialog : Window
+    {
+        public string SkinFilePath { get; private set; }
+        public bool IsSlim { get; private set; }
+        public bool IsDefault { get; private set; }
+
+        private Skin3DViewer _skin3dViewer;
+
+        private RadioButton _rbDefault;
+        private RadioButton _rbSteve;
+        private RadioButton _rbAlex;
+        private RadioButton _rbLocalFile;
+        private RadioButton _rbLittleSkin;
+        private RadioButton _rbCslApi;
+
+        private Border _dynamicPanel;
+        private StackPanel _dynamicStack;
+
+        private StackPanel _localFilePanel;
+        private ComboBox _modelCombo;
+        private TextBlock _lblSkinFile;
+        private TextBlock _lblCapeFile;
+
+        private TextBlock _lblStatus;
+
+        private string _currentSkinFile;
+        private string _selectedSkinFile;
+        private string _selectedCapeFile;
+
+        private enum SkinSource { Default, Steve, Alex, LocalFile, LittleSkin, CslApi }
+        private SkinSource _currentSource;
+
+        public SkinEditDialog(string accountName, string existingSkinFile, bool isSlim)
+        {
+            Title = "编辑皮肤 - " + accountName;
+            Width = 640;
+            Height = 520;
+            WindowStartupLocation = WindowStartupLocation.CenterOwner;
+            WindowStyle = WindowStyle.None;
+            AllowsTransparency = true;
+            Background = Brushes.Transparent;
+            ResizeMode = ResizeMode.NoResize;
+            Topmost = false;
+
+            _currentSkinFile = existingSkinFile;
+            _selectedSkinFile = existingSkinFile;
+            _selectedCapeFile = null;
+            IsSlim = isSlim;
+
+            var rootBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                CornerRadius = new CornerRadius(16),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(20),
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new ScaleTransform(0.9, 0.9)
+            };
+
+            var rootGrid = new Grid();
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
+            rootGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+
+            var title = new TextBlock
+            {
+                Text = "编辑皮肤 - " + accountName,
+                FontSize = 16,
+                FontWeight = FontWeights.Bold,
+                Foreground = Brushes.White,
+                FontFamily = new FontFamily("Microsoft YaHei")
+            };
+            Grid.SetRow(title, 0);
+            rootGrid.Children.Add(title);
+
+            var bodyBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#252525")),
+                CornerRadius = new CornerRadius(8),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                BorderThickness = new Thickness(1),
+                Padding = new Thickness(12)
+            };
+            Grid.SetRow(bodyBorder, 2);
+            rootGrid.Children.Add(bodyBorder);
+
+            var bodyGrid = new Grid();
+            // 640 - padding(20*2) - bodyBorder padding(12*2) = 576 可用宽度
+            // 282 + 12 + 282 = 576
+            bodyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(282) });
+            bodyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(12) });
+            bodyGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(282) });
+            bodyBorder.Child = bodyGrid;
+
+            var previewBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E1E1E")),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(8),
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            Grid.SetColumn(previewBorder, 0);
+            var previewGrid = new Grid();
+            previewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(4) });
+            previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+            var lblPreview = new TextBlock
+            {
+                Text = "3D 预览",
+                Foreground = Brushes.White,
+                FontSize = 12,
+                FontWeight = FontWeights.SemiBold,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                HorizontalAlignment = HorizontalAlignment.Center
+            };
+            Grid.SetRow(lblPreview, 0);
+            previewGrid.Children.Add(lblPreview);
+            _skin3dViewer = new Skin3DViewer();
+            Grid.SetRow(_skin3dViewer, 2);
+            previewGrid.Children.Add(_skin3dViewer);
+            previewBorder.Child = previewGrid;
+            bodyGrid.Children.Add(previewBorder);
+
+            var rightBorder = new Border
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1A1A1A")),
+                CornerRadius = new CornerRadius(8),
+                Padding = new Thickness(12),
+                VerticalAlignment = VerticalAlignment.Stretch
+            };
+            Grid.SetColumn(rightBorder, 2);
+            var rightStack = new StackPanel();
+            rightBorder.Child = rightStack;
+
+            Action<RadioButton> rbStyle = (rb) =>
+            {
+                rb.Foreground = Brushes.White;
+                rb.FontFamily = new FontFamily("Microsoft YaHei");
+                rb.FontSize = 13;
+                rb.Margin = new Thickness(0, 0, 0, 8);
+                rb.GroupName = "SkinSourceGroup";
+            };
+
+            bool hasExisting = !string.IsNullOrEmpty(existingSkinFile);
+
+            _rbDefault = new RadioButton { Content = "默认", IsChecked = !hasExisting };
+            rbStyle(_rbDefault);
+            _rbDefault.Checked += (s, e) => SelectSource(SkinSource.Default);
+            rightStack.Children.Add(_rbDefault);
+
+            _rbSteve = new RadioButton { Content = "Steve", IsChecked = false };
+            rbStyle(_rbSteve);
+            _rbSteve.Checked += (s, e) => SelectSource(SkinSource.Steve);
+            rightStack.Children.Add(_rbSteve);
+
+            _rbAlex = new RadioButton { Content = "Alex", IsChecked = false };
+            rbStyle(_rbAlex);
+            _rbAlex.Checked += (s, e) => SelectSource(SkinSource.Alex);
+            rightStack.Children.Add(_rbAlex);
+
+            _rbLocalFile = new RadioButton { Content = "本地文件", IsChecked = hasExisting };
+            rbStyle(_rbLocalFile);
+            _rbLocalFile.Checked += (s, e) => SelectSource(SkinSource.LocalFile);
+            rightStack.Children.Add(_rbLocalFile);
+
+            _rbLittleSkin = new RadioButton { Content = "LittleSkin", IsChecked = false };
+            rbStyle(_rbLittleSkin);
+            _rbLittleSkin.Checked += (s, e) => SelectSource(SkinSource.LittleSkin);
+            rightStack.Children.Add(_rbLittleSkin);
+
+            _rbCslApi = new RadioButton { Content = "CSL API", IsChecked = false };
+            rbStyle(_rbCslApi);
+            _rbCslApi.Checked += (s, e) => SelectSource(SkinSource.CslApi);
+            rightStack.Children.Add(_rbCslApi);
+
+            _dynamicPanel = new Border
+            {
+                Margin = new Thickness(0, 8, 0, 0),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#222222")),
+                CornerRadius = new CornerRadius(6),
+                Padding = new Thickness(10),
+                Child = (_dynamicStack = new StackPanel())
+            };
+            rightStack.Children.Add(_dynamicPanel);
+
+            _localFilePanel = BuildLocalFilePanel();
+            var littleSkinPanel = BuildLittleSkinPanel();
+            var cslPanel = BuildCslPanel();
+
+            _dynamicStack.Children.Add(_localFilePanel);
+            _dynamicStack.Children.Add(littleSkinPanel);
+            _dynamicStack.Children.Add(cslPanel);
+
+            _lblStatus = new TextBlock
+            {
+                Text = "",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#888888")),
+                FontSize = 11,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Margin = new Thickness(0, 8, 0, 0),
+                TextWrapping = TextWrapping.Wrap
+            };
+            rightStack.Children.Add(_lblStatus);
+            bodyGrid.Children.Add(rightBorder);
+
+            var bottomPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right
+            };
+            Grid.SetRow(bottomPanel, 4);
+            rootGrid.Children.Add(bottomPanel);
+
+            var btnLittleLink = new Button
+            {
+                Content = "LittleSkin",
+                Height = 36,
+                Margin = new Thickness(0, 0, 10, 0),
+                Padding = new Thickness(14, 0, 14, 0),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2ECC71")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Cursor = Cursors.Hand
+            };
+            var border_btnLittleLink = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnLittleLink
+            };
+            btnLittleLink.Click += (s, e) =>
+            {
+                try { System.Diagnostics.Process.Start("https://littleskin.cn"); }
+                catch { }
+            };
+            bottomPanel.Children.Add(border_btnLittleLink);
+
+            var btnCancel = new Button
+            {
+                Content = "取消",
+                Width = 90,
+                Height = 36,
+                Margin = new Thickness(0, 0, 10, 0),
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Foreground = Brushes.White,
+                FontSize = 13,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Cursor = Cursors.Hand
+            };
+            var border_btnCancel = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnCancel
+            };
+            btnCancel.Click += (s, e) => { DialogResult = false; Close(); };
+            bottomPanel.Children.Add(border_btnCancel);
+
+            var btnOk = new Button
+            {
+                Content = "确定",
+                Width = 90,
+                Height = 36,
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2ECC71")),
+                Foreground = Brushes.White,
+                FontSize = 13,
+                FontWeight = FontWeights.SemiBold,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Cursor = Cursors.Hand
+            };
+            var border_btnOk = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnOk
+            };
+            btnOk.Click += (s, e) => ConfirmAndSave();
+            bottomPanel.Children.Add(border_btnOk);
+
+            rootBorder.Child = rootGrid;
+            Content = rootBorder;
+
+            Loaded += (s, e) =>
+            {
+                var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(250))
+                { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+                var scaleX = new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(300))
+                { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+                var scaleY = new DoubleAnimation(0.9, 1, TimeSpan.FromMilliseconds(300))
+                { EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut } };
+                BeginAnimation(Window.OpacityProperty, fadeIn);
+                var st = (ScaleTransform)((Border)Content).RenderTransform;
+                st.BeginAnimation(ScaleTransform.ScaleXProperty, scaleX);
+                st.BeginAnimation(ScaleTransform.ScaleYProperty, scaleY);
+
+                LoadCurrentPreview();
+                if (hasExisting)
+                    SelectSource(SkinSource.LocalFile);
+                else
+                    SelectSource(SkinSource.Default);
+            };
+        }
+
+        private StackPanel BuildLocalFilePanel()
+        {
+            var panel = new StackPanel { Visibility = Visibility.Collapsed };
+
+            var lblModel = new TextBlock
+            {
+                Text = "模型",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            panel.Children.Add(lblModel);
+
+            _modelCombo = new ComboBox
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")),
+                Foreground = Brushes.White,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                FontSize = 12,
+                Height = 28,
+                Margin = new Thickness(0, 0, 0, 10)
+            };
+            _modelCombo.Style = BuildDarkComboBoxStyle();
+            _modelCombo.Items.Add("Steve (WIDE)");
+            _modelCombo.Items.Add("Alex (SLIM)");
+            _modelCombo.SelectedIndex = IsSlim ? 1 : 0;
+            _modelCombo.SelectionChanged += (s, e) =>
+            {
+                IsSlim = (_modelCombo.SelectedIndex == 1);
+                UpdatePreviewFromCurrent();
+            };
+            panel.Children.Add(_modelCombo);
+
+            var lblSkin = new TextBlock
+            {
+                Text = "皮肤",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            panel.Children.Add(lblSkin);
+
+            var skinRow = new StackPanel { Orientation = Orientation.Horizontal };
+            _lblSkinFile = new TextBlock
+            {
+                Text = string.IsNullOrEmpty(_selectedSkinFile) ? "(未选择)" : System.IO.Path.GetFileName(_selectedSkinFile),
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Consolas"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Width = 160
+            };
+            var btnPickSkin = new Button
+            {
+                Content = "浏览",
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Foreground = Brushes.White,
+                Padding = new Thickness(12, 4, 12, 4),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var border_btnPickSkin = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnPickSkin
+            };
+            btnPickSkin.Click += (s, e) => PickSkinFile();
+            skinRow.Children.Add(_lblSkinFile);
+            skinRow.Children.Add(border_btnPickSkin);
+            panel.Children.Add(skinRow);
+
+            var lblCape = new TextBlock
+            {
+                Text = "披风",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Margin = new Thickness(0, 10, 0, 4)
+            };
+            panel.Children.Add(lblCape);
+
+            var capeRow = new StackPanel { Orientation = Orientation.Horizontal };
+            _lblCapeFile = new TextBlock
+            {
+                Text = "(未选择)",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Consolas"),
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0),
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Width = 160
+            };
+            var btnPickCape = new Button
+            {
+                Content = "浏览",
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Foreground = Brushes.White,
+                Padding = new Thickness(12, 4, 12, 4),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                Cursor = Cursors.Hand,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            var border_btnPickCape = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnPickCape
+            };
+            btnPickCape.Click += (s, e) => PickCapeFile();
+            capeRow.Children.Add(_lblCapeFile);
+            capeRow.Children.Add(border_btnPickCape);
+            panel.Children.Add(capeRow);
+
+            return panel;
+        }
+
+        private StackPanel BuildLittleSkinPanel()
+        {
+            var panel = new StackPanel { Visibility = Visibility.Collapsed };
+            var hint = new TextBlock
+            {
+                Text = "在 https://littleskin.cn 上上传并管理皮肤",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            panel.Children.Add(hint);
+            return panel;
+        }
+
+        private StackPanel BuildCslPanel()
+        {
+            var panel = new StackPanel { Visibility = Visibility.Collapsed };
+            var hint = new TextBlock
+            {
+                Text = "请输入 CSL API 基础 URL（当前版本仍需通过本地文件路径来应用皮肤）",
+                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB")),
+                FontSize = 12,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 6)
+            };
+            panel.Children.Add(hint);
+
+            var urlBox = new TextBox
+            {
+                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")),
+                Foreground = Brushes.White,
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                FontSize = 12,
+                Height = 28,
+                BorderThickness = new Thickness(0),
+                Padding = new Thickness(6, 4, 6, 4),
+                Text = "https://"
+            };
+            panel.Children.Add(urlBox);
+            return panel;
+        }
+
+        private static Style BuildDarkComboBoxStyle()
+        {
+            var style = new Style(typeof(ComboBox));
+            style.Setters.Add(new Setter(Control.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E"))));
+            style.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+            style.Setters.Add(new Setter(Control.BorderBrushProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A"))));
+            style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
+            style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(4, 2, 4, 2)));
+            style.Setters.Add(new Setter(ComboBox.HorizontalContentAlignmentProperty,
+                HorizontalAlignment.Left));
+            style.Setters.Add(new Setter(ComboBox.VerticalContentAlignmentProperty,
+                VerticalAlignment.Center));
+
+            var itemStyle = new Style(typeof(ComboBoxItem));
+            itemStyle.Setters.Add(new Setter(Control.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#252525"))));
+            itemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+            itemStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
+            itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(4, 2, 4, 2)));
+            var itemHoverTrigger = new Trigger
+            {
+                Property = UIElement.IsMouseOverProperty,
+                Value = true
+            };
+            itemHoverTrigger.Setters.Add(new Setter(Control.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A"))));
+            itemStyle.Triggers.Add(itemHoverTrigger);
+            var itemSelectedTrigger = new Trigger
+            {
+                Property = ListBoxItem.IsSelectedProperty,
+                Value = true
+            };
+            itemSelectedTrigger.Setters.Add(new Setter(Control.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A"))));
+            itemStyle.Triggers.Add(itemSelectedTrigger);
+            style.Setters.Add(new Setter(ComboBox.ItemContainerStyleProperty, itemStyle));
+
+            var template = new ControlTemplate(typeof(ComboBox));
+
+            var rootBorderFactory = new FrameworkElementFactory(typeof(Border), "templateRoot");
+            rootBorderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+            rootBorderFactory.SetValue(Border.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")));
+            rootBorderFactory.SetValue(Border.BorderBrushProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")));
+            rootBorderFactory.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            rootBorderFactory.SetValue(Border.SnapsToDevicePixelsProperty, true);
+            template.VisualTree = rootBorderFactory;
+
+            var gridFactory = new FrameworkElementFactory(typeof(Grid));
+            rootBorderFactory.AppendChild(gridFactory);
+
+            var col0 = new FrameworkElementFactory(typeof(ColumnDefinition));
+            col0.SetValue(ColumnDefinition.WidthProperty, new GridLength(1, GridUnitType.Star));
+            gridFactory.AppendChild(col0);
+
+            var col1 = new FrameworkElementFactory(typeof(ColumnDefinition));
+            col1.SetValue(ColumnDefinition.WidthProperty, new GridLength(0, GridUnitType.Auto));
+            gridFactory.AppendChild(col1);
+
+            var contentPresenterFactory = new FrameworkElementFactory(typeof(ContentPresenter), "ContentPresenter");
+            contentPresenterFactory.SetValue(Grid.ColumnProperty, 0);
+            contentPresenterFactory.SetValue(ContentPresenter.HorizontalAlignmentProperty,
+                HorizontalAlignment.Left);
+            contentPresenterFactory.SetValue(ContentPresenter.VerticalAlignmentProperty,
+                VerticalAlignment.Center);
+            contentPresenterFactory.SetValue(ContentPresenter.MarginProperty, new Thickness(6, 0, 0, 0));
+            contentPresenterFactory.SetValue(ContentPresenter.SnapsToDevicePixelsProperty, true);
+            gridFactory.AppendChild(contentPresenterFactory);
+
+            var toggleButtonFactory = new FrameworkElementFactory(typeof(ToggleButton), "DropDownToggle");
+            toggleButtonFactory.SetValue(Grid.ColumnProperty, 1);
+            toggleButtonFactory.SetValue(ToggleButton.FocusableProperty, false);
+            toggleButtonFactory.SetValue(ToggleButton.IsCheckedProperty,
+                new Binding("IsDropDownOpen") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+            toggleButtonFactory.SetValue(Control.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")));
+            toggleButtonFactory.SetValue(Control.ForegroundProperty, Brushes.White);
+            toggleButtonFactory.SetValue(Control.BorderThicknessProperty, new Thickness(0));
+            toggleButtonFactory.SetValue(Control.PaddingProperty, new Thickness(4, 0, 4, 0));
+            toggleButtonFactory.SetValue(FrameworkElement.MinWidthProperty, 18.0);
+            toggleButtonFactory.SetValue(UIElement.SnapsToDevicePixelsProperty, true);
+
+            var toggleTemplate = new ControlTemplate(typeof(ToggleButton));
+            var toggleBorder = new FrameworkElementFactory(typeof(Border));
+            toggleBorder.SetValue(Border.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")));
+            toggleBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(0, 4, 4, 0));
+            toggleBorder.SetValue(Border.BorderThicknessProperty, new Thickness(0));
+            toggleTemplate.VisualTree = toggleBorder;
+
+            var pathFactory = new FrameworkElementFactory(typeof(System.Windows.Shapes.Path));
+            pathFactory.SetValue(System.Windows.Shapes.Path.DataProperty, Geometry.Parse("M 0,0 L 4,4 L 8,0 Z"));
+            pathFactory.SetValue(System.Windows.Shapes.Shape.FillProperty, Brushes.White);
+            pathFactory.SetValue(System.Windows.Shapes.Shape.StretchProperty, Stretch.None);
+            pathFactory.SetValue(FrameworkElement.HorizontalAlignmentProperty,
+                HorizontalAlignment.Center);
+            pathFactory.SetValue(FrameworkElement.VerticalAlignmentProperty,
+                VerticalAlignment.Center);
+            pathFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(0, 0, 0, 0));
+            toggleBorder.AppendChild(pathFactory);
+
+            toggleButtonFactory.SetValue(Control.TemplateProperty, toggleTemplate);
+            gridFactory.AppendChild(toggleButtonFactory);
+
+            var popupFactory = new FrameworkElementFactory(typeof(Popup), "PART_Popup");
+            popupFactory.SetValue(Popup.PlacementProperty, PlacementMode.Bottom);
+            popupFactory.SetValue(Popup.StaysOpenProperty, false);
+            popupFactory.SetValue(Popup.AllowsTransparencyProperty, true);
+            popupFactory.SetValue(Popup.IsOpenProperty,
+                new Binding("IsDropDownOpen") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+            gridFactory.AppendChild(popupFactory);
+
+            var popupBorder = new FrameworkElementFactory(typeof(Border));
+            popupBorder.SetValue(Border.BackgroundProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#252525")));
+            popupBorder.SetValue(Border.BorderBrushProperty,
+                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")));
+            popupBorder.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            popupBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+            popupBorder.SetValue(Border.PaddingProperty, new Thickness(0));
+            popupBorder.SetValue(FrameworkElement.MinWidthProperty,
+                new Binding("ActualWidth") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
+            popupFactory.AppendChild(popupBorder);
+
+            var scrollViewerFactory = new FrameworkElementFactory(typeof(ScrollViewer));
+            scrollViewerFactory.SetValue(ScrollViewer.CanContentScrollProperty, true);
+            popupBorder.AppendChild(scrollViewerFactory);
+
+            var itemsPresenterFactory = new FrameworkElementFactory(typeof(ItemsPresenter), "ItemsPresenter");
+            itemsPresenterFactory.SetValue(FrameworkElement.MarginProperty, new Thickness(2));
+            itemsPresenterFactory.SetValue(FrameworkElement.SnapsToDevicePixelsProperty, true);
+            scrollViewerFactory.AppendChild(itemsPresenterFactory);
+
+            style.Setters.Add(new Setter(Control.TemplateProperty, template));
+            return style;
+        }
+        private static BitmapSource GenerateDefaultSkinBitmap(bool isSlim)
+        {
+            string skinFile = isSlim
+                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Skins", "alex.png")
+                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Skins", "steve.png");
+
+            if (File.Exists(skinFile))
+            {
+                try
+                {
+                    // 使用 BitmapDecoder + PreservePixelFormat 确保可靠的像素格式
+                    var decoder = BitmapDecoder.Create(
+                        new Uri(skinFile),
+                        BitmapCreateOptions.PreservePixelFormat,
+                        BitmapCacheOption.OnLoad);
+                    var frame = decoder.Frames[0];
+
+                    // 显式转换为 Bgra32，消除 BitmapImage 内部 Pbgra32/Bgra32 差异
+                    BitmapSource bgraSource;
+                    if (frame.Format == PixelFormats.Bgra32)
+                        bgraSource = frame;
+                    else
+                        bgraSource = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
+
+                    // 复制到 WriteableBitmap 确保像素数据完全可控
+                    int w = bgraSource.PixelWidth;
+                    int h = bgraSource.PixelHeight;
+                    var wb = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
+                    int stride = w * 4;
+                    byte[] pixels = new byte[stride * h];
+                    bgraSource.CopyPixels(pixels, stride, 0);
+                    wb.WritePixels(new Int32Rect(0, 0, w, h), pixels, stride, 0);
+                    wb.Freeze();
+
+                    // 诊断：保存加载的原始皮肤到输出目录，方便排查
+                    try
+                    {
+                        string diagPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
+                            isSlim ? "diag_alex_loaded.png" : "diag_steve_loaded.png");
+                        using (var fs = new FileStream(diagPath, FileMode.Create))
+                        {
+                            var encoder = new PngBitmapEncoder();
+                            encoder.Frames.Add(BitmapFrame.Create(wb));
+                            encoder.Save(fs);
+                        }
+                    }
+                    catch { }
+
+                    return wb;
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Skin3D] Failed to load default skin '{skinFile}': {ex.Message}");
+                }
+            }
+
+            // Fallback：生成一个简单的 64x64 皮肤（仅头部和身体区域有颜色，其余白色）
+            const int width = 64;
+            const int height = 64;
+            int fbStride = width * 4;
+            byte[] fbPixels = new byte[fbStride * height];
+
+            // 全部填充白色 (255,255,255,255)，与 MakeOpaque 行为一致
+            for (int i = 0; i < fbPixels.Length; i += 4)
+            {
+                fbPixels[i] = 255;     // B
+                fbPixels[i + 1] = 255; // G
+                fbPixels[i + 2] = 255; // R
+                fbPixels[i + 3] = 255; // A
+            }
+
+            System.Diagnostics.Debug.WriteLine($"[Skin3D] WARNING: Using fallback skin for {(isSlim ? "Alex" : "Steve")}");
+
+            var fb = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+            fb.WritePixels(new Int32Rect(0, 0, width, height), fbPixels, fbStride, 0);
+            fb.Freeze();
+            return fb;
+        }
+        private void SelectSource(SkinSource source)
+        {
+            _currentSource = source;
+            _localFilePanel.Visibility = (source == SkinSource.LocalFile) ? Visibility.Visible : Visibility.Collapsed;
+            foreach (UIElement child in _dynamicStack.Children)
+            {
+                if (!ReferenceEquals(child, _localFilePanel))
+                    child.Visibility = Visibility.Collapsed;
+            }
+            int idx = 0;
+            foreach (UIElement child in _dynamicStack.Children)
+            {
+                if (idx == 1 && source == SkinSource.LittleSkin)
+                    child.Visibility = Visibility.Visible;
+                else if (idx == 2 && source == SkinSource.CslApi)
+                    child.Visibility = Visibility.Visible;
+                idx++;
+            }
+
+            switch (source)
+            {
+                case SkinSource.Default:
+                case SkinSource.Steve:
+                    IsDefault = true;
+                    IsSlim = false;
+                    _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+                    _lblStatus.Text = "将使用默认皮肤";
+                    break;
+                case SkinSource.Alex:
+                    IsDefault = true;
+                    IsSlim = true;
+                    _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+                    _lblStatus.Text = "将使用Alex皮肤";
+                    break;
+                case SkinSource.LocalFile:
+                    IsDefault = false;
+                    UpdatePreviewFromCurrent();
+                    break;
+                case SkinSource.LittleSkin:
+                case SkinSource.CslApi:
+                    IsDefault = false;
+                    _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+                    _lblStatus.Text = "请使用本地文件来应用皮肤";
+                    break;
+            }
+        }
+
+        private BitmapSource GetSkinBitmap()
+        {
+            if (string.IsNullOrEmpty(_selectedSkinFile))
+                return null;
+            if (!File.Exists(_selectedSkinFile))
+                return null;
+            try
+            {
+                byte[] raw = File.ReadAllBytes(_selectedSkinFile);
+                var ms = new MemoryStream(raw);
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.StreamSource = ms;
+                bmp.EndInit();
+                bmp.Freeze();
+                return bmp;
+            }
+            catch { return null; }
+        }
+
+        private void UpdatePreviewFromCurrent()
+        {
+            if (string.IsNullOrEmpty(_selectedSkinFile) || !File.Exists(_selectedSkinFile))
+            {
+                if (_currentSource == SkinSource.Default ||
+                    _currentSource == SkinSource.Steve ||
+                    _currentSource == SkinSource.Alex)
+                {
+                    _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+                    _lblStatus.Text = "将使用默认皮肤";
+                }
+                else
+                {
+                    _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+                    _lblStatus.Text = "未选择皮肤文件";
+                }
+                return;
+            }
+            try
+            {
+                byte[] raw = File.ReadAllBytes(_selectedSkinFile);
+                var ms = new MemoryStream(raw);
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.StreamSource = ms;
+                bmp.EndInit();
+                bmp.Freeze();
+                _skin3dViewer.UpdateSkin(bmp, IsSlim);
+                _lblStatus.Text = "已选择皮肤文件";
+            }
+            catch
+            {
+                _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+                _lblStatus.Text = "无法加载皮肤文件";
+            }
+        }
+
+        private void LoadCurrentPreview()
+        {
+            if (!string.IsNullOrEmpty(_currentSkinFile) && File.Exists(_currentSkinFile))
+            {
+                UpdatePreviewFromCurrent();
+            }
+            else
+            {
+                _skin3dViewer.UpdateSkin(GenerateDefaultSkinBitmap(IsSlim), IsSlim);
+            }
+        }
+
+        private void PickSkinFile()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择皮肤文件",
+                Filter = "皮肤图片|*.png;*.jpg;*.jpeg|所有文件|*.*",
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                try
+                {
+                    string filePath = dialog.FileName;
+                    var decoder = BitmapDecoder.Create(
+                        new Uri(filePath), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.None);
+                    if (decoder.Frames.Count == 0)
+                    {
+                        _lblStatus.Text = "所选文件不是有效的图片";
+                        return;
+                    }
+                    var frame = decoder.Frames[0];
+                    bool okSize = (frame.PixelWidth == 64 && (frame.PixelHeight == 32 || frame.PixelHeight == 64));
+                    if (!okSize)
+                    {
+                        var res = MessageBox.Show(
+                            "所选图片不是标准尺寸。仍然继续使用吗？",
+                            "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                        if (res != MessageBoxResult.Yes)
+                            return;
+                    }
+                    _selectedSkinFile = filePath;
+                    _lblSkinFile.Text = System.IO.Path.GetFileName(filePath);
+                    _rbLocalFile.IsChecked = true;
+                    UpdatePreviewFromCurrent();
+                }
+                catch (Exception ex)
+                {
+                    _lblStatus.Text = "加载皮肤失败：" + ex.Message;
+                }
+            }
+        }
+
+        private void PickCapeFile()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择披风文件",
+                Filter = "披风图片|*.png;*.jpg;*.jpeg|所有文件|*.*",
+                CheckFileExists = true
+            };
+            if (dialog.ShowDialog() == true)
+            {
+                _selectedCapeFile = dialog.FileName;
+                _lblCapeFile.Text = System.IO.Path.GetFileName(dialog.FileName);
+                _lblStatus.Text = "已选择披风文件";
+                _rbLocalFile.IsChecked = true;
+            }
+        }
+
+        private void ConfirmAndSave()
+        {
+            if (_currentSource == SkinSource.Default ||
+                _currentSource == SkinSource.Steve ||
+                _currentSource == SkinSource.Alex)
+            {
+                IsDefault = true;
+                SkinFilePath = null;
+            }
+            else if (_currentSource == SkinSource.LocalFile)
+            {
+                IsDefault = false;
+                if (string.IsNullOrEmpty(_selectedSkinFile) || !File.Exists(_selectedSkinFile))
+                {
+                    MessageBox.Show("请选择有效的皮肤文件", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+                SkinFilePath = _selectedSkinFile;
+            }
+            else
+            {
+                IsDefault = false;
+                SkinFilePath = null;
+                MessageBox.Show("请选择默认或本地文件来应用皮肤", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            DialogResult = true;
+            Close();
         }
     }
 
@@ -1266,6 +2435,13 @@ namespace MusicalNoteLauncher.Pages
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand
             };
+            var border_btnCancel = new Border
+            {
+                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderThickness = new Thickness(1),
+                Child = btnCancel
+            };
             btnCancel.Click += (s, ev) =>
             {
                 OnCancel?.Invoke();
@@ -1308,7 +2484,7 @@ namespace MusicalNoteLauncher.Pages
                 }
             };
 
-            btnPanel.Children.Add(btnCancel);
+            btnPanel.Children.Add(border_btnCancel);
             btnPanel.Children.Add(_btnConfirm);
             Grid.SetRow(btnPanel, 8);
             grid.Children.Add(btnPanel);

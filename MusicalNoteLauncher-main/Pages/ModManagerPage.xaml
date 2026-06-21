@@ -133,6 +133,84 @@
 						<TextBlock Text="模组管理" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
 						<TextBlock Name="txtLoaderInfo" FontSize="12" Foreground="#AAAAAA" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" />
 					</StackPanel>
+					<!-- 版本切换 -->
+					<TextBlock Text="版本:" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center" Margin="20,0,6,0" FontFamily="Microsoft YaHei UI" />
+					<ComboBox Name="cmbVersionSelector" Width="130" Height="30" FontSize="12"
+					          Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI"
+					          SelectionChanged="CmbVersionSelector_SelectionChanged">
+						<ComboBox.Style>
+							<Style TargetType="ComboBox">
+								<Setter Property="Background" Value="#383838" />
+								<Setter Property="BorderBrush" Value="#4A4A4A" />
+								<Setter Property="BorderThickness" Value="1" />
+								<Setter Property="Template">
+									<Setter.Value>
+										<ControlTemplate TargetType="ComboBox">
+											<Grid>
+												<ToggleButton Name="ToggleButton"
+												              Background="{TemplateBinding Background}"
+												              BorderBrush="{TemplateBinding BorderBrush}"
+												              BorderThickness="{TemplateBinding BorderThickness}"
+												              Content="{TemplateBinding SelectionBoxItem}"
+												              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+												              ClickMode="Press">
+													<ToggleButton.Template>
+														<ControlTemplate TargetType="ToggleButton">
+															<Border Name="border" Background="#383838" BorderBrush="#4A4A4A" BorderThickness="1" CornerRadius="6">
+																<Grid>
+																	<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" TextBlock.Foreground="#FFFFFF" />
+																	<TextBlock Text="▼" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+																</Grid>
+															</Border>
+															<ControlTemplate.Triggers>
+																<Trigger Property="UIElement.IsMouseOver" Value="True">
+																	<Setter TargetName="border" Property="Background" Value="#444444" />
+																	<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
+																</Trigger>
+															</ControlTemplate.Triggers>
+														</ControlTemplate>
+													</ToggleButton.Template>
+												</ToggleButton>
+												<ContentPresenter Name="ContentSite" IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" />
+												<Popup Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
+													<Border Name="DropDownBorder" Background="#2D2D2D" BorderBrush="#4A4A4A" BorderThickness="1" CornerRadius="6" MaxHeight="200">
+														<ScrollViewer SnapsToDevicePixels="True">
+															<StackPanel IsItemsHost="True" />
+														</ScrollViewer>
+													</Border>
+												</Popup>
+											</Grid>
+										</ControlTemplate>
+									</Setter.Value>
+								</Setter>
+								<Setter Property="ItemContainerStyle">
+									<Setter.Value>
+										<Style TargetType="ComboBoxItem">
+											<Setter Property="Foreground" Value="#FFFFFF" />
+											<Setter Property="Background" Value="Transparent" />
+											<Setter Property="Padding" Value="10,6" />
+											<Setter Property="FontFamily" Value="Microsoft YaHei UI" />
+											<Setter Property="FontSize" Value="12" />
+											<Setter Property="Template">
+												<Setter.Value>
+													<ControlTemplate TargetType="ComboBoxItem">
+														<Border Name="border" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+															<ContentPresenter />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsHighlighted" Value="True">
+																<Setter TargetName="border" Property="Background" Value="#383838" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Setter.Value>
+											</Setter>
+										</Style>
+									</Setter.Value>
+								</Setter>
+							</Style>
+						</ComboBox.Style>
+					</ComboBox>
 				</StackPanel>
 				<StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
 					<Button Name="btnRefresh" Content="🔄 刷新" Style="{StaticResource CardButtonStyle}" Margin="0,0,10,0" Click="BtnRefresh_Click" Padding="14,8" />
@@ -162,7 +240,7 @@
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
 									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
@@ -180,8 +258,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#2196F3" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="🔧" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center" Background="Transparent">
+									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/Anvil.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="Forge" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
@@ -195,7 +273,7 @@
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
 									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
@@ -213,8 +291,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#2ECC71" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="🧵" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center" Background="Transparent">
+									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/Fabric.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="Fabric" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
@@ -228,7 +306,7 @@
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
 									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
@@ -246,8 +324,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#9B59B6" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="🆕" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center" Background="Transparent">
+									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/NeoForge.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="NeoForge" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
@@ -261,7 +339,7 @@
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
 									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
@@ -279,8 +357,8 @@
 									<ColumnDefinition Width="Auto" />
 									<ColumnDefinition Width="*" />
 								</Grid.ColumnDefinitions>
-								<Border Background="#F39C12" CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center">
-									<TextBlock Text="✨" FontSize="22" HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Border CornerRadius="8" Width="42" Height="42" VerticalAlignment="Center" HorizontalAlignment="Center" Background="Transparent">
+									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/OptiFabric.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
 									<TextBlock Text="OptiFine" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />

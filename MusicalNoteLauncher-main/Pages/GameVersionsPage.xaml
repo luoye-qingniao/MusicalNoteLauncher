@@ -1059,6 +1059,169 @@
 						</Border>
 					</Grid>
 				</TabItem>
+				<!-- [增量新增] 基岩版下载 -->
+				<TabItem Header="基岩版">
+					<Grid>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="Auto"/>
+							<RowDefinition Height="*"/>
+						</Grid.RowDefinitions>
+						<!-- 说明区 -->
+						<Border Grid.Row="0" Background="#383838" CornerRadius="8" Padding="16" Margin="0,0,0,16">
+							<StackPanel>
+								<TextBlock Text="🌍 基岩版下载" FontSize="14" Foreground="#FFFFFF" FontFamily="Microsoft YaHei" Margin="0,0,0,8"/>
+								<TextBlock Text="下载 Minecraft Bedrock Edition，支持自动断点续传与SHA1完整性校验" FontSize="12" Foreground="#AAAAAA" FontFamily="Microsoft YaHei" TextWrapping="Wrap"/>
+							</StackPanel>
+						</Border>
+						<!-- 操作区 -->
+						<Border Grid.Row="1" Background="#2D2D2D" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+							<Grid>
+								<Grid.ColumnDefinitions>
+									<ColumnDefinition Width="Auto"/>
+									<ColumnDefinition Width="*"/>
+									<ColumnDefinition Width="Auto"/>
+								</Grid.ColumnDefinitions>
+								<Button x:Name="btnBedrockRefresh" Grid.Column="0" Content="刷新版本列表" Background="#2196F3" Foreground="#FFFFFF" BorderThickness="0" FontSize="13" FontFamily="Microsoft YaHei" Cursor="Hand" Width="120" Height="36" Click="BtnBedrockRefresh_Click">
+									<Control.Template>
+										<ControlTemplate TargetType="{x:Type Button}">
+											<Border Name="border" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+												<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+											</Border>
+											<ControlTemplate.Triggers>
+												<Trigger Property="IsMouseOver" Value="True">
+													<Setter TargetName="border" Property="Background" Value="#1976D2"/>
+												</Trigger>
+												<Trigger Property="IsPressed" Value="True">
+													<Setter TargetName="border" Property="Background" Value="#1565C0"/>
+												</Trigger>
+												<Trigger Property="IsEnabled" Value="False">
+													<Setter TargetName="border" Property="Background" Value="#555555"/>
+													<Setter Property="Foreground" Value="#AAAAAA"/>
+												</Trigger>
+											</ControlTemplate.Triggers>
+										</ControlTemplate>
+									</Control.Template>
+								</Button>
+								<TextBlock x:Name="txtBedrockStatus" Grid.Column="1" Text="就绪" FontSize="13" Foreground="#AAAAAA" VerticalAlignment="Center" Margin="16,0,0,0" FontFamily="Microsoft YaHei"/>
+								<Button x:Name="btnBedrockCancel" Grid.Column="2" Content="取消下载" Background="#E74C3C" Foreground="#FFFFFF" BorderThickness="0" FontSize="13" FontFamily="Microsoft YaHei" Cursor="Hand" Width="80" Height="36" Click="BtnBedrockCancel_Click" Visibility="Collapsed"/>
+							</Grid>
+						</Border>
+						<!-- 进度条（下载中显示） -->
+						<Border x:Name="panelBedrockProgress" Grid.Row="1" Background="#2D2D2D" CornerRadius="8" Padding="16" Margin="0,0,0,12" Visibility="Collapsed">
+							<StackPanel>
+								<Grid>
+									<TextBlock Text="下载进度" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF"/>
+									<TextBlock x:Name="txtBedrockPercent" Text="0%" FontSize="13" FontWeight="Bold" Foreground="#2196F3" HorizontalAlignment="Right"/>
+								</Grid>
+								<ProgressBar x:Name="barBedrockProgress" Minimum="0" Maximum="100" Height="6" Margin="0,8,0,4" Background="#383838" Foreground="#2196F3" BorderThickness="0"/>
+								<TextBlock x:Name="txtBedrockSize" FontSize="11" Foreground="#AAAAAA"/>
+							</StackPanel>
+						</Border>
+						<!-- 版本列表 -->
+						<Border Grid.Row="2" Background="#252525" CornerRadius="12" Padding="16" ClipToBounds="True">
+							<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+								<ItemsControl
+									x:Name="icBedrockVersions"
+									Background="Transparent">
+									<FrameworkElement.ToolTip>
+										<ToolTip>点击刷新版本列表</ToolTip>
+									</FrameworkElement.ToolTip>
+									<ItemsControl.ItemTemplate>
+										<DataTemplate>
+											<StackPanel>
+												<ToggleButton
+													Style="{StaticResource GroupHeaderToggleStyle}"
+													IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+													DataContext="{Binding Path=.}" />
+												<Border
+													Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+													<ListView
+														Background="Transparent" BorderThickness="0"
+														VirtualizingPanel.IsVirtualizing="True"
+														VirtualizingPanel.VirtualizationMode="Recycling"
+														VirtualizingPanel.CacheLength="50"
+														VirtualizingPanel.CacheLengthUnit="Page"
+														ScrollViewer.CanContentScroll="False"
+														ScrollViewer.VerticalScrollBarVisibility="Disabled"
+														ItemsSource="{Binding Versions}">
+														<ItemsControl.ItemContainerStyle>
+															<Style TargetType="ListViewItem">
+																<Setter Property="Background" Value="Transparent"/>
+																<Setter Property="BorderThickness" Value="0"/>
+																<Setter Property="Padding" Value="0"/>
+																<Setter Property="Margin" Value="0,0,0,6"/>
+																<Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+															</Style>
+														</ItemsControl.ItemContainerStyle>
+														<ItemsControl.ItemTemplate>
+															<DataTemplate>
+																<Border CornerRadius="8" Margin="0,0,0,8" Padding="14"
+																        Background="#353535" Cursor="Hand">
+																	<Grid>
+																		<Grid.ColumnDefinitions>
+																			<ColumnDefinition Width="Auto"/>
+																			<ColumnDefinition Width="*"/>
+																			<ColumnDefinition Width="Auto"/>
+																		</Grid.ColumnDefinitions>
+																		<Image Grid.Column="0" Width="48" Height="48"
+																		       Margin="0,0,16,0" Stretch="Uniform"
+																		       Source="{Binding Type, Converter={local:VersionTypeToIconConverter}}"/>
+																		<StackPanel Grid.Column="1" VerticalAlignment="Center">
+																			<TextBlock FontSize="18" FontWeight="Bold"
+																			           Foreground="#FFFFFF" FontFamily="Microsoft YaHei"
+																			           Text="{Binding Id}"/>
+																			<TextBlock FontSize="13" Foreground="#888888"
+																			           FontFamily="Microsoft YaHei"
+																			           Text="{Binding Description}"/>
+																		</StackPanel>
+																		<Button Grid.Column="2" Cursor="Hand"
+																		        VerticalAlignment="Center"
+																		        MinWidth="88" Height="32" BorderThickness="0"
+																		        Background="#2196F3"
+																		        Foreground="#FFFFFF" FontSize="13"
+																		        FontWeight="SemiBold" FontFamily="Microsoft YaHei"
+																		        Content="{Binding StatusText}"
+																		        IsEnabled="{Binding CanDownload}"
+																		        Tag="{Binding}"
+																		        Click="BtnBedrockDownload_Click">
+																			<Control.Template>
+																				<ControlTemplate TargetType="{x:Type Button}">
+																					<Border CornerRadius="6"
+																					        Background="{TemplateBinding Background}">
+																						<ContentPresenter HorizontalAlignment="Center"
+																						                  VerticalAlignment="Center"/>
+																					</Border>
+																				</ControlTemplate>
+																			</Control.Template>
+																			<FrameworkElement.Style>
+																				<Style TargetType="{x:Type Button}">
+																					<Style.Triggers>
+																						<Trigger Property="UIElement.IsMouseOver" Value="True">
+																							<Setter Property="Background" Value="#1976D2"/>
+																						</Trigger>
+																						<DataTrigger Value="True" Binding="{Binding IsDownloaded}">
+																							<Setter Property="Background" Value="#424242"/>
+																							<Setter Property="Foreground" Value="#B0BEC5"/>
+																						</DataTrigger>
+																					</Style.Triggers>
+																				</Style>
+																			</FrameworkElement.Style>
+																		</Button>
+																	</Grid>
+																</Border>
+															</DataTemplate>
+														</ItemsControl.ItemTemplate>
+													</ListView>
+												</Border>
+											</StackPanel>
+										</DataTemplate>
+									</ItemsControl.ItemTemplate>
+								</ItemsControl>
+							</ScrollViewer>
+						</Border>
+					</Grid>
+				</TabItem>
 			</TabControl>
 		</Grid>
 	</Grid>

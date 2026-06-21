@@ -1244,7 +1244,7 @@
 								FontSize="12"
 								Foreground="#AAAAAA"
 								FontFamily="Microsoft YaHei"
-								Margin="0,0,0,8" />
+								Margin="0,0,0,8" x:Name="lblVersionLabel"/>
 							<ComboBox
 								Name="cboGameVersion"
 								Background="#333333"
@@ -1414,7 +1414,7 @@
 									</ControlTemplate>
 								</Control.Template>
 							</ComboBox>
-						</StackPanel>
+							</StackPanel>
 					</Border>
 					<Border
 						Grid.Row="4"
