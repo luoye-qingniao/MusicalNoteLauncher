@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
 	x:Class="MusicalNoteLauncher.Pages.ModManagerPage"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -11,7 +11,7 @@
 			<Setter Property="FontFamily" Value="Microsoft YaHei UI" />
 			<Setter Property="Foreground" Value="#FFFFFF" />
 			<Setter Property="FontSize" Value="13" />
-			<Setter Property="Background" Value="#383838" />
+			<Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
 			<Setter Property="BorderBrush" Value="Transparent" />
 			<Setter Property="BorderThickness" Value="1" />
 			<Setter Property="Padding" Value="14,8" />
@@ -118,29 +118,29 @@
 
 	</UserControl.Resources>
 
-	<Grid Background="#1E1E1E">
+	<Grid Background="{DynamicResource BackgroundBrush}">
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="*" />
 		</Grid.RowDefinitions>
 
 		<!-- ========== 顶部标题栏 ========== -->
-		<Border Grid.Row="0" Background="#2D2D2D" Padding="24,18">
+		<Border Grid.Row="0" Background="{DynamicResource CardHoverBrush}" Padding="24,18">
 			<Grid>
 				<StackPanel VerticalAlignment="Center" Orientation="Horizontal">
 					<Border Background="#2196F3" CornerRadius="4" Width="4" Height="26" VerticalAlignment="Center" Margin="0,0,14,0" />
 					<StackPanel VerticalAlignment="Center">
-						<TextBlock Text="模组管理" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
-						<TextBlock Name="txtLoaderInfo" FontSize="12" Foreground="#AAAAAA" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" />
+						<TextBlock Text="模组管理" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
+						<TextBlock Name="txtLoaderInfo" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" />
 					</StackPanel>
 					<!-- 版本切换 -->
-					<TextBlock Text="版本:" Foreground="#AAAAAA" FontSize="12" VerticalAlignment="Center" Margin="20,0,6,0" FontFamily="Microsoft YaHei UI" />
+					<TextBlock Text="版本:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="20,0,6,0" FontFamily="Microsoft YaHei UI" />
 					<ComboBox Name="cmbVersionSelector" Width="130" Height="30" FontSize="12"
-					          Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI"
+					          Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI"
 					          SelectionChanged="CmbVersionSelector_SelectionChanged">
 						<ComboBox.Style>
 							<Style TargetType="ComboBox">
-								<Setter Property="Background" Value="#383838" />
+								<Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
 								<Setter Property="BorderBrush" Value="#4A4A4A" />
 								<Setter Property="BorderThickness" Value="1" />
 								<Setter Property="Template">
@@ -156,10 +156,10 @@
 												              ClickMode="Press">
 													<ToggleButton.Template>
 														<ControlTemplate TargetType="ToggleButton">
-															<Border Name="border" Background="#383838" BorderBrush="#4A4A4A" BorderThickness="1" CornerRadius="6">
+															<Border Name="border" Background="{DynamicResource SurfaceBrush}" BorderBrush="#4A4A4A" BorderThickness="1" CornerRadius="6">
 																<Grid>
-																	<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" TextBlock.Foreground="#FFFFFF" />
-																	<TextBlock Text="▼" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
+																	<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10,0,0,0" TextBlock.Foreground="{DynamicResource TextPrimaryBrush}" />
+																	<TextBlock Text="▼" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="10" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" />
 																</Grid>
 															</Border>
 															<ControlTemplate.Triggers>
@@ -173,7 +173,7 @@
 												</ToggleButton>
 												<ContentPresenter Name="ContentSite" IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="12,0,0,0" />
 												<Popup Name="Popup" Placement="Bottom" IsOpen="{TemplateBinding IsDropDownOpen}" AllowsTransparency="True" Focusable="False" PopupAnimation="Slide">
-													<Border Name="DropDownBorder" Background="#2D2D2D" BorderBrush="#4A4A4A" BorderThickness="1" CornerRadius="6" MaxHeight="200">
+													<Border Name="DropDownBorder" Background="{DynamicResource CardHoverBrush}" BorderBrush="#4A4A4A" BorderThickness="1" CornerRadius="6" MaxHeight="200">
 														<ScrollViewer SnapsToDevicePixels="True">
 															<StackPanel IsItemsHost="True" />
 														</ScrollViewer>
@@ -199,7 +199,7 @@
 														</Border>
 														<ControlTemplate.Triggers>
 															<Trigger Property="IsHighlighted" Value="True">
-																<Setter TargetName="border" Property="Background" Value="#383838" />
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 															</Trigger>
 														</ControlTemplate.Triggers>
 													</ControlTemplate>
@@ -224,27 +224,27 @@
 			<ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="30,24">
 				<StackPanel HorizontalAlignment="Center" MaxWidth="820">
 					<!-- 提示卡片 -->
-					<Border Background="#2D2D2D" CornerRadius="10" Padding="30,28" Margin="0,0,0,24" BorderBrush="#3A3A3A" BorderThickness="1">
+					<Border Background="{DynamicResource CardHoverBrush}" CornerRadius="10" Padding="30,28" Margin="0,0,0,24" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
 						<StackPanel>
 							<TextBlock Text="⚠️" FontSize="36" HorizontalAlignment="Center" Margin="0,0,0,10" />
-							<TextBlock Text="还未安装任何模组加载器" FontSize="18" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" FontFamily="Microsoft YaHei UI" />
-							<TextBlock Name="txtHintVersion" FontSize="13" Foreground="#AAAAAA" HorizontalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
+							<TextBlock Text="还未安装任何模组加载器" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" FontFamily="Microsoft YaHei UI" />
+							<TextBlock Name="txtHintVersion" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
 						</StackPanel>
 					</Border>
 
-					<TextBlock Text="选择要安装的模组加载器" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" Margin="4,0,0,12" FontFamily="Microsoft YaHei UI" />
+					<TextBlock Text="选择要安装的模组加载器" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="4,0,0,12" FontFamily="Microsoft YaHei UI" />
 
 					<UniformGrid Rows="2" Columns="2">
 						<!-- Forge -->
-						<Button Margin="0,0,8,12" Tag="Forge" Click="BtnInstallSpecificLoader_Click" HorizontalContentAlignment="Left" VerticalContentAlignment="Stretch" Padding="0" BorderThickness="0" Cursor="Hand" Background="#2D2D2D">
+						<Button Margin="0,0,8,12" Tag="Forge" Click="BtnInstallSpecificLoader_Click" HorizontalContentAlignment="Left" VerticalContentAlignment="Stretch" Padding="0" BorderThickness="0" Cursor="Hand" Background="{DynamicResource CardHoverBrush}">
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
-									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
+									<Border Name="border" Background="{DynamicResource CardHoverBrush}" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18,16">
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="{DynamicResource TextPrimaryBrush}" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
-											<Setter TargetName="border" Property="Background" Value="#383838" />
+											<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 											<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
 										</Trigger>
 										<Trigger Property="ButtonBase.IsPressed" Value="True">
@@ -262,7 +262,7 @@
 									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/Anvil.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="Forge" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="Forge" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
 									<TextBlock Text="最流行的 Mod 加载器，兼容性最好" Foreground="#87CEFA" FontSize="12" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" TextWrapping="Wrap" />
 								</StackPanel>
 							</Grid>
@@ -272,12 +272,12 @@
 						<Button Margin="8,0,0,12" Tag="Fabric" Click="BtnInstallSpecificLoader_Click" HorizontalContentAlignment="Left" Padding="0" BorderThickness="0" Cursor="Hand">
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
-									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
+									<Border Name="border" Background="{DynamicResource CardHoverBrush}" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18,16">
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="{DynamicResource TextPrimaryBrush}" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
-											<Setter TargetName="border" Property="Background" Value="#383838" />
+											<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 											<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
 										</Trigger>
 										<Trigger Property="ButtonBase.IsPressed" Value="True">
@@ -295,7 +295,7 @@
 									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/Fabric.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="Fabric" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="Fabric" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
 									<TextBlock Text="轻量级加载器，启动更快，适合现代 Mod" Foreground="#C8E6C9" FontSize="12" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" TextWrapping="Wrap" />
 								</StackPanel>
 							</Grid>
@@ -305,12 +305,12 @@
 						<Button Margin="0,12,8,0" Tag="NeoForge" Click="BtnInstallSpecificLoader_Click" HorizontalContentAlignment="Left" Padding="0" BorderThickness="0" Cursor="Hand">
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
-									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
+									<Border Name="border" Background="{DynamicResource CardHoverBrush}" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18,16">
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="{DynamicResource TextPrimaryBrush}" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
-											<Setter TargetName="border" Property="Background" Value="#383838" />
+											<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 											<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
 										</Trigger>
 										<Trigger Property="ButtonBase.IsPressed" Value="True">
@@ -328,7 +328,7 @@
 									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/NeoForge.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="NeoForge" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="NeoForge" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
 									<TextBlock Text="Forge 的现代分支，支持最新游戏版本" Foreground="#D2B4DE" FontSize="12" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" TextWrapping="Wrap" />
 								</StackPanel>
 							</Grid>
@@ -338,12 +338,12 @@
 						<Button Margin="8,12,0,0" Tag="OptiFine" Click="BtnInstallSpecificLoader_Click" HorizontalContentAlignment="Left" Padding="0" BorderThickness="0" Cursor="Hand">
 							<Button.Template>
 								<ControlTemplate TargetType="{x:Type Button}">
-									<Border Name="border" Background="#2D2D2D" CornerRadius="10" BorderBrush="#3A3A3A" BorderThickness="1" Padding="18,16">
-										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="#FFFFFF" />
+									<Border Name="border" Background="{DynamicResource CardHoverBrush}" CornerRadius="10" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" Padding="18,16">
+										<ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" TextBlock.Foreground="{DynamicResource TextPrimaryBrush}" />
 									</Border>
 									<ControlTemplate.Triggers>
 										<Trigger Property="UIElement.IsMouseOver" Value="True">
-											<Setter TargetName="border" Property="Background" Value="#383838" />
+											<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 											<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
 										</Trigger>
 										<Trigger Property="ButtonBase.IsPressed" Value="True">
@@ -361,7 +361,7 @@
 									<Image Source="pack://siteoforigin:,,,/提取的模组加载器图标/OptiFabric.png" Width="36" Height="36" Stretch="Uniform" />
 								</Border>
 								<StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="OptiFine" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="OptiFine" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
 									<TextBlock Text="性能优化与光影支持，提升帧率与画质" Foreground="#F5D7A1" FontSize="12" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" TextWrapping="Wrap" />
 								</StackPanel>
 							</Grid>
@@ -382,7 +382,7 @@
 				</Grid.RowDefinitions>
 
 				<!-- Mod 列表卡片 -->
-				<Border Grid.Row="0" Background="#2D2D2D" CornerRadius="10" Padding="0" BorderBrush="#3A3A3A" BorderThickness="1">
+				<Border Grid.Row="0" Background="{DynamicResource CardHoverBrush}" CornerRadius="10" Padding="0" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
 					<Grid>
 						<Grid.RowDefinitions>
 							<RowDefinition Height="Auto" />
@@ -393,9 +393,9 @@
 						<Border Grid.Row="0" Padding="18,14">
 							<Grid>
 								<StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-									<TextBlock Name="txtModListTitle" Text="已安装模组" Foreground="#FFFFFF" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Microsoft YaHei UI" />
-									<Border Background="#383838" CornerRadius="10" Padding="10,2" Margin="10,0,0,0" VerticalAlignment="Center">
-										<TextBlock Name="txtModCountBadge" Text="共 0 个" Foreground="#AAAAAA" FontSize="12" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Name="txtModListTitle" Text="已安装模组" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center" FontFamily="Microsoft YaHei UI" />
+									<Border Background="{DynamicResource SurfaceBrush}" CornerRadius="10" Padding="10,2" Margin="10,0,0,0" VerticalAlignment="Center">
+										<TextBlock Name="txtModCountBadge" Text="共 0 个" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" FontFamily="Microsoft YaHei UI" />
 									</Border>
 								</StackPanel>
 								<StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -416,7 +416,7 @@
 								Name="lstMods"
 								Background="Transparent"
 								BorderThickness="0"
-								Foreground="#FFFFFF"
+								Foreground="{DynamicResource TextPrimaryBrush}"
 								FontFamily="Microsoft YaHei UI"
 								ScrollViewer.HorizontalScrollBarVisibility="Disabled"
 								SelectionMode="Extended"
@@ -434,7 +434,7 @@
 													</Border>
 													<ControlTemplate.Triggers>
 														<Trigger Property="IsSelected" Value="True">
-															<Setter TargetName="border" Property="Background" Value="#383838" />
+															<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 														</Trigger>
 														<Trigger Property="UIElement.IsMouseOver" Value="True">
 															<Setter TargetName="border" Property="Background" Value="#333333" />
@@ -447,7 +447,7 @@
 								</ItemsControl.ItemContainerStyle>
 								<ItemsControl.ItemTemplate>
 									<DataTemplate>
-										<Border Background="#383838" CornerRadius="8" Padding="14,12" Margin="2">
+										<Border Background="{DynamicResource SurfaceBrush}" CornerRadius="8" Padding="14,12" Margin="2">
 											<Grid>
 												<Grid.ColumnDefinitions>
 													<ColumnDefinition Width="Auto" />
@@ -499,8 +499,8 @@
 												</Ellipse>
 												<!-- 名称 + 版本 -->
 												<StackPanel Grid.Column="2" Margin="12,0,12,0" VerticalAlignment="Center">
-													<TextBlock Foreground="#FFFFFF" FontSize="14" FontWeight="SemiBold" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" FontFamily="Microsoft YaHei UI" />
-													<TextBlock Foreground="#AAAAAA" FontSize="12" Text="{Binding ModVersion}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
+													<TextBlock Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" Text="{Binding DisplayName}" TextTrimming="CharacterEllipsis" FontFamily="Microsoft YaHei UI" />
+													<TextBlock Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Text="{Binding ModVersion}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
 												</StackPanel>
 												<!-- 状态徽章 -->
 												<Border Grid.Column="3" Name="statusBadge" CornerRadius="8" Padding="10,4" VerticalAlignment="Center">
@@ -514,7 +514,7 @@
 															</Style.Triggers>
 														</Style>
 													</Border.Style>
-													<TextBlock Text="{Binding StatusText}" Foreground="#FFFFFF" FontSize="12" FontWeight="SemiBold" FontFamily="Microsoft YaHei UI" />
+													<TextBlock Text="{Binding StatusText}" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="12" FontWeight="SemiBold" FontFamily="Microsoft YaHei UI" />
 												</Border>
 											</Grid>
 										</Border>
@@ -526,8 +526,8 @@
 							<Border Name="panelEmptyMods" Background="Transparent" CornerRadius="8" Padding="30" Visibility="Collapsed">
 								<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
 									<TextBlock Text="📦" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10" />
-									<TextBlock Text="暂无模组" FontSize="16" FontWeight="SemiBold" Foreground="#FFFFFF" HorizontalAlignment="Center" FontFamily="Microsoft YaHei UI" />
-									<TextBlock Name="txtEmptyModsHint" FontSize="12" Foreground="#AAAAAA" HorizontalAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="暂无模组" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Name="txtEmptyModsHint" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
 								</StackPanel>
 							</Border>
 						</Grid>
@@ -549,8 +549,8 @@
 									<TextBlock Text="🔄" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
 								</Border>
 								<StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="刷新模组" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
-									<TextBlock Text="重新扫描 mods 目录" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="刷新模组" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="重新扫描 mods 目录" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
 								</StackPanel>
 							</StackPanel>
 						</Button.Content>
@@ -563,8 +563,8 @@
 									<TextBlock Text="＋" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
 								</Border>
 								<StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="添加模组" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
-									<TextBlock Text="选择 .jar 文件添加" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="添加模组" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="选择 .jar 文件添加" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
 								</StackPanel>
 							</StackPanel>
 						</Button.Content>
@@ -577,8 +577,8 @@
 									<TextBlock Text="🛒" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
 								</Border>
 								<StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="模组下载" FontSize="14" FontWeight="SemiBold" Foreground="#FFFFFF" FontFamily="Microsoft YaHei UI" />
-									<TextBlock Text="浏览社区热门 Mod" FontSize="11" Foreground="#AAAAAA" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="模组下载" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Text="浏览社区热门 Mod" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
 								</StackPanel>
 							</StackPanel>
 						</Button.Content>

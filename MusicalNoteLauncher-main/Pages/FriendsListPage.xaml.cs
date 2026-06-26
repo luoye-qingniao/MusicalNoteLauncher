@@ -26,16 +26,16 @@ namespace MusicalNoteLauncher.Pages
             if (button != null)
             {
                 this.ResetFilterButtons();
-                button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"));
+                button.Background = (Brush)FindResource("PrimaryBrush");
                 MessageBox.Show(string.Format("筛选: {0} 功能开发中...", button.Content), "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
             }
         }
 
         private void ResetFilterButtons()
         {
-            this.btnFilterAll.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-            this.btnFilterOnline.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-            this.btnFilterOffline.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
+            this.btnFilterAll.Background = (Brush)FindResource("SurfaceBrush");
+            this.btnFilterOnline.Background = (Brush)FindResource("SurfaceBrush");
+            this.btnFilterOffline.Background = (Brush)FindResource("SurfaceBrush");
         }
 
         private void BtnInvite_Click(object sender, RoutedEventArgs e)

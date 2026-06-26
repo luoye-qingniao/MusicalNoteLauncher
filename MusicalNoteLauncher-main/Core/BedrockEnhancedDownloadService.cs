@@ -58,7 +58,7 @@ namespace MusicalNoteLauncher.Core
             try
             {
                 StatusChanged?.Invoke("正在获取基岩版版本列表...");
-                string json = await _httpClient.GetStringAsync(BEDROCK_MANIFEST_URL);
+                string json = await _httpClient.GetStringAsync(BEDROCK_MANIFEST_URL).ConfigureAwait(false);
 
                 using var doc = JsonDocument.Parse(json);
                 // mcappx.com API: { "From_mcappx.com": { "1.21.100.24": { ... }, ... } }

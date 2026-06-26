@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace MusicalNoteLauncher.Core
@@ -19,7 +20,8 @@ namespace MusicalNoteLauncher.Core
         private string _uuid;
         private string _accessToken;
         private string _authServer;
-        private BitmapImage _headImage;
+        private ImageSource _headImage;
+        private BitmapImage _avatarImage;
         private bool _isSelected;
 
         public string Name
@@ -52,10 +54,17 @@ namespace MusicalNoteLauncher.Core
             set { _authServer = value; OnPropertyChanged(); }
         }
 
-        public BitmapImage HeadImage
+        public ImageSource HeadImage
         {
             get => _headImage;
             set { _headImage = value; OnPropertyChanged(); }
+        }
+
+        /// <summary>用户自定义头像（个人资料头像），与 MC 皮肤的头部立雕不同</summary>
+        public BitmapImage AvatarImage
+        {
+            get => _avatarImage;
+            set { _avatarImage = value; OnPropertyChanged(); }
         }
 
         public bool IsSelected

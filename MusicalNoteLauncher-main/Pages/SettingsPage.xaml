@@ -1,6 +1,6 @@
-<UserControl
+﻿<UserControl
 	x:Class="MusicalNoteLauncher.Pages.SettingsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	Background="#1E1E1E" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	Background="{DynamicResource BackgroundBrush}" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<ScrollViewer
 		VerticalScrollBarVisibility="Auto">
 		<Grid
@@ -14,7 +14,7 @@
 			<TextBlock
 				Grid.Row="0"
 				Text="设置中心"
-				Foreground="#FFFFFF"
+				Foreground="{DynamicResource TextPrimaryBrush}"
 				FontSize="24"
 				FontWeight="SemiBold"
 				FontFamily="Microsoft YaHei"
@@ -29,7 +29,7 @@
 				</Grid.ColumnDefinitions>
 				<Border
 					Grid.Column="0"
-					Background="#252525"
+					Background="{DynamicResource CardBackgroundBrush}"
 					CornerRadius="8"
 					Padding="10"
 					Margin="0,0,16,0">
@@ -37,8 +37,8 @@
 						<Button
 							Name="btnCategoryGeneral"
 							Content="常规设置"
-							Background="#2196F3"
-							Foreground="#FFFFFF"
+							Background="{DynamicResource PrimaryBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							BorderThickness="0"
 							Padding="12,10"
 							FontSize="13"
@@ -66,7 +66,7 @@
 											<Setter
 												TargetName="border"
 												Property="Background"
-												Value="#1976D2" />
+												Value="{DynamicResource PrimaryDarkBrush}" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>
@@ -75,8 +75,8 @@
 						<Button
 							Name="btnCategoryGame"
 							Content="游戏设置"
-							Background="#383838"
-							Foreground="#FFFFFF"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							BorderThickness="0"
 							Padding="12,10"
 							FontSize="13"
@@ -104,7 +104,7 @@
 											<Setter
 												TargetName="border"
 												Property="Background"
-												Value="#2D2D2D" />
+												Value="{DynamicResource CardHoverBrush}" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>
@@ -113,8 +113,8 @@
 						<Button
 							Name="btnCategoryJava"
 							Content="Java设置"
-							Background="#383838"
-							Foreground="#FFFFFF"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							BorderThickness="0"
 							Padding="12,10"
 							FontSize="13"
@@ -142,7 +142,7 @@
 											<Setter
 												TargetName="border"
 												Property="Background"
-												Value="#2D2D2D" />
+												Value="{DynamicResource CardHoverBrush}" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>
@@ -151,8 +151,8 @@
 						<Button
 							Name="btnCategoryDownload"
 							Content="下载设置"
-							Background="#383838"
-							Foreground="#FFFFFF"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							BorderThickness="0"
 							Padding="12,10"
 							FontSize="13"
@@ -180,7 +180,7 @@
 											<Setter
 												TargetName="border"
 												Property="Background"
-												Value="#2D2D2D" />
+												Value="{DynamicResource CardHoverBrush}" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>
@@ -189,8 +189,8 @@
 						<Button
 							Name="btnCategoryAbout"
 							Content="关于"
-							Background="#383838"
-							Foreground="#FFFFFF"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							BorderThickness="0"
 							Padding="12,10"
 							FontSize="13"
@@ -218,7 +218,7 @@
 											<Setter
 												TargetName="border"
 												Property="Background"
-												Value="#2D2D2D" />
+												Value="{DynamicResource CardHoverBrush}" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>
@@ -228,7 +228,7 @@
 				</Border>
 				<Border
 					Grid.Column="1"
-					Background="#252525"
+					Background="{DynamicResource CardBackgroundBrush}"
 					CornerRadius="8"
 					Padding="20">
 					<StackPanel>
@@ -253,14 +253,14 @@
 								<StackPanel>
 									<TextBlock
 										Text="常规设置"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontSize="18"
 										FontWeight="SemiBold"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,16" />
 									<TextBlock
 										Text="启动设置"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,8" />
@@ -268,26 +268,26 @@
 										Name="chkAutoLogin"
 										Content="启动时自动登录上次账号"
 										IsChecked="False"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontFamily="Microsoft YaHei"
 										Margin="0,8,0,0" />
 									<CheckBox
 										Name="chkMinimizeToTray"
 										Content="最小化到系统托盘"
 										IsChecked="False"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontFamily="Microsoft YaHei"
 										Margin="0,8,0,0" />
 									<CheckBox
 										Name="chkCheckUpdate"
 										Content="自动检查更新"
 										IsChecked="True"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontFamily="Microsoft YaHei"
 										Margin="0,8,0,0" />
 									<TextBlock
 										Text="界面设置"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,24,0,8" />
@@ -295,22 +295,103 @@
 										Name="chkShowSplash"
 										Content="显示启动画面"
 										IsChecked="True"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontFamily="Microsoft YaHei"
 										Margin="0,8,0,0" />
 									<CheckBox
-										Name="chkHardwareAcceleration"
-										Content="启用硬件加速"
-										IsChecked="True"
-										Foreground="#FFFFFF"
+									Name="chkHardwareAcceleration"
+									Content="启用硬件加速"
+									IsChecked="True"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									FontFamily="Microsoft YaHei"
+									Margin="0,8,0,0" />
+								<TextBlock
+									Text="配色主题"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									FontSize="12"
+									FontFamily="Microsoft YaHei"
+									Margin="0,24,0,8" />
+								<Grid>
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="*" />
+										<ColumnDefinition Width="Auto" />
+									</Grid.ColumnDefinitions>
+									<ComboBox
+										Name="cbThemeColor"
+										Grid.Column="0"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										Padding="10,6"
+										FontSize="13"
 										FontFamily="Microsoft YaHei"
-										Margin="0,8,0,0" />
-									<TextBlock
-										Text="游戏目录"
-										Foreground="#AAAAAA"
-										FontSize="12"
-										FontFamily="Microsoft YaHei"
-										Margin="0,24,0,8" />
+										Cursor="Hand"
+										SelectionChanged="CbThemeColor_SelectionChanged">
+										<ComboBox.ItemTemplate>
+											<DataTemplate>
+												<TextBlock Text="{Binding Name}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="13"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+											</DataTemplate>
+										</ComboBox.ItemTemplate>
+										<Control.Template>
+											<ControlTemplate TargetType="{x:Type ComboBox}">
+												<Grid>
+													<Border Background="{TemplateBinding Background}"
+															BorderBrush="{TemplateBinding BorderBrush}"
+															BorderThickness="{TemplateBinding BorderThickness}"
+															CornerRadius="4">
+														<Grid>
+															<Grid.ColumnDefinitions>
+																<ColumnDefinition Width="*" />
+																<ColumnDefinition Width="Auto" />
+															</Grid.ColumnDefinitions>
+															<ContentPresenter Grid.Column="0"
+																Content="{TemplateBinding SelectedItem}"
+																ContentTemplate="{TemplateBinding ItemTemplate}"
+																Margin="{TemplateBinding Padding}"
+																VerticalAlignment="Center" />
+															<ToggleButton Grid.Column="1"
+																Background="{DynamicResource SurfaceBrush}" BorderThickness="0" Padding="8"
+																IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+																<Path Data="M0,0 L8,0 L4,4" Fill="#FFFFFF"
+																	Width="8" Height="8" Stretch="Fill" />
+															</ToggleButton>
+														</Grid>
+													</Border>
+													<Popup IsOpen="{TemplateBinding IsDropDownOpen}"
+														Placement="Bottom" AllowsTransparency="True">
+														<Border Background="{DynamicResource CardBackgroundBrush}"
+															BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4"
+															MinWidth="{TemplateBinding ActualWidth}">
+															<ScrollViewer MaxHeight="200">
+																<ItemsPresenter />
+															</ScrollViewer>
+														</Border>
+													</Popup>
+												</Grid>
+											</ControlTemplate>
+										</Control.Template>
+									</ComboBox>
+									<StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+										<Border Name="previewPrimaryColor"
+											Width="28" Height="28" CornerRadius="4"
+											Background="{DynamicResource PrimaryBrush}"
+											Margin="0,0,8,0" />
+										<Border Name="previewSecondaryColor"
+											Width="28" Height="28" CornerRadius="4"
+											Background="{DynamicResource PrimaryDarkBrush}" />
+									</StackPanel>
+								</Grid>
+								<TextBlock
+									Text="游戏目录"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									FontSize="12"
+									FontFamily="Microsoft YaHei"
+									Margin="0,24,0,8" />
 									<Grid>
 										<Grid.ColumnDefinitions>
 											<ColumnDefinition
@@ -322,9 +403,9 @@
 											Name="txtGamePath"
 											Grid.Column="0"
 											Text="%appdata%\.minecraft"
-											Background="#383838"
-											Foreground="#FFFFFF"
-											BorderBrush="#3A3A3A"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											BorderBrush="{DynamicResource BorderBrush}"
 											BorderThickness="1"
 											Padding="10,8"
 											FontSize="13"
@@ -333,10 +414,10 @@
 										<Button
 											Grid.Column="1"
 											Content="浏览"
-											Background="#383838"
-											Foreground="#FFFFFF"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
 											BorderThickness="1"
-											BorderBrush="#3A3A3A"
+											BorderBrush="{DynamicResource BorderBrush}"
 											Padding="12,8"
 											FontSize="13"
 											FontFamily="Microsoft YaHei"
@@ -364,7 +445,7 @@
 															<Setter
 																TargetName="border"
 																Property="Background"
-																Value="#2D2D2D" />
+																Value="{DynamicResource CardHoverBrush}" />
 														</Trigger>
 													</ControlTemplate.Triggers>
 												</ControlTemplate>
@@ -378,14 +459,14 @@
 								<StackPanel>
 									<TextBlock
 										Text="游戏设置"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontSize="18"
 										FontWeight="SemiBold"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,16" />
 									<TextBlock
 										Text="内存设置 (MB)"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,8" />
@@ -401,16 +482,16 @@
 											Margin="0,0,16,0">
 											<TextBlock
 												Text="最小内存"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="12"
 												FontFamily="Microsoft YaHei"
 												Margin="0,0,0,4" />
 											<TextBox
 												Name="txtMinMemory"
 												Text="2048"
-												Background="#383838"
-												Foreground="#FFFFFF"
-												BorderBrush="#3A3A3A"
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
 												BorderThickness="1"
 												Padding="10,8"
 												FontSize="13"
@@ -420,16 +501,16 @@
 											Grid.Column="1">
 											<TextBlock
 												Text="最大内存"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="12"
 												FontFamily="Microsoft YaHei"
 												Margin="0,0,0,4" />
 											<TextBox
 												Name="txtMaxMemory"
 												Text="4096"
-												Background="#383838"
-												Foreground="#FFFFFF"
-												BorderBrush="#3A3A3A"
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
 												BorderThickness="1"
 												Padding="10,8"
 												FontSize="13"
@@ -438,7 +519,7 @@
 									</Grid>
 									<TextBlock
 										Text="分辨率设置"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,24,0,8" />
@@ -451,9 +532,9 @@
 										</Grid.ColumnDefinitions>
 										<ComboBox
 											Name="cbResolution"
-											Background="#383838"
-											Foreground="#FFFFFF"
-											BorderBrush="#3A3A3A"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											BorderBrush="{DynamicResource BorderBrush}"
 											BorderThickness="1"
 											Padding="10,6"
 											FontSize="13"
@@ -483,7 +564,7 @@
 																	VerticalAlignment="Center" />
 																<ToggleButton
 																	Grid.Column="1"
-																	Background="#383838"
+																	Background="{DynamicResource SurfaceBrush}"
 																	BorderThickness="0"
 																	Padding="8"
 																	IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
@@ -501,8 +582,8 @@
 															Placement="Bottom"
 															AllowsTransparency="True">
 															<Border
-																Background="#252525"
-																BorderBrush="#3A3A3A"
+																Background="{DynamicResource CardBackgroundBrush}"
+																BorderBrush="{DynamicResource BorderBrush}"
 																BorderThickness="1"
 																CornerRadius="4"
 																MinWidth="{TemplateBinding ActualWidth}">
@@ -517,31 +598,31 @@
 											</Control.Template>
 											<ComboBoxItem
 												Content="800×600"
-												Foreground="#FFFFFF"
-												Background="#252525" />
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
 											<ComboBoxItem
 												Content="1024×768"
-												Foreground="#FFFFFF"
-												Background="#252525" />
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
 											<ComboBoxItem
 												Content="1280×720"
-												Foreground="#FFFFFF"
-												Background="#252525" />
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
 											<ComboBoxItem
 												Content="1280×1024"
 												IsSelected="True"
-												Foreground="#FFFFFF"
-												Background="#252525" />
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
 											<ComboBoxItem
 												Content="1920×1080"
-												Foreground="#FFFFFF"
-												Background="#252525" />
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
 										</ComboBox>
 										<CheckBox
 											Name="chkFullscreen"
 											Content="全屏模式"
 											IsChecked="False"
-											Foreground="#FFFFFF"
+											Foreground="{DynamicResource TextPrimaryBrush}"
 											FontFamily="Microsoft YaHei"
 											Grid.Column="1"
 											Margin="16,0,0,0"
@@ -554,20 +635,20 @@
 								<StackPanel>
 									<TextBlock
 										Text="Java设置"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontSize="18"
 										FontWeight="SemiBold"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,16" />
 									<Border
-										Background="#383838"
+										Background="{DynamicResource SurfaceBrush}"
 										CornerRadius="8"
 										Padding="16"
 										Margin="0,0,0,16">
 										<StackPanel>
 											<TextBlock
 												Text="自动检测 Java 环境"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="14"
 												FontWeight="SemiBold"
 												FontFamily="Microsoft YaHei"
@@ -575,10 +656,10 @@
 											<Button
 												Name="btnDetectJava"
 												Content="🔍 检测系统 Java"
-												Background="#383838"
-												Foreground="#FFFFFF"
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												BorderThickness="1"
-												BorderBrush="#3A3A3A"
+												BorderBrush="{DynamicResource BorderBrush}"
 												Padding="12,8"
 												FontSize="13"
 												FontFamily="Microsoft YaHei"
@@ -606,23 +687,84 @@
 																<Setter
 																	TargetName="border"
 																	Property="Background"
-																	Value="#2D2D2D" />
+																	Value="{DynamicResource CardHoverBrush}" />
 															</Trigger>
 														</ControlTemplate.Triggers>
 													</ControlTemplate>
 												</Control.Template>
 											</Button>
 											<ItemsControl
-												Name="javaList"
-												Margin="0,0,0,12" />
+											Name="javaList"
+											Margin="0,0,0,12">
+											<ItemsControl.ItemTemplate>
+												<DataTemplate>
+													<Border
+														Background="{DynamicResource CardBackgroundBrush}"
+														CornerRadius="6"
+														Padding="10"
+														Margin="0,0,0,6">
+														<Grid>
+															<Grid.ColumnDefinitions>
+																<ColumnDefinition Width="*" />
+																<ColumnDefinition Width="Auto" />
+															</Grid.ColumnDefinitions>
+															<StackPanel Grid.Column="0">
+																<TextBlock
+																	FontSize="12"
+																	Foreground="{DynamicResource TextPrimaryBrush}"
+																	Text="{Binding Path}" />
+																<TextBlock
+																	FontSize="11"
+																	Foreground="{DynamicResource TextSecondaryBrush}"
+																	Margin="0,2,0,0">
+																	<Run Text="版本: Java " />
+																	<Run Text="{Binding MajorVersion}" />
+																	<Run Text=" | 最大内存: " />
+																	<Run Text="{Binding MaxMemoryMb}" />
+																	<Run Text=" MB" />
+																</TextBlock>
+															</StackPanel>
+															<Button
+																Grid.Column="1"
+																Content="使用此版本"
+																Background="#4CAF50"
+																Foreground="{DynamicResource TextPrimaryBrush}"
+																BorderThickness="0"
+																Padding="8,4"
+																FontSize="11"
+																FontFamily="Microsoft YaHei"
+																Cursor="Hand"
+																Tag="{Binding}"
+																Click="BtnUseDetectedJava_Click">
+																<Control.Template>
+																	<ControlTemplate TargetType="{x:Type Button}">
+																		<Border Name="border"
+																			Background="{TemplateBinding Background}"
+																			CornerRadius="4"
+																			Padding="{TemplateBinding Padding}">
+																			<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+																		</Border>
+																		<ControlTemplate.Triggers>
+																			<Trigger Property="UIElement.IsMouseOver" Value="True">
+																				<Setter TargetName="border" Property="Background" Value="#388E3C" />
+																			</Trigger>
+																		</ControlTemplate.Triggers>
+																	</ControlTemplate>
+																</Control.Template>
+															</Button>
+														</Grid>
+													</Border>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
 											<Border
-												Background="#252525"
+												Background="{DynamicResource CardBackgroundBrush}"
 												CornerRadius="6"
 												Padding="10">
 												<StackPanel>
 													<TextBlock
 														Text="版本匹配建议"
-														Foreground="#FFFFFF"
+														Foreground="{DynamicResource TextPrimaryBrush}"
 														FontSize="12"
 														FontWeight="SemiBold"
 														FontFamily="Microsoft YaHei"
@@ -630,7 +772,7 @@
 													<TextBlock
 														Name="txtVersionSuggestion"
 														FontSize="11"
-														Foreground="#AAAAAA"
+														Foreground="{DynamicResource TextSecondaryBrush}"
 														TextWrapping="Wrap"
 														Text="Minecraft 1.17+ (含1.18, 1.19, 1.20等): 建议使用 Java 17&#xA;Minecraft 1.9 ~ 1.16: 建议使用 Java 11&#xA;Minecraft 1.8 及以下: 建议使用 Java 8" />
 												</StackPanel>
@@ -638,27 +780,27 @@
 										</StackPanel>
 									</Border>
 									<Border
-										Background="#383838"
+										Background="{DynamicResource SurfaceBrush}"
 										CornerRadius="8"
 										Padding="16"
 										Margin="0,0,0,16">
 										<StackPanel>
 											<TextBlock
 												Text="一键下载 Java 环境"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="14"
 												FontWeight="SemiBold"
 												FontFamily="Microsoft YaHei"
 												Margin="0,0,0,12" />
 											<Border
-												Background="#252525"
+												Background="{DynamicResource CardBackgroundBrush}"
 												CornerRadius="6"
 												Padding="10"
 												Margin="0,0,0,12">
 												<StackPanel>
 													<TextBlock
 														Text="推荐版本"
-														Foreground="#FFFFFF"
+														Foreground="{DynamicResource TextPrimaryBrush}"
 														FontSize="12"
 														FontWeight="SemiBold"
 														FontFamily="Microsoft YaHei"
@@ -668,7 +810,7 @@
 														<TextBlock
 															Text="根据您选择的MC版本，推荐: "
 															FontSize="11"
-															Foreground="#AAAAAA" />
+															Foreground="{DynamicResource TextSecondaryBrush}" />
 														<TextBlock
 															Name="txtRecommendedJava"
 															Text="Java 17"
@@ -681,7 +823,7 @@
 											<TextBlock
 												Text="选择要下载的Java版本:"
 												FontSize="12"
-												Foreground="#AAAAAA"
+												Foreground="{DynamicResource TextSecondaryBrush}"
 												Margin="0,0,0,8" />
 											<StackPanel
 												Orientation="Horizontal"
@@ -689,10 +831,10 @@
 												<Button
 													Name="btnDownloadJava8"
 													Content="Java 8"
-													Background="#383838"
-													Foreground="#FFFFFF"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													BorderThickness="1"
-													BorderBrush="#3A3A3A"
+													BorderBrush="{DynamicResource BorderBrush}"
 													Padding="10,6"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
@@ -722,7 +864,7 @@
 																	<Setter
 																		TargetName="border"
 																		Property="Background"
-																		Value="#2D2D2D" />
+																		Value="{DynamicResource CardHoverBrush}" />
 																</Trigger>
 															</ControlTemplate.Triggers>
 														</ControlTemplate>
@@ -731,10 +873,10 @@
 												<Button
 													Name="btnDownloadJava11"
 													Content="Java 11"
-													Background="#383838"
-													Foreground="#FFFFFF"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													BorderThickness="1"
-													BorderBrush="#3A3A3A"
+													BorderBrush="{DynamicResource BorderBrush}"
 													Padding="10,6"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
@@ -764,7 +906,7 @@
 																	<Setter
 																		TargetName="border"
 																		Property="Background"
-																		Value="#2D2D2D" />
+																		Value="{DynamicResource CardHoverBrush}" />
 																</Trigger>
 															</ControlTemplate.Triggers>
 														</ControlTemplate>
@@ -773,10 +915,10 @@
 												<Button
 													Name="btnDownloadJava17"
 													Content="Java 17"
-													Background="#383838"
-													Foreground="#FFFFFF"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													BorderThickness="1"
-													BorderBrush="#3A3A3A"
+													BorderBrush="{DynamicResource BorderBrush}"
 													Padding="10,6"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
@@ -806,7 +948,7 @@
 																	<Setter
 																		TargetName="border"
 																		Property="Background"
-																		Value="#2D2D2D" />
+																		Value="{DynamicResource CardHoverBrush}" />
 																</Trigger>
 															</ControlTemplate.Triggers>
 														</ControlTemplate>
@@ -815,10 +957,10 @@
 												<Button
 													Name="btnDownloadJava21"
 													Content="Java 21"
-													Background="#383838"
-													Foreground="#FFFFFF"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													BorderThickness="1"
-													BorderBrush="#3A3A3A"
+													BorderBrush="{DynamicResource BorderBrush}"
 													Padding="10,6"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
@@ -847,7 +989,7 @@
 																	<Setter
 																		TargetName="border"
 																		Property="Background"
-																		Value="#2D2D2D" />
+																		Value="{DynamicResource CardHoverBrush}" />
 																</Trigger>
 															</ControlTemplate.Triggers>
 														</ControlTemplate>
@@ -858,7 +1000,7 @@
 												Name="btnDownloadRecommended"
 												Content="⬇️ 一键下载推荐版本"
 												Background="#4CAF50"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												BorderThickness="0"
 												Padding="12,8"
 												FontSize="13"
@@ -893,7 +1035,7 @@
 											</Button>
 											<Border
 												Name="pnlDownloadProgress"
-												Background="#252525"
+												Background="{DynamicResource CardBackgroundBrush}"
 												CornerRadius="6"
 												Padding="10"
 												Margin="0,12,0,0"
@@ -903,7 +1045,7 @@
 														Name="txtDownloadStatus"
 														Text="正在下载..."
 														FontSize="12"
-														Foreground="#FFFFFF"
+														Foreground="{DynamicResource TextPrimaryBrush}"
 														Margin="0,0,0,8" />
 													<ProgressBar
 														Name="progressDownload"
@@ -911,13 +1053,13 @@
 														Minimum="0"
 														Maximum="100"
 														Value="0"
-														Background="#3A3A3A"
+														Background="{DynamicResource BorderBrush}"
 														Foreground="#4CAF50" />
 													<TextBlock
 														Name="txtDownloadProgress"
 														Text="0%"
 														FontSize="11"
-														Foreground="#AAAAAA"
+														Foreground="{DynamicResource TextSecondaryBrush}"
 														Margin="0,4,0,0"
 														HorizontalAlignment="Center" />
 												</StackPanel>
@@ -925,14 +1067,14 @@
 										</StackPanel>
 									</Border>
 									<Border
-										Background="#383838"
+										Background="{DynamicResource SurfaceBrush}"
 										CornerRadius="8"
 										Padding="16"
 										Margin="0,0,0,16">
 										<StackPanel>
 											<TextBlock
 												Text="手动配置 Java 路径"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="14"
 												FontWeight="SemiBold"
 												FontFamily="Microsoft YaHei"
@@ -948,9 +1090,9 @@
 													Name="txtJavaPath"
 													Grid.Column="0"
 													Text=""
-													Background="#252525"
-													Foreground="#FFFFFF"
-													BorderBrush="#3A3A3A"
+													Background="{DynamicResource CardBackgroundBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													BorderBrush="{DynamicResource BorderBrush}"
 													BorderThickness="1"
 													Padding="10,8"
 													FontSize="13"
@@ -958,10 +1100,10 @@
 												<Button
 													Grid.Column="1"
 													Content="浏览..."
-													Background="#383838"
-													Foreground="#FFFFFF"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													BorderThickness="1"
-													BorderBrush="#3A3A3A"
+													BorderBrush="{DynamicResource BorderBrush}"
 													Padding="10,8"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
@@ -989,7 +1131,7 @@
 																	<Setter
 																		TargetName="border"
 																		Property="Background"
-																		Value="#2D2D2D" />
+																		Value="{DynamicResource CardHoverBrush}" />
 																</Trigger>
 															</ControlTemplate.Triggers>
 														</ControlTemplate>
@@ -1000,7 +1142,7 @@
 												Name="btnSetJavaPath"
 												Content="✅ 设为当前 Java"
 												Background="#4CAF50"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												BorderThickness="0"
 												Padding="12,8"
 												FontSize="13"
@@ -1037,14 +1179,14 @@
 										</StackPanel>
 									</Border>
 									<Border
-										Background="#383838"
+										Background="{DynamicResource SurfaceBrush}"
 										CornerRadius="8"
 										Padding="16"
 										Margin="0,0,0,16">
 										<StackPanel>
 											<TextBlock
 												Text="当前 Java 配置"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="14"
 												FontWeight="SemiBold"
 												FontFamily="Microsoft YaHei"
@@ -1068,7 +1210,7 @@
 													Grid.Row="0"
 													Grid.Column="0"
 													Text="Java 路径:"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													Margin="0,0,0,6" />
 												<TextBlock
@@ -1076,14 +1218,14 @@
 													Grid.Row="0"
 													Grid.Column="1"
 													Text="未设置"
-													Foreground="#FFFFFF"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													FontSize="12"
 													Margin="0,0,0,6" />
 												<TextBlock
 													Grid.Row="1"
 													Grid.Column="0"
 													Text="Java 版本:"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													Margin="0,0,0,6" />
 												<TextBlock
@@ -1091,14 +1233,14 @@
 													Grid.Row="1"
 													Grid.Column="1"
 													Text="-"
-													Foreground="#FFFFFF"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													FontSize="12"
 													Margin="0,0,0,6" />
 												<TextBlock
 													Grid.Row="2"
 													Grid.Column="0"
 													Text="推荐内存:"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													Margin="0,0,0,6" />
 												<TextBlock
@@ -1106,17 +1248,17 @@
 													Grid.Row="2"
 													Grid.Column="1"
 													Text="-"
-													Foreground="#FFFFFF"
+													Foreground="{DynamicResource TextPrimaryBrush}"
 													FontSize="12"
 													Margin="0,0,0,6" />
 											</Grid>
 											<Button
 												Name="btnValidateJava"
 												Content="🔧 验证 Java 配置"
-												Background="#383838"
-												Foreground="#FFFFFF"
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												BorderThickness="1"
-												BorderBrush="#3A3A3A"
+												BorderBrush="{DynamicResource BorderBrush}"
 												Padding="10,6"
 												FontSize="12"
 												FontFamily="Microsoft YaHei"
@@ -1145,7 +1287,7 @@
 																<Setter
 																	TargetName="border"
 																	Property="Background"
-																	Value="#2D2D2D" />
+																	Value="{DynamicResource CardHoverBrush}" />
 															</Trigger>
 														</ControlTemplate.Triggers>
 													</ControlTemplate>
@@ -1155,16 +1297,16 @@
 									</Border>
 									<TextBlock
 										Text="Java参数"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,8" />
 									<TextBox
 										Name="txtJavaArgs"
 										Text="-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M"
-										Background="#383838"
-										Foreground="#FFFFFF"
-										BorderBrush="#3A3A3A"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
 										BorderThickness="1"
 										Padding="10,8"
 										FontSize="13"
@@ -1179,14 +1321,14 @@
 								<StackPanel>
 									<TextBlock
 										Text="下载设置"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontSize="18"
 										FontWeight="SemiBold"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,16" />
 									<TextBlock
 										Text="下载线程数"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,8" />
@@ -1203,8 +1345,8 @@
 											Minimum="1"
 											Maximum="200"
 											Value="64"
-											Background="#383838"
-											Foreground="#2196F3"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource PrimaryBrush}"
 											TickFrequency="1"
 											IsSnapToTickEnabled="True"
 											Height="20"
@@ -1214,7 +1356,7 @@
 											Name="txtDownloadThreadsValue"
 											Grid.Column="1"
 											Text="64"
-											Foreground="#FFFFFF"
+											Foreground="{DynamicResource TextPrimaryBrush}"
 											FontSize="13"
 											FontFamily="Microsoft YaHei"
 											Margin="12,0,0,0"
@@ -1223,7 +1365,7 @@
 									</Grid>
 									<TextBlock
 										Text="下载目录"
-										Foreground="#AAAAAA"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="12"
 										FontFamily="Microsoft YaHei"
 										Margin="0,24,0,8" />
@@ -1238,9 +1380,9 @@
 											Name="txtDownloadPath"
 											Grid.Column="0"
 											Text=""
-											Background="#383838"
-											Foreground="#FFFFFF"
-											BorderBrush="#3A3A3A"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											BorderBrush="{DynamicResource BorderBrush}"
 											BorderThickness="1"
 											Padding="10,8"
 											FontSize="13"
@@ -1249,10 +1391,10 @@
 										<Button
 											Grid.Column="1"
 											Content="浏览"
-											Background="#383838"
-											Foreground="#FFFFFF"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
 											BorderThickness="1"
-											BorderBrush="#3A3A3A"
+											BorderBrush="{DynamicResource BorderBrush}"
 											Padding="12,8"
 											FontSize="13"
 											FontFamily="Microsoft YaHei"
@@ -1280,7 +1422,7 @@
 															<Setter
 																TargetName="border"
 																Property="Background"
-																Value="#2D2D2D" />
+																Value="{DynamicResource CardHoverBrush}" />
 														</Trigger>
 													</ControlTemplate.Triggers>
 												</ControlTemplate>
@@ -1291,14 +1433,14 @@
 										Name="chkAutoInstallDependencies"
 										Content="自动安装依赖库"
 										IsChecked="True"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontFamily="Microsoft YaHei"
 										Margin="0,24,0,0" />
 									<CheckBox
 										Name="chkEnableVersionIsolation"
 										Content="启用版本隔离（每个版本使用独立的游戏目录）"
 										IsChecked="False"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontFamily="Microsoft YaHei"
 										Margin="0,12,0,0" />
 								</StackPanel>
@@ -1308,13 +1450,13 @@
 								<StackPanel>
 									<TextBlock
 										Text="关于"
-										Foreground="#FFFFFF"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontSize="18"
 										FontWeight="SemiBold"
 										FontFamily="Microsoft YaHei"
 										Margin="0,0,0,16" />
 									<Border
-										Background="#383838"
+										Background="{DynamicResource SurfaceBrush}"
 										CornerRadius="8"
 										Padding="20"
 										Margin="0,0,0,16">
@@ -1324,13 +1466,13 @@
 												Text="🎵 MNL"
 												FontSize="20"
 												FontWeight="Bold"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontFamily="Microsoft YaHei"
 												Margin="0,0,0,8" />
 											<TextBlock
 												Text="版本 1.0.0"
 												FontSize="14"
-												Foreground="#AAAAAA"
+												Foreground="{DynamicResource TextSecondaryBrush}"
 												FontFamily="Microsoft YaHei"
 												Margin="0,0,0,12" />
 											<TextBlock
@@ -1342,13 +1484,13 @@
 										</StackPanel>
 									</Border>
 									<Border
-										Background="#383838"
+										Background="{DynamicResource SurfaceBrush}"
 										CornerRadius="8"
 										Padding="16">
 										<StackPanel>
 											<TextBlock
 												Text="功能特性"
-												Foreground="#FFFFFF"
+												Foreground="{DynamicResource TextPrimaryBrush}"
 												FontSize="14"
 												FontWeight="SemiBold"
 												FontFamily="Microsoft YaHei"
@@ -1356,31 +1498,31 @@
 											<StackPanel>
 												<TextBlock
 													Text="• 支持多版本游戏下载"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
 													Margin="0,4,0,0" />
 												<TextBlock
 													Text="• 整合包一键安装"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
 													Margin="0,4,0,0" />
 												<TextBlock
 													Text="• Mod模组管理"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
 													Margin="0,4,0,0" />
 												<TextBlock
 													Text="• 光影材质支持"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
 													Margin="0,4,0,0" />
 												<TextBlock
 													Text="• 自定义Java参数"
-													Foreground="#AAAAAA"
+													Foreground="{DynamicResource TextSecondaryBrush}"
 													FontSize="12"
 													FontFamily="Microsoft YaHei"
 													Margin="0,4,0,0" />
@@ -1389,8 +1531,8 @@
 									</Border>
 									<Button
 										Content="检查更新"
-										Background="#2196F3"
-										Foreground="#FFFFFF"
+										Background="{DynamicResource PrimaryBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										BorderThickness="0"
 										Padding="16,10"
 										FontSize="14"
@@ -1418,7 +1560,7 @@
 														<Setter
 															TargetName="border"
 															Property="Background"
-															Value="#1976D2" />
+															Value="{DynamicResource PrimaryDarkBrush}" />
 													</Trigger>
 												</ControlTemplate.Triggers>
 											</ControlTemplate>
@@ -1429,8 +1571,8 @@
 						</TabControl>
 						<Button
 							Content="保存设置"
-							Background="#2196F3"
-							Foreground="#FFFFFF"
+							Background="{DynamicResource PrimaryBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							BorderThickness="0"
 							Padding="16,10"
 							FontSize="14"
@@ -1458,7 +1600,7 @@
 											<Setter
 												TargetName="border"
 												Property="Background"
-												Value="#1976D2" />
+												Value="{DynamicResource PrimaryDarkBrush}" />
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>

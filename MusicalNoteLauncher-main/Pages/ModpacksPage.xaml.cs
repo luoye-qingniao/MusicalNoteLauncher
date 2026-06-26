@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -28,6 +30,7 @@ namespace MusicalNoteLauncher.Pages
         private List<DownloadVersionInfo> _allVersions;
         private string _pendingResourceName;
         private string _pendingTargetDir;
+        private CancellationTokenSource _installCts;
 
         public ModpacksPage()
         {
@@ -136,7 +139,6 @@ namespace MusicalNoteLauncher.Pages
                 _pendingResourceName = item.Name;
                 _pendingTargetDir = _modpacksPath;
 
-                // 先显示面板（加载状态）
                 ShowVersionPanelLoading();
 
                 List<DownloadVersionInfo> versions = null;
@@ -159,15 +161,15 @@ namespace MusicalNoteLauncher.Pages
                     return;
                 }
 
+                // 单版本直接安装
                 if (versions.Count == 1)
                 {
                     HideVersionPanel();
-                    bool success = DownloadManager.AddDownloadTask(_pendingResourceName, _pendingTargetDir, versions[0]);
-                    if (success)
-                        MessageBox.Show($"[{_pendingResourceName}] 已添加到下载任务！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    await DownloadAndInstallModpack(versions[0], showDoneMessage: true);
                     return;
                 }
 
+                VersionTitle.Text = $"选择版本 - {_pendingResourceName}";
                 PopulateVersionPanel(versions);
             }
             catch (Exception ex)
@@ -222,31 +224,21 @@ namespace MusicalNoteLauncher.Pages
             HideVersionPanel();
         }
 
-        private void VersionListView_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (VersionListView.SelectedItem is DownloadVersionInfo version)
-            {
-                ConfirmDownload(version);
-            }
-        }
-
-        private void VersionItemDownload_Click(object sender, RoutedEventArgs e)
+        private async void VersionItemDownload_Click(object sender, RoutedEventArgs e)
         {
             if (sender is Button btn && btn.Tag is DownloadVersionInfo version)
             {
-                ConfirmDownload(version);
+                HideVersionPanel();
+                await DownloadAndInstallModpack(version, showDoneMessage: true);
             }
         }
 
-        private void ConfirmDownload(DownloadVersionInfo version)
+        private async void VersionListView_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            if (version == null) return;
-
-            bool success = DownloadManager.AddDownloadTask(_pendingResourceName, _pendingTargetDir, version);
-            if (success)
+            if (VersionListView.SelectedItem is DownloadVersionInfo version)
             {
                 HideVersionPanel();
-                MessageBox.Show($"[{_pendingResourceName}] 已添加到下载任务！（版本: {version.VersionName}）", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                await DownloadAndInstallModpack(version, showDoneMessage: true);
             }
         }
 
@@ -287,8 +279,8 @@ namespace MusicalNoteLauncher.Pages
                 FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand,
                 Background = isActive
-                    ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"))
-                    : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                    ? (Brush)FindResource("PrimaryBrush")
+                    : (Brush)FindResource("CardHoverBrush"),
                 Foreground = isActive ? Brushes.White
                     : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB")),
                 BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#444444")),
@@ -309,8 +301,8 @@ namespace MusicalNoteLauncher.Pages
                 {
                     bool active = (b == btn);
                     b.Background = active
-                        ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"))
-                        : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D"));
+                        ? (Brush)FindResource("PrimaryBrush")
+                        : (Brush)FindResource("CardHoverBrush");
                     b.Foreground = active ? Brushes.White
                         : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB"));
                 }
@@ -350,6 +342,176 @@ namespace MusicalNoteLauncher.Pages
         private void UpdateVersionCount(int count)
         {
             VersionCountText.Text = $"共 {count} 个版本";
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 下载安装整合包（下载 → 解压 → 安装加载器 → 下载模组 → 创建版本）
+        // ═══════════════════════════════════════════════════════════════
+
+        private async Task DownloadAndInstallModpack(DownloadVersionInfo version, bool showDoneMessage = true)
+        {
+            if (version == null) return;
+
+            ShowInstallProgress();
+            _installCts = new CancellationTokenSource();
+            var ct = _installCts.Token;
+
+            try
+            {
+                // 步骤1：下载 .mrpack 文件
+                UpdateInstallProgress("正在下载整合包...", 5);
+                string downloadPath = Path.Combine(_modpacksPath, version.FileName ?? $"{_pendingResourceName}.mrpack");
+                Directory.CreateDirectory(_modpacksPath);
+
+                bool downloadSuccess = await DownloadFileWithProgressAsync(version.DownloadUrl, downloadPath, 5, 25, ct);
+                if (!downloadSuccess)
+                {
+                    HideInstallProgress();
+                    MessageBox.Show($"下载 {_pendingResourceName} 失败！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // 步骤2：安装整合包
+                UpdateInstallProgress("正在解压并安装整合包...", 25);
+                var installer = new ModpackInstaller(_config.GetMinecraftPath());
+                installer.StatusChanged += status =>
+                {
+                    Dispatcher.Invoke(() => UpdateInstallProgress(status, -1));
+                };
+                installer.ProgressChanged += progress =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        int mapped = 25 + (int)(progress * 0.70);
+                        UpdateInstallProgress(null, mapped);
+                    });
+                };
+
+                var result = await installer.InstallFromMrpackAsync(downloadPath, _pendingResourceName, ct);
+                if (!result.Success)
+                {
+                    HideInstallProgress();
+                    MessageBox.Show($"安装 {_pendingResourceName} 失败！\n{result.ErrorMessage}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                // 步骤3：清理下载的 .mrpack 文件
+                try { File.Delete(downloadPath); } catch { }
+
+                // 完成
+                HideInstallProgress();
+
+                if (showDoneMessage)
+                {
+                    MessageBox.Show(
+                        $"整合包「{_pendingResourceName}」安装完成！\n\n" +
+                        $"版本名: {result.VersionId}\n" +
+                        $"Minecraft: {result.MinecraftVersion} | 加载器: {result.LoaderType}\n\n" +
+                        $"可在主页版本列表中选择并启动。",
+                        "安装成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                HideInstallProgress();
+                MessageBox.Show($"{_pendingResourceName} 安装已取消", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                HideInstallProgress();
+                Logger.Error($"[安装] 整合包安装失败: {ex.Message}");
+                MessageBox.Show($"操作失败:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _installCts?.Dispose();
+                _installCts = null;
+            }
+        }
+
+        private async Task<bool> DownloadFileWithProgressAsync(string url, string savePath,
+            int progressStart, int progressEnd, CancellationToken ct)
+        {
+            try
+            {
+                using (var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromMinutes(10) })
+                {
+                    client.DefaultRequestHeaders.UserAgent.ParseAdd("MusicalNoteLauncher/1.0");
+
+                    var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+                    if (!response.IsSuccessStatusCode) return false;
+
+                    long totalBytes = response.Content.Headers.ContentLength ?? -1;
+                    using (var stream = await response.Content.ReadAsStreamAsync())
+                    using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, 8192, true))
+                    {
+                        byte[] buffer = new byte[8192];
+                        long totalRead = 0;
+                        int bytesRead;
+
+                        while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+                        {
+                            await fileStream.WriteAsync(buffer, 0, bytesRead, ct);
+                            totalRead += bytesRead;
+
+                            if (totalBytes > 0)
+                            {
+                                int progress = progressStart + (int)((double)totalRead / totalBytes * (progressEnd - progressStart));
+                                Dispatcher.Invoke(() => UpdateInstallProgress(
+                                    $"下载中... ({FormatFileSize(totalRead)} / {FormatFileSize(totalBytes)})", progress));
+                            }
+                        }
+                    }
+                }
+                return true;
+            }
+            catch (OperationCanceledException) { return false; }
+            catch (Exception ex)
+            {
+                Logger.Error($"[安装] 下载文件失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        private void ShowInstallProgress()
+        {
+            InstallProgressOverlay.Visibility = Visibility.Visible;
+            InstallProgressBar.Value = 0;
+            InstallPercentText.Text = "0%";
+            InstallStatusText.Text = "准备中...";
+            InstallCancelBtn.IsEnabled = true;
+        }
+
+        private void HideInstallProgress()
+        {
+            InstallProgressOverlay.Visibility = Visibility.Collapsed;
+        }
+
+        private void UpdateInstallProgress(string status, int percent)
+        {
+            if (!string.IsNullOrEmpty(status))
+                InstallStatusText.Text = status;
+
+            if (percent >= 0)
+            {
+                InstallProgressBar.Value = percent;
+                InstallPercentText.Text = $"{percent}%";
+            }
+        }
+
+        private void InstallCancelBtn_Click(object sender, RoutedEventArgs e)
+        {
+            InstallCancelBtn.IsEnabled = false;
+            InstallStatusText.Text = "正在取消...";
+            _installCts?.Cancel();
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes < 1024) return $"{bytes} B";
+            if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
+            if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024.0 * 1024):F1} MB";
+            return $"{bytes / (1024.0 * 1024 * 1024):F2} GB";
         }
     }
 }

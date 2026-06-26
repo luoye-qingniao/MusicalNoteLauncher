@@ -47,6 +47,10 @@ namespace MusicalNoteLauncher
 
                 Logger.Info("渲染设置配置完成");
 
+                // 加载上次保存的配色主题
+                ThemeColorService.LoadSavedTheme();
+                Logger.Info("配色主题加载完成");
+
                 // 直接打开主窗口，默认使用离线模式登录
                 MainWindow mainWindow = new MainWindow("Player", true);
                 this.MainWindow = mainWindow;

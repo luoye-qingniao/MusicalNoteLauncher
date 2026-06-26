@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -301,8 +301,8 @@ namespace MusicalNoteLauncher.Pages
                 FontFamily = new System.Windows.Media.FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand,
                 Background = isActive
-                    ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"))
-                    : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                    ? (Brush)FindResource("PrimaryBrush")
+                    : (Brush)FindResource("CardHoverBrush"),
                 Foreground = isActive ? Brushes.White
                     : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB")),
                 BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#444444")),
@@ -323,8 +323,8 @@ namespace MusicalNoteLauncher.Pages
                 {
                     bool active = (b == btn);
                     b.Background = active
-                        ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"))
-                        : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D"));
+                        ? (Brush)FindResource("PrimaryBrush")
+                        : (Brush)FindResource("CardHoverBrush");
                     b.Foreground = active ? Brushes.White
                         : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB"));
                 }

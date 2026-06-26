@@ -393,6 +393,23 @@ namespace MusicalNoteLauncher.Core
             }
         }
 
+        /// <summary>
+        /// 判断版本是否为继承版本（如整合包版本，有 inheritsFrom 字段）
+        /// </summary>
+        private bool IsInheritedVersion(string versionId)
+        {
+            try
+            {
+                string jsonFile = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.json");
+                if (!File.Exists(jsonFile)) return false;
+                using (JsonDocument doc = JsonDocument.Parse(File.ReadAllText(jsonFile)))
+                {
+                    return doc.RootElement.TryGetProperty("inheritsFrom", out _);
+                }
+            }
+            catch { return false; }
+        }
+
         private void SetupChineseLanguageForVersion(string versionId)
         {
             try
@@ -451,7 +468,7 @@ namespace MusicalNoteLauncher.Core
 
                 // 步骤3：获取游戏的 options.txt 路径（使用版本隔离的游戏目录）
                 string gameDir = _minecraftPath;
-                if (SettingsManager.Settings.EnableVersionIsolation)
+                if (SettingsManager.Settings.EnableVersionIsolation || IsInheritedVersion(versionId))
                 {
                     gameDir = Path.Combine(_minecraftPath, "versions", versionId, "game");
                     Directory.CreateDirectory(gameDir);
@@ -2472,8 +2489,10 @@ namespace MusicalNoteLauncher.Core
             argsDict["--version"] = versionId;
 
             // 版本隔离功能：如果启用，每个版本使用独立的游戏目录
+            // 整合包版本（有 inheritsFrom）自动启用，避免文件污染其他版本
             string gameDir = _minecraftPath;
-            if (SettingsManager.Settings.EnableVersionIsolation)
+            bool isInherited = versionInfo.TryGetProperty("inheritsFrom", out _);
+            if (SettingsManager.Settings.EnableVersionIsolation || isInherited)
             {
                 gameDir = Path.Combine(_minecraftPath, "versions", versionId, "game");
                 // 确保目录存在
@@ -2492,7 +2511,7 @@ namespace MusicalNoteLauncher.Core
                     Log($"[版本隔离] 已复制主目录的 options.txt 到版本隔离目录");
                 }
                 
-                Log($"[版本隔离] 已启用，游戏目录: {gameDir}");
+                Log($"[版本隔离] 已启用{(isInherited && !SettingsManager.Settings.EnableVersionIsolation ? " (自动，整合包版本)" : "")}，游戏目录: {gameDir}");
             }
             argsDict["--gameDir"] = gameDir;
             argsDict["--assetsDir"] = Path.Combine(_minecraftPath, "assets");

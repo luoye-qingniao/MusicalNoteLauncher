@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
@@ -24,18 +24,7 @@ namespace MusicalNoteLauncher.Controls
         private double _zoomScale = 1.0;
 
         private BitmapSource _skinBitmap;
-        private BitmapSource _skinBitmapOpaque; // 内层立方体使用的无Alpha版本
         private bool _isSlim;
-
-        private const double HEAD_SIZE = 8.0;
-        private const double BODY_W = 8.0;
-        private const double BODY_H = 12.0;
-        private const double BODY_D = 4.0;
-        private const double LEG_H = 12.0;
-        private const double LEG_W = 4.0;
-        private const double LEG_D = 4.0;
-        private const double ARM_H = 12.0;
-        private const double ARM_D = 4.0;
 
         public Skin3DViewer()
         {
@@ -87,7 +76,6 @@ namespace MusicalNoteLauncher.Controls
         {
             ClearModel();
             _skinBitmap = null;
-            _skinBitmapOpaque = null;
         }
 
         private void OnMouseDown(object sender, MouseButtonEventArgs e)
@@ -136,7 +124,6 @@ namespace MusicalNoteLauncher.Controls
             {
                 ClearModel();
                 _skinBitmap = null;
-                _skinBitmapOpaque = null;
                 return;
             }
 
@@ -153,27 +140,6 @@ namespace MusicalNoteLauncher.Controls
             }
 
             _skinBitmap = processed;
-            // 为内层立方体创建无Alpha版本（HMCL的PhongMaterial忽略Alpha，WPF的DiffuseMaterial尊重Alpha）
-            _skinBitmapOpaque = MakeOpaque(processed);
-
-            // 通过 PNG 往返转换，将 WriteableBitmap 转为标准 BitmapImage
-            // 消除 WPF 内部可能存在的 WriteableBitmap -> ImageBrush 渲染差异
-            using (var ms = new System.IO.MemoryStream())
-            {
-                var encoder = new PngBitmapEncoder();
-                encoder.Frames.Add(BitmapFrame.Create(_skinBitmapOpaque));
-                encoder.Save(ms);
-                ms.Position = 0;
-
-                var bmpImage = new BitmapImage();
-                bmpImage.BeginInit();
-                bmpImage.CacheOption = BitmapCacheOption.OnLoad;
-                bmpImage.StreamSource = ms;
-                bmpImage.EndInit();
-                bmpImage.Freeze();
-                _skinBitmapOpaque = bmpImage;
-            }
-
             RebuildModel();
         }
 
@@ -227,7 +193,8 @@ namespace MusicalNoteLauncher.Controls
                 srcSkinX: 40, srcSkinY: 16, dstSkinX: 32, dstSkinY: 48,
                 partW: 4, partH: 12, partD: 4);
 
-            var result = WriteableBitmap.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, dstPixels, dstW * 4);
+            var result = BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, dstPixels, dstW * 4);
+            result.Freeze();
             return result;
         }
 
@@ -277,30 +244,6 @@ namespace MusicalNoteLauncher.Controls
                 }
         }
 
-        private static BitmapSource MakeOpaque(BitmapSource src)
-        {
-            int w = src.PixelWidth;
-            int h = src.PixelHeight;
-            int stride = w * 4;
-            var pixels = new byte[h * stride];
-            src.CopyPixels(pixels, stride, 0);
-            // HMCL的PhongMaterial: 透明像素显示为默认diffuseColor(白色)
-            // 因此将透明像素填充为白色，而不是保留黑色RGB
-            for (int i = 0; i < pixels.Length; i += 4)
-            {
-                if (pixels[i + 3] == 0)
-                {
-                    pixels[i] = 255;     // B
-                    pixels[i + 1] = 255; // G
-                    pixels[i + 2] = 255; // R
-                }
-                pixels[i + 3] = 255;     // A
-            }
-            var result = WriteableBitmap.Create(w, h, 96, 96, PixelFormats.Bgra32, null, pixels, stride);
-            result.Freeze();
-            return result;
-        }
-
         private static BitmapSource EnlargeImage(BitmapSource src, int mulX, int mulY)
         {
             int srcW = src.PixelWidth;
@@ -323,7 +266,8 @@ namespace MusicalNoteLauncher.Controls
                                 dstPixels[dstIdx + c] = srcPixels[srcIdx + c];
                         }
 
-            var result = WriteableBitmap.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, dstPixels, dstW * 4);
+            var result = BitmapSource.Create(dstW, dstH, 96, 96, PixelFormats.Bgra32, null, dstPixels, dstW * 4);
+            result.Freeze();
             return result;
         }
 
@@ -333,113 +277,134 @@ namespace MusicalNoteLauncher.Controls
             if (_skinBitmap == null) return;
 
             double armW = _isSlim ? 3.0 : 4.0;
+            double armScaleX = _isSlim ? 14.0 / 64.0 : 16.0 / 64.0;
 
-            var imageBrush = new ImageBrush(_skinBitmapOpaque);
-            imageBrush.Stretch = Stretch.Fill;
-
-            // 头（Y=+10，上方）- 内层头（脸部）位于皮肤文件 (0,0)-(32,16)
+            // 内层
             _modelGroup.Children.Add(CreatePart(
-                new Size3D(HEAD_SIZE, HEAD_SIZE, HEAD_SIZE),
-                new Point(0.0 / 64.0, 0.0 / 64.0), new Size(32.0 / 64.0, 16.0 / 64.0),
-                new Point3D(0, +(BODY_H + HEAD_SIZE) / 2.0, 0), imageBrush));
+                width: 8, height: 8, depth: 8,
+                startX: 0.0 / 64.0, startY: 0.0 / 64.0,
+                scaleX: 32.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(0, +(12.0 + 8.0) / 2.0, 0),
+                enlarge: 0.0));
 
-            // 身体（Y=0，中间）
             _modelGroup.Children.Add(CreatePart(
-                new Size3D(BODY_W, BODY_H, BODY_D),
-                new Point(16.0 / 64.0, 16.0 / 64.0), new Size(24.0 / 64.0, 16.0 / 64.0),
-                new Point3D(0, 0, 0), imageBrush));
+                width: 8, height: 12, depth: 4,
+                startX: 16.0 / 64.0, startY: 16.0 / 64.0,
+                scaleX: 24.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(0, 0, 0),
+                enlarge: 0.0));
 
-            // 右臂（右边，Y=0）
             _modelGroup.Children.Add(CreatePart(
-                new Size3D(armW, ARM_H, ARM_D),
-                new Point(40.0 / 64.0, 16.0 / 64.0), new Size((_isSlim ? 14.0 : 16.0) / 64.0, 16.0 / 64.0),
-                new Point3D(+(BODY_W + armW) / 2.0, 0, 0), imageBrush));
+                width: armW, height: 12, depth: 4,
+                startX: 40.0 / 64.0, startY: 16.0 / 64.0,
+                scaleX: armScaleX, scaleY: 16.0 / 64.0,
+                offset: new Point3D(+(8.0 + armW) / 2.0, 0, 0),
+                enlarge: 0.0));
 
-            // 左臂（左边，Y=0）
             _modelGroup.Children.Add(CreatePart(
-                new Size3D(armW, ARM_H, ARM_D),
-                new Point(32.0 / 64.0, 48.0 / 64.0), new Size((_isSlim ? 14.0 : 16.0) / 64.0, 16.0 / 64.0),
-                new Point3D(-(BODY_W + armW) / 2.0, 0, 0), imageBrush));
+                width: armW, height: 12, depth: 4,
+                startX: 32.0 / 64.0, startY: 48.0 / 64.0,
+                scaleX: armScaleX, scaleY: 16.0 / 64.0,
+                offset: new Point3D(-(8.0 + armW) / 2.0, 0, 0),
+                enlarge: 0.0));
 
-            // 右腿（右下方，Y=-12）
             _modelGroup.Children.Add(CreatePart(
-                new Size3D(LEG_W, LEG_H, LEG_D),
-                new Point(0.0 / 64.0, 16.0 / 64.0), new Size(16.0 / 64.0, 16.0 / 64.0),
-                new Point3D(+(BODY_W - LEG_W) / 2.0, -(BODY_H + LEG_H) / 2.0, 0), imageBrush));
+                width: 4, height: 12, depth: 4,
+                startX: 0.0 / 64.0, startY: 16.0 / 64.0,
+                scaleX: 16.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(+(8.0 - 4.0) / 2.0, -(12.0 + 12.0) / 2.0, 0),
+                enlarge: 0.0));
 
-            // 左腿（左下方，Y=-12）
             _modelGroup.Children.Add(CreatePart(
-                new Size3D(LEG_W, LEG_H, LEG_D),
-                new Point(16.0 / 64.0, 48.0 / 64.0), new Size(16.0 / 64.0, 16.0 / 64.0),
-                new Point3D(-(BODY_W - LEG_W) / 2.0, -(BODY_H + LEG_H) / 2.0, 0), imageBrush));
+                width: 4, height: 12, depth: 4,
+                startX: 16.0 / 64.0, startY: 48.0 / 64.0,
+                scaleX: 16.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(-(8.0 - 4.0) / 2.0, -(12.0 + 12.0) / 2.0, 0),
+                enlarge: 0.0));
 
-            // 外层模型（外层皮肤）- 外层头（帽子）位于皮肤文件 (32,0)-(64,16)
-            var headOuter = CreateMultiCubesPart(
-                8, 8, 8, 32.0 / 64.0, 0.0 / 64.0,
-                new Point3D(0, +(BODY_H + HEAD_SIZE) / 2.0, 0), 1.125, 0.2);
-            if (headOuter != null) _modelGroup.Children.Add(headOuter);
+            // 外层（略大尺寸 + 外层UV）
+            _modelGroup.Children.Add(CreatePart(
+                width: 8, height: 8, depth: 8,
+                startX: 32.0 / 64.0, startY: 0.0 / 64.0,
+                scaleX: 32.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(0, +(12.0 + 8.0) / 2.0, 0),
+                enlarge: 0.25));
 
-            var bodyOuter = CreateMultiCubesPart(
-                8, 12, 4, 16.0 / 64.0, 32.0 / 64.0,
-                new Point3D(0, 0, 0), 1.0, 0.2);
-            if (bodyOuter != null) _modelGroup.Children.Add(bodyOuter);
+            _modelGroup.Children.Add(CreatePart(
+                width: 8, height: 12, depth: 4,
+                startX: 16.0 / 64.0, startY: 32.0 / 64.0,
+                scaleX: 24.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(0, 0, 0),
+                enlarge: 0.2));
 
-            var rightArmOuterW = _isSlim ? 3 : 4;
-            var rightArmOuter = CreateMultiCubesPart(
-                rightArmOuterW, 12, 4, 40.0 / 64.0, 32.0 / 64.0,
-                new Point3D(+(BODY_W + armW) / 2.0, 0, 0), 1.0625, 0.2);
-            if (rightArmOuter != null) _modelGroup.Children.Add(rightArmOuter);
+            _modelGroup.Children.Add(CreatePart(
+                width: armW, height: 12, depth: 4,
+                startX: 40.0 / 64.0, startY: 32.0 / 64.0,
+                scaleX: armScaleX, scaleY: 16.0 / 64.0,
+                offset: new Point3D(+(8.0 + armW) / 2.0, 0, 0),
+                enlarge: 0.2));
 
-            var leftArmOuter = CreateMultiCubesPart(
-                rightArmOuterW, 12, 4, 48.0 / 64.0, 48.0 / 64.0,
-                new Point3D(-(BODY_W + armW) / 2.0, 0, 0), 1.0625, 0.2);
-            if (leftArmOuter != null) _modelGroup.Children.Add(leftArmOuter);
+            _modelGroup.Children.Add(CreatePart(
+                width: armW, height: 12, depth: 4,
+                startX: 48.0 / 64.0, startY: 48.0 / 64.0,
+                scaleX: armScaleX, scaleY: 16.0 / 64.0,
+                offset: new Point3D(-(8.0 + armW) / 2.0, 0, 0),
+                enlarge: 0.2));
 
-            var rightLegOuter = CreateMultiCubesPart(
-                4, 12, 4, 0.0 / 64.0, 32.0 / 64.0,
-                new Point3D(+(BODY_W - LEG_W) / 2.0, -(BODY_H + LEG_H) / 2.0, 0), 1.0625, 0.2);
-            if (rightLegOuter != null) _modelGroup.Children.Add(rightLegOuter);
+            _modelGroup.Children.Add(CreatePart(
+                width: 4, height: 12, depth: 4,
+                startX: 0.0 / 64.0, startY: 32.0 / 64.0,
+                scaleX: 16.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(+(8.0 - 4.0) / 2.0, -(12.0 + 12.0) / 2.0, 0),
+                enlarge: 0.2));
 
-            var leftLegOuter = CreateMultiCubesPart(
-                4, 12, 4, 0.0 / 64.0, 48.0 / 64.0,
-                new Point3D(-(BODY_W - LEG_W) / 2.0, -(BODY_H + LEG_H) / 2.0, 0), 1.0625, 0.2);
-            if (leftLegOuter != null) _modelGroup.Children.Add(leftLegOuter);
+            _modelGroup.Children.Add(CreatePart(
+                width: 4, height: 12, depth: 4,
+                startX: 0.0 / 64.0, startY: 48.0 / 64.0,
+                scaleX: 16.0 / 64.0, scaleY: 16.0 / 64.0,
+                offset: new Point3D(-(8.0 - 4.0) / 2.0, -(12.0 + 12.0) / 2.0, 0),
+                enlarge: 0.2));
         }
 
-        private Model3D CreatePart(Size3D size, Point uvStart, Size uvScale, Point3D offset, ImageBrush brush)
+        private Model3D CreatePart(double width, double height, double depth,
+            double startX, double startY, double scaleX, double scaleY,
+            Point3D offset, double enlarge)
         {
-            // HMCL: Y向下，WPF: Y向上
-            // 在BuildCubeMeshHMCL中直接翻转顶点Y值
-            var mesh = BuildCubeMeshHMCL(size.X, size.Y, size.Z, uvStart.X, uvStart.Y, uvScale.Width, uvScale.Height);
-            var material = new DiffuseMaterial(brush);
+            var mesh = BuildCubeMeshHMCL(width + enlarge, height + enlarge, depth + enlarge,
+                startX, startY, scaleX, scaleY);
+            var imageBrush = new ImageBrush(_skinBitmap);
+            imageBrush.Stretch = Stretch.Fill;
+            imageBrush.ViewportUnits = BrushMappingMode.Absolute;
+            // WPF DiffuseMaterial 尊重图像 alpha，外层皮肤空白区保持透明 -> 内层透出
+            var material = new DiffuseMaterial(imageBrush);
             var model = new GeometryModel3D(mesh, material);
             model.BackMaterial = material;
             model.Transform = new TranslateTransform3D(offset.X, offset.Y, offset.Z);
             return model;
         }
 
+        // 严格复刻 HMCL SkinCube.Model（Java）。仅两项改动：
+        //   1) 顶点 Y 取反（HMCL Y 向下，WPF Y 向上）
+        //   2) 每三角形顶点顺序反转（保持面朝观察者）
+        // UV 不翻转 - WPF ImageBrush 把 v=0 视作图像顶部，与 HMCL 一致。
         private MeshGeometry3D BuildCubeMeshHMCL(double w, double h, double d,
             double startX, double startY, double scaleX, double scaleY)
         {
-            // === HMCL createPoints (Y向下) -> WPF (Y向上)
-            // HMCL中Y=-h表示上方（因为Y向下，-h表示向上移动）
-            // WPF中Y=+h表示上方（因为Y向上）
-            // 所以：将所有顶点的Y值取反
             double hw = w / 2.0, hh = h / 2.0, hd = d / 2.0;
 
+            // P0..P7：HMCL 原始坐标，Y 值取反
             var positions = new Point3D[]
             {
-                new Point3D(-hw, +hh, +hd), // P0 前左上（Y取反）
-                new Point3D(+hw, +hh, +hd), // P1 前右上（Y取反）
-                new Point3D(-hw, -hh, +hd), // P2 前左下（Y取反）
-                new Point3D(+hw, -hh, +hd), // P3 前右下（Y取反）
-                new Point3D(-hw, +hh, -hd), // P4 后左上（Y取反）
-                new Point3D(+hw, +hh, -hd), // P5 后右上（Y取反）
-                new Point3D(-hw, -hh, -hd), // P6 后左下（Y取反）
-                new Point3D(+hw, -hh, -hd), // P7 后右下（Y取反）
+                new Point3D(-hw, +hh, +hd),
+                new Point3D(+hw, +hh, +hd),
+                new Point3D(-hw, -hh, +hd),
+                new Point3D(+hw, -hh, +hd),
+                new Point3D(-hw, +hh, -hd),
+                new Point3D(+hw, +hh, -hd),
+                new Point3D(-hw, -hh, -hd),
+                new Point3D(+hw, -hh, -hd),
             };
 
-            // === HMCL createTexCoords (Y向下)
             double totalX = (w + d) * 2.0;
             double totalY = h + d;
             double half_width = w / totalX * scaleX;
@@ -449,294 +414,396 @@ namespace MusicalNoteLauncher.Controls
             double top_y = startY;
             double middle_y = d / totalY * scaleY + top_y;
             double bottom_y = scaleY + top_y;
-            double arm4 = half_width;
 
+            // T0..T12：与 HMCL 完全一致
             var uvPoints = new Point[]
             {
-                new Point(top_x, top_y),                                    // T0
-                new Point(top_x + half_width, top_y),                      // T1
-                new Point(top_x + half_width * 2, top_y),                  // T2
-                new Point(bottom_x, middle_y),                               // T3
-                new Point(bottom_x + half_depth, middle_y),                 // T4
-                new Point(bottom_x + half_depth + half_width, middle_y),       // T5
-                new Point(bottom_x + scaleX - arm4, middle_y),             // T6
-                new Point(bottom_x + scaleX, middle_y),                      // T7
-                new Point(bottom_x, bottom_y),                               // T8
-                new Point(bottom_x + half_depth, bottom_y),                 // T9
-                new Point(bottom_x + half_depth + half_width, bottom_y),     // T10
-                new Point(bottom_x + scaleX - arm4, bottom_y),               // T11
-                new Point(bottom_x + scaleX, bottom_y),                      // T12
+                new Point(top_x,                                top_y),
+                new Point(top_x + half_width,                   top_y),
+                new Point(top_x + half_width * 2,               top_y),
+                new Point(bottom_x,                             middle_y),
+                new Point(bottom_x + half_depth,                middle_y),
+                new Point(bottom_x + half_depth + half_width,   middle_y),
+                new Point(bottom_x + scaleX - half_width,       middle_y),
+                new Point(bottom_x + scaleX,                    middle_y),
+                new Point(bottom_x,                             bottom_y),
+                new Point(bottom_x + half_depth,                bottom_y),
+                new Point(bottom_x + half_depth + half_width,   bottom_y),
+                new Point(bottom_x + scaleX - half_width,       bottom_y),
+                new Point(bottom_x + scaleX,                    bottom_y),
             };
 
-            // === HMCL createFaces (12个三角形 - 6个面 x 2三角形)
-            // 格式：每个三角形3个顶点 [pointIdx, texIdx]
-            int[][] faces = new int[][]
+            // 复制自 HMCL createFaces()
+            int[][] hmclFaces = new int[][]
             {
-                // TOP
-                new int[] {5, 0,  4, 1,  0, 5},    // P5,T0, P4,T1, P0,T5
-                new int[] {5, 0,  0, 5,  1, 4},      // P5,T0, P0,T5, P1,T4
-                // RIGHT
-                new int[] {5, 3,  1, 4,  3, 9},    // P5,T3, P1,T4, P3,T9
-                new int[] {5, 3,  3, 9,  7, 8},      // P5,T3, P3,T9, P7,T8
-                // FRONT
-                new int[] {1, 4,  0, 5,  2, 10},     // P1,T4, P0,T5, P2,T10
-                new int[] {1, 4,  2, 10,  3, 9},       // P1,T4, P2,T10, P3,T9
-                // LEFT
-                new int[] {0, 5,  4, 6,  6, 11},       // P0,T5, P4,T6, P6,T11
-                new int[] {0, 5,  6, 11,  2, 10},      // P0,T5, P6,T11, P2,T10
-                // BACK
-                new int[] {4, 6,  5, 7,  7, 12},       // P4,T6, P5,T7, P7,T12
-                new int[] {4, 6,  7, 12,  6, 11},      // P4,T6, P7,T12, P6,T11
-                // BOTTOM
-                new int[] {3, 5,  2, 6,  6, 2},       // P3,T5, P2,T6, P6,T2
-                new int[] {3, 5,  6, 2,  7, 1},        // P3,T5, P6,T2, P7,T1
+                new int[] {5, 0, 4, 1, 0, 5},
+                new int[] {5, 0, 0, 5, 1, 4},
+                new int[] {5, 3, 1, 4, 3, 9},
+                new int[] {5, 3, 3, 9, 7, 8},
+                new int[] {1, 4, 0, 5, 2, 10},
+                new int[] {1, 4, 2, 10, 3, 9},
+                new int[] {0, 5, 4, 6, 6, 11},
+                new int[] {0, 5, 6, 11, 2, 10},
+                new int[] {4, 6, 5, 7, 7, 12},
+                new int[] {4, 6, 7, 12, 6, 11},
+                new int[] {3, 5, 2, 6, 6, 2},
+                new int[] {3, 5, 6, 2, 7, 1},
             };
 
             var mesh = new MeshGeometry3D();
-
-            // 生成12个三角形（6面 × 2三角形），BackMaterial 负责双面渲染
-            // 移除冗余反面三角形，避免 z-fighting 导致黑块闪烁
-            int triIdx = 0;
-            foreach (var face in faces)
+            int triIndex = 0;
+            foreach (var face in hmclFaces)
             {
-                for (int i = 0; i < 3; i++)
+                // 反转 3 个顶点顺序，以补偿 Y 取反带来的朝向变化
+                for (int k = 2; k >= 0; k--)
                 {
-                    int pIdx = face[i * 2];
-                    int tIdx = face[i * 2 + 1];
+                    int pIdx = face[k * 2];
+                    int tIdx = face[k * 2 + 1];
                     mesh.Positions.Add(positions[pIdx]);
                     mesh.TextureCoordinates.Add(uvPoints[tIdx]);
-                    mesh.TriangleIndices.Add(triIdx++);
+                    mesh.TriangleIndices.Add(triIndex++);
                 }
-            }
-
-            return mesh;
-        }
-
-        private Model3DGroup CreateMultiCubesPart(
-            int width, int height, int depth,
-            double startX, double startY,
-            Point3D offset, double length, double thick)
-        {
-            if (_skinBitmap == null) return null;
-
-            int texW = _skinBitmap.PixelWidth;
-            int texH = _skinBitmap.PixelHeight;
-            int interval = Math.Max(texW / 64, 1);
-
-            int start_x = (int)(startX * texW);
-            int start_y = (int)(startY * texH);
-
-            var pixels = new byte[texW * texH * 4];
-            _skinBitmap.CopyPixels(pixels, texW * 4, 0);
-
-            var group = new Model3DGroup();
-
-            // FRONT（WPF Y向上，与HMCL Y向下相反，Y坐标取反）
-            CreateFaceBoxes(group, pixels, texW, texH,
-                start_x + depth * interval, start_y + depth * interval,
-                width, height, interval, false, false,
-                (x, y) => new Point3D(
-                    ((width - 1) / 2.0 - x) * length,
-                    ((height - 1) / 2.0 - y) * length,
-                    (depth * length + thick) / 2.0),
-                new Size3D(length, length, thick));
-
-            // BACK
-            CreateFaceBoxes(group, pixels, texW, texH,
-                start_x + width * interval + depth * interval * 2, start_y + depth * interval,
-                width, height, interval, true, false,
-                (x, y) => new Point3D(
-                    ((width - 1) / 2.0 - x) * length,
-                    ((height - 1) / 2.0 - y) * length,
-                    -(depth * length + thick) / 2.0),
-                new Size3D(length, length, thick));
-
-            // LEFT
-            CreateFaceBoxes(group, pixels, texW, texH,
-                start_x + width * interval + depth * interval, start_y + depth * interval,
-                depth, height, interval, false, false,
-                (x, y) => new Point3D(
-                    -(width * length + thick) / 2.0,
-                    ((height - 1) / 2.0 - y) * length,
-                    ((depth - 1) / 2.0 - x) * length),
-                new Size3D(thick, length, length));
-
-            // RIGHT
-            CreateFaceBoxes(group, pixels, texW, texH,
-                start_x, start_y + depth * interval,
-                depth, height, interval, true, false,
-                (x, y) => new Point3D(
-                    (width * length + thick) / 2.0,
-                    ((height - 1) / 2.0 - y) * length,
-                    ((depth - 1) / 2.0 - x) * length),
-                new Size3D(thick, length, length));
-
-            // TOP（HMCL中Y=-h为上，WPF中Y=+h为上，所以Y值取反）
-            CreateFaceBoxes(group, pixels, texW, texH,
-                start_x + depth * interval, start_y,
-                width, depth, interval, false, false,
-                (x, y) => new Point3D(
-                    ((width - 1) / 2.0 - x) * length,
-                    (height * length + thick) / 2.0,
-                    -((depth - 1) / 2.0 - y) * length),
-                new Size3D(length, thick, length));
-
-            // BOTTOM
-            CreateFaceBoxes(group, pixels, texW, texH,
-                start_x + width * interval + depth * interval, start_y,
-                width, depth, interval, false, false,
-                (x, y) => new Point3D(
-                    ((width - 1) / 2.0 - x) * length,
-                    -(height * length + thick) / 2.0,
-                    -((depth - 1) / 2.0 - y) * length),
-                new Size3D(length, thick, length));
-
-            group.Transform = new TranslateTransform3D(offset.X, offset.Y, offset.Z);
-            return group;
-        }
-
-        private void CreateFaceBoxes(Model3DGroup group, byte[] pixels, int texW, int texH,
-            int regionStartX, int regionStartY, int width, int height, int interval,
-            bool reverseX, bool reverseY,
-            Func<int, int, Point3D> positionFunc, Size3D boxSize)
-        {
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width; x++)
-                {
-                    int texX = regionStartX + (reverseX ? (width - x - 1) : x) * interval;
-                    int texY = regionStartY + (reverseY ? (height - y - 1) : y) * interval;
-
-                    if (texX < 0 || texX >= texW || texY < 0 || texY >= texH) continue;
-
-                    int alpha = pixels[(texY * texW + texX) * 4 + 3];
-                    if (alpha == 0) continue;
-
-                    byte b = pixels[(texY * texW + texX) * 4 + 0];
-                    byte g = pixels[(texY * texW + texX) * 4 + 1];
-                    byte r = pixels[(texY * texW + texX) * 4 + 2];
-
-                    var color = Color.FromRgb(r, g, b);
-                    var center = positionFunc(x, y);
-                    var box = BuildBoxMesh(center, boxSize);
-                    var material = new DiffuseMaterial(new SolidColorBrush(color));
-                    var model = new GeometryModel3D(box, material);
-                    model.BackMaterial = material;
-                    group.Children.Add(model);
-                }
-            }
-        }
-
-        private MeshGeometry3D BuildBoxMesh(Point3D center, Size3D size)
-        {
-            var mesh = new MeshGeometry3D();
-
-            double hx = size.X / 2.0, hy = size.Y / 2.0, hz = size.Z / 2.0;
-            double cx = center.X, cy = center.Y, cz = center.Z;
-
-            var positions = new Point3D[]
-            {
-                new Point3D(cx - hx, cy - hy, cz + hz),
-                new Point3D(cx + hx, cy - hy, cz + hz),
-                new Point3D(cx - hx, cy + hy, cz + hz),
-                new Point3D(cx + hx, cy + hy, cz + hz),
-                new Point3D(cx - hx, cy - hy, cz - hz),
-                new Point3D(cx + hx, cy - hy, cz - hz),
-                new Point3D(cx - hx, cy + hy, cz - hz),
-                new Point3D(cx + hx, cy + hy, cz - hz),
-            };
-
-            int[][] faces = new int[][]
-            {
-                new int[] {0, 1, 2, 1, 3, 2},
-                new int[] {5, 4, 7, 4, 6, 7},
-                new int[] {4, 0, 6, 0, 2, 6},
-                new int[] {1, 5, 3, 5, 7, 3},
-                new int[] {2, 3, 6, 3, 7, 6},
-                new int[] {4, 5, 0, 5, 1, 0},
-            };
-
-            for (int i = 0; i < 8; i++)
-            {
-                mesh.Positions.Add(positions[i]);
-                mesh.TextureCoordinates.Add(new Point(0, 0));
-            }
-
-            foreach (var face in faces)
-            {
-                for (int i = 0; i < 6; i++)
-                    mesh.TriangleIndices.Add(face[i]);
             }
 
             return mesh;
         }
     }
 
+    /// <summary>
+    /// 生成默认 Steve/Alex 皮肤。严格按照 Minecraft 64×64 皮肤格式布局，
+    /// 各部位填充清晰的像素色块，确保头部正面 (x=8..15, y=8..15) 能正确识别为玩家脸部，
+    /// 并保留肤色 + 脸部特征 + 头发颜色等细节。
+    /// </summary>
     public static class DefaultSkinGenerator
     {
+        // 通用颜色（BGRA 字节顺序：tuple 字段 b→R通道, g→G通道, r→B通道）
+        // 重要：SetPixel(..., c.r, c.g, c.b, c.a) 会把 c.r 写入像素的 R 通道，依此类推。
+        // 所以要得到显示色 RGB(R, G, B)，需写为 (b: B, g: G, r: R, a: A)。
+        private static readonly (byte b, byte g, byte r, byte a) SKIN_BASE = (b: 125, g: 194, r: 241, a: 255);     // 桃色肤色
+        private static readonly (byte b, byte g, byte r, byte a) SKIN_SHADOW = (b: 98, g: 148, r: 178, a: 255);     // 肤色阴影
+        private static readonly (byte b, byte g, byte r, byte a) SKIN_LIP = (b: 70, g: 110, r: 150, a: 255);        // 唇色
+
+        // Steve 头发：深棕
+        private static readonly (byte b, byte g, byte r, byte a) HAIR_STEVE = (b: 17, g: 33, r: 59, a: 255);
+        private static readonly (byte b, byte g, byte r, byte a) HAIR_STEVE_SHADOW = (b: 10, g: 20, r: 35, a: 255);
+
+        // Alex 头发：橙红
+        private static readonly (byte b, byte g, byte r, byte a) HAIR_ALEX = (b: 30, g: 140, r: 255, a: 255);
+        private static readonly (byte b, byte g, byte r, byte a) HAIR_ALEX_SHADOW = (b: 20, g: 100, r: 200, a: 255);
+
+        // 衣服/裤子/鞋子
+        private static readonly (byte b, byte g, byte r, byte a) SHIRT_BASE = (b: 170, g: 170, r: 0, a: 255);       // 青色衬衫 (Steve)
+        private static readonly (byte b, byte g, byte r, byte a) SHIRT_SHADOW = (b: 120, g: 120, r: 0, a: 255);
+        private static readonly (byte b, byte g, byte r, byte a) PANTS_BASE = (b: 150, g: 60, r: 60, a: 255);        // 蓝紫裤
+        private static readonly (byte b, byte g, byte r, byte a) PANTS_SHADOW = (b: 110, g: 40, r: 40, a: 255);
+        private static readonly (byte b, byte g, byte r, byte a) SHOE = (b: 50, g: 50, r: 50, a: 255);
+
+        /// <summary>生成默认 Steve 皮肤（64×64，32bpp BGRA）</summary>
         public static BitmapSource CreateSteveSkin()
         {
             const int size = 64;
-            var wb = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgra32, null);
             var pixels = new byte[size * size * 4];
 
+            // 默认全部透明（未使用区域）
             for (int i = 0; i < pixels.Length; i += 4)
                 pixels[i + 3] = 0;
 
-            FillRect(pixels, size, 0, 0, 32, 16, 200, 160, 130);
-            FillRect(pixels, size, 32, 0, 32, 16, 180, 140, 110);
-            FillRect(pixels, size, 16, 16, 24, 16, 80, 120, 200);
-            FillRect(pixels, size, 16, 32, 24, 16, 60, 100, 180);
-            FillRect(pixels, size, 40, 16, 16, 16, 90, 130, 210);
-            FillRect(pixels, size, 40, 32, 16, 16, 70, 110, 190);
-            FillRect(pixels, size, 0, 16, 16, 16, 60, 70, 120);
-            FillRect(pixels, size, 0, 32, 16, 16, 40, 50, 100);
-            FillRect(pixels, size, 32, 48, 16, 16, 90, 130, 210);
-            FillRect(pixels, size, 48, 48, 16, 16, 70, 110, 190);
-            FillRect(pixels, size, 16, 48, 16, 16, 60, 70, 120);
-            FillRect(pixels, size, 0, 48, 16, 16, 40, 50, 100);
+            // ========== 头部区域 (y=0..15) ==========
+            // 内层头部：整个 8×8 × 6 个面，但我们只关心正面 (x=8..15, y=8..15)
+            // 正面：玩家脸部（肤色 + 眼睛 + 嘴）
+            // 8×8 脸部布局：
+            //   y=0 (顶部):  头发阴影
+            //   y=1..2:     头发
+            //   y=3:        眼睛区域
+            //   y=4..5:     鼻子/脸颊
+            //   y=6..7:     嘴/下巴
+            FillHead(pixels, size, useSteve: true);
 
-            wb.WritePixels(new Int32Rect(0, 0, size, size), pixels, size * 4, 0);
+            // ========== 身体区域 (y=16..31) ==========
+            // 内层身体：x=16..39, y=16..31（宽24×高16）
+            FillBody(pixels, size);
+
+            // 外层身体：x=16..39, y=32..47（与内层重叠但略大）
+            FillBodyOverlay(pixels, size);
+
+            // ========== 右臂区域 (y=16..31, x=40..55) ==========
+            // 右臂内层：x=40..55, y=16..31（宽16×高16）
+            FillArmRight(pixels, size, width: 16);
+            // 右臂外层：x=40..55, y=32..47
+            FillArmRightOverlay(pixels, size, width: 16);
+
+            // ========== 右腿区域 (y=16..31, x=0..15) ==========
+            // 右腿内层：x=0..15, y=16..31
+            FillLegRight(pixels, size);
+            // 右腿外层：x=0..15, y=32..47
+            FillLegRightOverlay(pixels, size);
+
+            // ========== 左臂区域 (y=48..63) ==========
+            // 左臂内层：x=32..47, y=48..63
+            FillArmLeft(pixels, size, width: 16);
+            // 左臂外层：x=48..63, y=48..63
+            FillArmLeftOverlay(pixels, size, width: 16);
+
+            // ========== 左腿区域 (y=48..63) ==========
+            // 左腿内层：x=16..31, y=48..63
+            FillLegLeft(pixels, size);
+            // 左腿外层：x=0..15, y=48..63
+            FillLegLeftOverlay(pixels, size);
+
+            var wb = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, pixels, size * 4);
+            wb.Freeze();
             return wb;
         }
 
+        /// <summary>生成默认 Alex 皮肤（头发颜色不同，手臂宽度 14）</summary>
         public static BitmapSource CreateAlexSkin()
         {
             const int size = 64;
-            var wb = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgra32, null);
             var pixels = new byte[size * size * 4];
 
             for (int i = 0; i < pixels.Length; i += 4)
                 pixels[i + 3] = 0;
 
-            FillRect(pixels, size, 0, 0, 32, 16, 220, 180, 150);
-            FillRect(pixels, size, 32, 0, 32, 16, 200, 160, 130);
-            FillRect(pixels, size, 16, 16, 24, 16, 220, 80, 80);
-            FillRect(pixels, size, 16, 32, 24, 16, 200, 60, 60);
-            FillRect(pixels, size, 40, 16, 14, 16, 220, 180, 150);
-            FillRect(pixels, size, 40, 32, 14, 16, 200, 160, 130);
-            FillRect(pixels, size, 0, 16, 16, 16, 80, 60, 40);
-            FillRect(pixels, size, 0, 32, 16, 16, 60, 40, 20);
-            FillRect(pixels, size, 32, 48, 14, 16, 220, 180, 150);
-            FillRect(pixels, size, 48, 48, 14, 16, 200, 160, 130);
-            FillRect(pixels, size, 16, 48, 16, 16, 80, 60, 40);
-            FillRect(pixels, size, 0, 48, 16, 16, 60, 40, 20);
+            // 与 Steve 相同，但头发颜色不同、手臂宽度 14
+            FillHead(pixels, size, useSteve: false);
+            FillBody(pixels, size);
+            FillBodyOverlay(pixels, size);
+            FillArmRight(pixels, size, width: 14);
+            FillArmRightOverlay(pixels, size, width: 14);
+            FillLegRight(pixels, size);
+            FillLegRightOverlay(pixels, size);
+            FillArmLeft(pixels, size, width: 14);
+            FillArmLeftOverlay(pixels, size, width: 14);
+            FillLegLeft(pixels, size);
+            FillLegLeftOverlay(pixels, size);
 
-            wb.WritePixels(new Int32Rect(0, 0, size, size), pixels, size * 4, 0);
+            var wb = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, pixels, size * 4);
+            wb.Freeze();
             return wb;
         }
 
-        private static void FillRect(byte[] pixels, int stride, int x, int y, int w, int h, byte r, byte g, byte b)
+        // ============== 头部绘制 ==============
+        // 内层头部正面：x=8..15, y=8..15（8×8 玩家脸部）
+        // 外层头部正面：x=40..47, y=8..15（8×8 头发，透明处透出内层）
+        // 其他面（顶、底、左、右、后）也填充颜色，便于 3D 渲染
+        private static void FillHead(byte[] pixels, int size, bool useSteve)
         {
-            for (int dy = 0; dy < h; dy++)
-                for (int dx = 0; dx < w; dx++)
+            var hair = useSteve ? HAIR_STEVE : HAIR_ALEX;
+            var hairShadow = useSteve ? HAIR_STEVE_SHADOW : HAIR_ALEX_SHADOW;
+
+            // ---- 内层头部正面 (8..15, 8..15)：完整脸部 ----
+            // 8×8 像素布局（dy 从上到下 0..7，dx 从左到右 0..7）：
+            //   dy=0: S S S S S S S S   （额头，肤色）
+            //   dy=1: S S S S S S S S   （额头）
+            //   dy=2: S H S S S S H S   （眉毛）
+            //   dy=3: S W E S S W E S   （眼睛：W=眼白，E=眼珠）
+            //   dy=4: S S S S S S S S   （脸颊）
+            //   dy=5: S S S N N S S S   （鼻子阴影）
+            //   dy=6: S S S M M S S S   （嘴部）
+            //   dy=7: S S S S S S S S   （下巴）
+            var eyeWhite = (b: (byte)240, g: (byte)240, r: (byte)240, a: (byte)255);
+            var eyeBall = useSteve
+                ? (b: (byte)30, g: (byte)70, r: (byte)120, a: (byte)255)     // Steve 棕眼睛 RGB(120,70,30)
+                : (b: (byte)80, g: (byte)180, r: (byte)80, a: (byte)255);    // Alex 绿眼睛 RGB(80,180,80)
+            var brow = hairShadow;                    // 眉毛用头发深色
+            var nose = (b: (byte)70, g: (byte)110, r: (byte)150, a: (byte)255);    // RGB(150,110,70)
+            var mouth = (b: (byte)50, g: (byte)70, r: (byte)100, a: (byte)255);    // RGB(100,70,50)
+
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
                 {
-                    int idx = ((y + dy) * stride + (x + dx)) * 4;
-                    pixels[idx + 0] = b;
-                    pixels[idx + 1] = g;
-                    pixels[idx + 2] = r;
-                    pixels[idx + 3] = 255;
+                    var c = SKIN_BASE;
+
+                    if (dy == 2 && (dx == 1 || dx == 6)) c = brow;             // 眉毛
+                    else if (dy == 3)
+                    {
+                        if (dx == 1 || dx == 5) c = eyeWhite;                    // 眼白
+                        else if (dx == 2 || dx == 6) c = eyeBall;                // 眼珠
+                    }
+                    else if (dy == 5 && (dx == 3 || dx == 4)) c = nose;          // 鼻子阴影
+                    else if (dy == 6 && (dx == 3 || dx == 4)) c = mouth;         // 嘴
+
+                    SetPixel(pixels, size, x: 8 + dx, y: 8 + dy, c.r, c.g, c.b, c.a);
                 }
+
+            // 内层顶部 (8..15, 0..7)：头顶
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
+                {
+                    var c = dy < 4 ? hair : hairShadow;
+                    SetPixel(pixels, size, x: 8 + dx, y: 0 + dy, c.r, c.g, c.b, c.a);
+                }
+
+            // 内层左/右侧面 (0..7, 8..15) 和 (16..23, 8..15)
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
+                {
+                    var c = dx == 0 ? SKIN_SHADOW : SKIN_BASE;
+                    SetPixel(pixels, size, x: 0 + dx, y: 8 + dy, c.r, c.g, c.b, c.a);
+                    SetPixel(pixels, size, x: 16 + dx, y: 8 + dy, c.r, c.g, c.b, c.a);
+                }
+
+            // 内层后面 (24..31, 8..15)：后脑勺头发
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
+                {
+                    var c = dy < 4 ? hair : hairShadow;
+                    SetPixel(pixels, size, x: 24 + dx, y: 8 + dy, c.r, c.g, c.b, c.a);
+                }
+
+            // ---- 外层头部：头发/帽子 ----
+            // 外层顶部 (40..47, 0..7)：完整填充
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
+                {
+                    var cTop = dy < 4 ? hair : hairShadow;
+                    SetPixel(pixels, size, x: 40 + dx, y: 0 + dy, cTop.r, cTop.g, cTop.b, cTop.a);
+                }
+
+            // 外层正面 (40..47, 8..15)：仅顶部 dy=0 一行为头发刘海，其余透明
+            // 这样内层的眉毛、眼睛、鼻子、嘴可以完整显示
+            for (int dx = 0; dx < 8; dx++)
+            {
+                SetPixel(pixels, size, x: 40 + dx, y: 8 + 0, hair.r, hair.g, hair.b, hair.a);
+                // dy=1..7 保持透明
+            }
+
+            // 外层左右面 (32..39, 8..15) 和 (48..55, 8..15)
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
+                {
+                    SetPixel(pixels, size, x: 32 + dx, y: 8 + dy, hair.r, hair.g, hair.b, hair.a);
+                    SetPixel(pixels, size, x: 48 + dx, y: 8 + dy, hair.r, hair.g, hair.b, hair.a);
+                }
+
+            // 外层后面 (56..63, 8..15)
+            for (int dy = 0; dy < 8; dy++)
+                for (int dx = 0; dx < 8; dx++)
+                {
+                    SetPixel(pixels, size, x: 56 + dx, y: 8 + dy, hairShadow.r, hairShadow.g, hairShadow.b, hairShadow.a);
+                }
+        }
+
+        // ============== 身体绘制 ==============
+        // 内层身体：x=16..39 (w=24), y=16..31 (h=16)
+        private static void FillBody(byte[] pixels, int size)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < 24; dx++)
+                {
+                    var c = (dx >= 8 && dx <= 15) ? SHIRT_BASE : SHIRT_SHADOW; // 中间略亮
+                    SetPixel(pixels, size, x: 16 + dx, y: 16 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        // 外层身体：x=16..39, y=32..47
+        private static void FillBodyOverlay(byte[] pixels, int size)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < 24; dx++)
+                {
+                    var c = (dx + dy) % 3 == 0 ? SHIRT_SHADOW : SHIRT_BASE;
+                    SetPixel(pixels, size, x: 16 + dx, y: 32 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        // ============== 手臂绘制 ==============
+        private static void FillArmRight(byte[] pixels, int size, int width)
+        {
+            // 右臂内层：x=40..40+width-1, y=16..31
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < width; dx++)
+                {
+                    var c = (dy < 4) ? SKIN_BASE : SHIRT_BASE; // 上方皮肤，下方衣服
+                    SetPixel(pixels, size, x: 40 + dx, y: 16 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        private static void FillArmRightOverlay(byte[] pixels, int size, int width)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < width; dx++)
+                {
+                    var c = (dx + dy) % 4 == 0 ? SHIRT_SHADOW : SHIRT_BASE;
+                    SetPixel(pixels, size, x: 40 + dx, y: 32 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        private static void FillArmLeft(byte[] pixels, int size, int width)
+        {
+            // 左臂内层：x=32..31+width, y=48..63
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < width; dx++)
+                {
+                    var c = (dy < 4) ? SKIN_BASE : SHIRT_BASE;
+                    SetPixel(pixels, size, x: 32 + dx, y: 48 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        private static void FillArmLeftOverlay(byte[] pixels, int size, int width)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < width; dx++)
+                {
+                    var c = (dx + dy) % 4 == 0 ? SHIRT_SHADOW : SHIRT_BASE;
+                    SetPixel(pixels, size, x: 48 + dx, y: 48 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        // ============== 腿部绘制 ==============
+        // 右腿内层：x=0..15, y=16..31
+        private static void FillLegRight(byte[] pixels, int size)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < 16; dx++)
+                {
+                    var c = dy >= 12 ? SHOE : PANTS_BASE;
+                    SetPixel(pixels, size, x: 0 + dx, y: 16 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        // 右腿外层：x=0..15, y=32..47
+        private static void FillLegRightOverlay(byte[] pixels, int size)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < 16; dx++)
+                {
+                    var c = dy >= 12 ? SHOE : PANTS_SHADOW;
+                    SetPixel(pixels, size, x: 0 + dx, y: 32 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        // 左腿内层：x=16..31, y=48..63
+        private static void FillLegLeft(byte[] pixels, int size)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < 16; dx++)
+                {
+                    var c = dy >= 12 ? SHOE : PANTS_BASE;
+                    SetPixel(pixels, size, x: 16 + dx, y: 48 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        // 左腿外层：x=0..15, y=48..63
+        private static void FillLegLeftOverlay(byte[] pixels, int size)
+        {
+            for (int dy = 0; dy < 16; dy++)
+                for (int dx = 0; dx < 16; dx++)
+                {
+                    var c = dy >= 12 ? SHOE : PANTS_SHADOW;
+                    SetPixel(pixels, size, x: 0 + dx, y: 48 + dy, c.r, c.g, c.b, c.a);
+                }
+        }
+
+        /// <summary>设置单个像素（RGBA → 内部存为 BGRA 小端，这里直接写 BGRA 顺序）</summary>
+        private static void SetPixel(byte[] pixels, int size, int x, int y, byte r, byte g, byte b, byte a)
+        {
+            if (x < 0 || y < 0 || x >= size || y >= size) return;
+            int idx = (y * size + x) * 4;
+            pixels[idx + 0] = b;   // B
+            pixels[idx + 1] = g;   // G
+            pixels[idx + 2] = r;   // R
+            pixels[idx + 3] = a;   // A
         }
     }
 }

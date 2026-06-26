@@ -53,11 +53,17 @@
 							Padding="12,6">
 							<StackPanel
 								Orientation="Horizontal">
-								<Ellipse
+								<Border
 									Width="24"
 									Height="24"
-									Fill="{StaticResource PrimaryBrush}"
-									VerticalAlignment="Center" />
+									CornerRadius="12"
+									Background="{StaticResource PrimaryBrush}"
+									Padding="0"
+									VerticalAlignment="Center">
+									<Image
+										Name="imgCurrentUser"
+										Stretch="UniformToFill" />
+								</Border>
 								<TextBlock
 									Name="txtCurrentUser"
 									Text="Player"

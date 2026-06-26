@@ -1,10 +1,10 @@
-<Window x:Class="MusicalNoteLauncher.Windows.GenericDownloader"
+﻿<Window x:Class="MusicalNoteLauncher.Windows.GenericDownloader"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="下载" Height="300" Width="500"
         WindowStyle="None"
         ResizeMode="NoResize"
-        Background="#1E1E1E">
+        Background="{DynamicResource BackgroundBrush}">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -18,7 +18,7 @@
         <!-- 标题栏 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Name="btnClose" Content="×" Width="30" Height="30" 
-                    Background="Transparent" Foreground="#FFFFFF"
+                    Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
                     FontSize="20" Click="btnClose_Click"
                     BorderThickness="0" Cursor="Hand"
                     HorizontalAlignment="Right">
@@ -42,7 +42,7 @@
 
         <!-- 文件名 -->
         <TextBlock Grid.Row="2" Name="txtFileName" Text="正在下载..." 
-                   FontSize="16" Foreground="#FFFFFF"
+                   FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}"
                    HorizontalAlignment="Center"
                    FontFamily="Microsoft YaHei"/>
 
@@ -55,11 +55,11 @@
         <!-- 进度文字 -->
         <StackPanel Grid.Row="4" Orientation="Vertical" Margin="0,10,0,0">
             <TextBlock Name="txtProgress" Text="0% (0 MB / 0 MB)" 
-                       FontSize="12" Foreground="#AAAAAA"
+                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                        HorizontalAlignment="Center"
                        FontFamily="Microsoft YaHei"/>
             <TextBlock Name="txtSpeed" Text="速度: --" 
-                       FontSize="12" Foreground="#AAAAAA"
+                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                        HorizontalAlignment="Center"
                        FontFamily="Microsoft YaHei"
                        Margin="0,5,0,0"/>
@@ -70,7 +70,7 @@
                     HorizontalAlignment="Center"
                     Margin="0,20,0,0">
             <Button Name="btnPause" Content="暂停" 
-                    Background="#FF9800" Foreground="#FFFFFF"
+                    Background="#FF9800" Foreground="{DynamicResource TextPrimaryBrush}"
                     BorderThickness="0" Padding="15,8"
                     FontSize="14" FontFamily="Microsoft YaHei"
                     Cursor="Hand" Width="80"
@@ -90,7 +90,7 @@
                 </Control.Template>
             </Button>
             <Button Name="btnCancel" Content="取消" 
-                    Background="#F44336" Foreground="#FFFFFF"
+                    Background="#F44336" Foreground="{DynamicResource TextPrimaryBrush}"
                     BorderThickness="0" Padding="15,8"
                     FontSize="14" FontFamily="Microsoft YaHei"
                     Cursor="Hand" Width="80"

@@ -35,7 +35,7 @@ namespace MusicalNoteLauncher.Pages
 			if (button != null)
 			{
 				this.ResetCategoryButtons();
-				button.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2196F3"));
+				button.Background = (Brush)FindResource("PrimaryBrush");
 				MessageBox.Show(string.Format("切换到分类: {0} 功能开发中...", button.Content), "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
 			}
 		}
@@ -43,12 +43,12 @@ namespace MusicalNoteLauncher.Pages
 		// Token: 0x060001C3 RID: 451 RVA: 0x00007B88 File Offset: 0x00005D88
 		private void ResetCategoryButtons()
 		{
-			this.btnCategoryAll.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-			this.btnCategoryMods.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-			this.btnCategoryPacks.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-			this.btnCategoryShaders.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-			this.btnCategoryTextures.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
-			this.btnCategoryMaps.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838"));
+			this.btnCategoryAll.Background = (Brush)FindResource("SurfaceBrush");
+			this.btnCategoryMods.Background = (Brush)FindResource("SurfaceBrush");
+			this.btnCategoryPacks.Background = (Brush)FindResource("SurfaceBrush");
+			this.btnCategoryShaders.Background = (Brush)FindResource("SurfaceBrush");
+			this.btnCategoryTextures.Background = (Brush)FindResource("SurfaceBrush");
+			this.btnCategoryMaps.Background = (Brush)FindResource("SurfaceBrush");
 		}
 
 		// Token: 0x060001C4 RID: 452 RVA: 0x00007C4F File Offset: 0x00005E4F

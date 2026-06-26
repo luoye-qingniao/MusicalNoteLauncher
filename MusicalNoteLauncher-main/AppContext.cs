@@ -14,6 +14,17 @@ namespace MusicalNoteLauncher
         public static ConfigManager Config { get; set; } = new ConfigManager();
         public static RecommendItemViewModel CurrentRecommendItem { get; set; }
 
+        /// <summary>当前选中账号的 UUID（用于皮肤加载）</summary>
+        public static string CurrentAccountUuid { get; set; }
+
+        public static event Action<string, string, bool> AccountChanged;
+
+        /// <summary>触发账号变更通知（供其他页面调用）</summary>
+        public static void NotifyAccountChanged(string name, string uuid, bool isOnline)
+        {
+            AccountChanged?.Invoke(name, uuid, isOnline);
+        }
+
         public static string SelectedGameVersion { get; set; }
         public static string SelectedGameVersionUrl { get; set; }
         public static string SelectedLoaderType { get; set; }

@@ -45,11 +45,17 @@ namespace MusicalNoteLauncher.Pages
         {
             txtUsername.Text = username;
             txtLoginMode.Text = isOfflineMode ? "离线模式" : "正版模式";
+            // 青鸟账号页使用用户自定义头像（AvatarImage），而非 MC 皮肤头部立雕
+            if (imgQingniaoHead != null)
+                imgQingniaoHead.Source = GetDefaultAvatarImage();
         }
 
         private void ProfilePage_Loaded(object sender, RoutedEventArgs e)
         {
             AccountListControl.ItemsSource = _gameAccounts;
+            // 兜底：确保有一个默认头像图片展示
+            if (imgQingniaoHead != null && imgQingniaoHead.Source == null)
+                imgQingniaoHead.Source = GetDefaultAvatarImage();
             LoadGameAccounts();
         }
 
@@ -215,7 +221,200 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnEditProfile_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("编辑个人资料功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            // 允许用户选择本地图片作为自定义头像
+            var dlg = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择头像图片",
+                Filter = "图片文件|*.png;*.jpg;*.jpeg;*.bmp;*.gif|所有文件|*.*"
+            };
+            if (dlg.ShowDialog() != true)
+                return;
+
+            try
+            {
+                string username = AppContext.Username ?? "player";
+
+                // avatars 目录
+                string avatarsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "avatars");
+                if (!Directory.Exists(avatarsDir))
+                    Directory.CreateDirectory(avatarsDir);
+
+                string targetFile = Path.Combine(avatarsDir, $"{username}.png");
+
+                // 方法 A：直接拷贝源文件到目标位置（若源是 PNG 可直接拷贝，否则解码后再编码成 PNG）
+                string ext = Path.GetExtension(dlg.FileName)?.ToLower() ?? "";
+                if (ext == ".png")
+                {
+                    // PNG 直接拷贝，避免任何解码/重新编码问题
+                    File.Copy(dlg.FileName, targetFile, overwrite: true);
+                }
+                else
+                {
+                    // 其他格式：解码 → 重新编码为 PNG
+                    var bmp = new BitmapImage();
+                    using (var src = new FileStream(dlg.FileName, FileMode.Open, FileAccess.Read))
+                    {
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.StreamSource = src;
+                        bmp.EndInit();
+                        bmp.Freeze();
+                    }
+                    using (var fs = new FileStream(targetFile, FileMode.Create, FileAccess.Write))
+                    {
+                        var enc = new PngBitmapEncoder();
+                        enc.Frames.Add(BitmapFrame.Create(bmp));
+                        enc.Save(fs);
+                    }
+                }
+
+                // 从刚刚写入的文件加载 BitmapImage（保证下次启动也能正常加载）
+                var avatar = new BitmapImage();
+                using (var fs = new FileStream(targetFile, FileMode.Open, FileAccess.Read))
+                {
+                    avatar.BeginInit();
+                    avatar.CacheOption = BitmapCacheOption.OnLoad;
+                    avatar.StreamSource = fs;
+                    avatar.EndInit();
+                    avatar.Freeze();
+                }
+
+                // 设置到 UI
+                imgQingniaoHead.Source = avatar;
+
+                // 同步到当前选中账号（若存在）
+                var current = _gameAccounts?.FirstOrDefault(a => a.IsSelected);
+                if (current != null)
+                    current.AvatarImage = avatar;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("头像加载失败：" + ex.Message, "提示", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>生成玩家头像（优先从 avatars/{username}.png 读取，否则生成友好的默认头像）。</summary>
+        public static BitmapImage GetDefaultAvatarImage()
+        {
+            try
+            {
+                string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+                string username = AppContext.Username ?? "player";
+                string avatarFile = Path.Combine(exeDir, "avatars", username + ".png");
+
+                // 已有自定义头像 → 直接加载
+                if (File.Exists(avatarFile))
+                {
+                    var bmp = new BitmapImage();
+                    using (var fs = new FileStream(avatarFile, FileMode.Open, FileAccess.Read))
+                    {
+                        bmp.BeginInit();
+                        bmp.CacheOption = BitmapCacheOption.OnLoad;
+                        bmp.StreamSource = fs;
+                        bmp.EndInit();
+                        bmp.Freeze();
+                    }
+                    return bmp;
+                }
+            }
+            catch { }
+
+            // 兜底：在内存里生成一个漂亮的默认头像（紫蓝渐变圆形 + 中心 "♪" 音符符号）
+            return BuildDefaultAvatarBitmap();
+        }
+
+        /// <summary>生成默认头像（128×128，紫蓝渐变圆 + 白色音符符号）。</summary>
+        private static BitmapImage BuildDefaultAvatarBitmap()
+        {
+            const int size = 128;
+            var pixels = new byte[size * size * 4];
+
+            // 中心与半径（比整个 128 小一点，留出背景暗色背景）
+            double cx = size / 2.0, cy = size / 2.0;
+            double r = size / 2.0 - 1;
+
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    int idx = (y * size + x) * 4;
+
+                    // 计算到圆心距离，做圆形裁剪
+                    double dx = x - cx + 0.5;
+                    double dy = y - cy + 0.5;
+                    double dist = Math.Sqrt(dx * dx + dy * dy);
+
+                    // 圆形背景（不透明）+ 外圈透明
+                    if (dist > r)
+                    {
+                        pixels[idx + 0] = 0;
+                        pixels[idx + 1] = 0;
+                        pixels[idx + 2] = 0;
+                        pixels[idx + 3] = 0;
+                        continue;
+                    }
+
+                    // 紫蓝径向渐变（中心亮，边缘略暗）
+                    double t = dist / r; // 0..1
+                    // 边缘色（深紫）
+                    byte r1 = 0x6C, g1 = 0x5C, b1 = 0xE7; // #6C5CE7
+                    // 中心色（浅蓝紫）
+                    byte r2 = 0xA2, g2 = 0x9B, b2 = 0xFE; // #A29BFE
+                    pixels[idx + 2] = (byte)(r2 + (r1 - r2) * t); // R
+                    pixels[idx + 1] = (byte)(g2 + (g1 - g2) * t); // G
+                    pixels[idx + 0] = (byte)(b2 + (b1 - b2) * t); // B
+                    pixels[idx + 3] = 255;                         // A
+                }
+
+            // 中心画一个简单白色音符符号（用一个小方块占位的"♪"形像素图）
+            // 绘制 "♪"：一个 20×8 的横向矩形（符头右边）+ 一条竖向矩形（符干）+ 一个椭圆（符头）
+            void FillRect(int x0, int y0, int w, int h, byte br, byte bg, byte bb)
+            {
+                for (int yy = y0; yy < y0 + h; yy++)
+                    for (int xx = x0; xx < x0 + w; xx++)
+                    {
+                        if (xx < 0 || yy < 0 || xx >= size || yy >= size) continue;
+                        double dxx = xx - cx + 0.5, dyy = yy - cy + 0.5;
+                        if (Math.Sqrt(dxx * dxx + dyy * dyy) > r) continue; // 不超出圆
+                        int ii = (yy * size + xx) * 4;
+                        pixels[ii + 0] = bb;
+                        pixels[ii + 1] = bg;
+                        pixels[ii + 2] = br;
+                        pixels[ii + 3] = 255;
+                    }
+            }
+
+            // "♪"：符干为竖向 28×6，从 y=35 到 y=80
+            int stemX = (int)cx - 3;
+            int stemY = 35;
+            FillRect(stemX, stemY, 6, 55, 255, 255, 255);
+
+            // 符头：在符干左下的一个矩形（近似椭圆）
+            int headX = stemX - 15;
+            int headY = stemY + 45;
+            int headW = 25, headH = 14;
+            FillRect(headX, headY, headW, headH, 255, 255, 255);
+
+            // 另一个符头（"♫" 的感觉）——放远一点作为点缀
+            int head2X = stemX - 15;
+            int head2Y = stemY + 10;
+            FillRect(head2X, head2Y, 25, 12, 220, 220, 255);
+
+            // 创建 BitmapSource → 包装为 BitmapImage
+            var wb = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, pixels, size * 4);
+            var result = new BitmapImage();
+            using (var ms = new System.IO.MemoryStream())
+            {
+                var enc = new PngBitmapEncoder();
+                enc.Frames.Add(BitmapFrame.Create(wb));
+                enc.Save(ms);
+                ms.Position = 0;
+                result.BeginInit();
+                result.CacheOption = BitmapCacheOption.OnLoad;
+                result.StreamSource = ms;
+                result.EndInit();
+                result.Freeze();
+            }
+            return result;
         }
 
         private void BtnSwitchAccount_Click(object sender, RoutedEventArgs e)
@@ -537,6 +736,7 @@ namespace MusicalNoteLauncher.Pages
                 // 更新启动器当前账号
                 MusicalNoteLauncher.AppContext.Username = account.Name;
                 MusicalNoteLauncher.AppContext.IsOfflineMode = account.Type == AccountType.Offline;
+                MusicalNoteLauncher.AppContext.CurrentAccountUuid = account.Uuid;
 
                 // 设置 AccountManager 的当前登录类型
                 McLoginType loginType;
@@ -560,6 +760,12 @@ namespace MusicalNoteLauncher.Pages
                 // 同步到青鸟账号页
                 txtUsername.Text = account.Name;
                 txtLoginMode.Text = account.TypeDisplay + "模式";
+                if (imgQingniaoHead != null)
+                    imgQingniaoHead.Source = account.AvatarImage ?? GetDefaultAvatarImage();
+
+                // 通知全局账号变更
+                MusicalNoteLauncher.AppContext.NotifyAccountChanged(
+                    account.Name, account.Uuid ?? "", account.Type != AccountType.Offline);
 
                 // 触发切换账号回调
                 OnSwitchToAccount?.Invoke();
@@ -633,98 +839,161 @@ namespace MusicalNoteLauncher.Pages
         }
 
         /// <summary>
-        /// 从皮肤文件中裁剪头部（8×8 区域，位于 64×64 皮肤的 x=8,y=8 处）
+        /// 从皮肤文件中提取玩家头部正面立雕（内层+外层叠加）。
+        /// Minecraft 64×64 皮肤格式：
+        ///   内层头部正面：x=8..15, y=8..15（玩家脸部）
+        ///   外层头部正面：x=40..47, y=8..15（头饰/帽子，透明处透出内层）
         /// </summary>
         private void LoadAccountHeadImage(GameAccount account)
         {
             try
             {
                 string skinsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
-                string skinFile = Path.Combine(skinsDir, $"{account.Uuid}.png");
 
-                if (File.Exists(skinFile))
+                // 优先尝试 {uuid}.png，其次尝试 {username}.png，确保找到真正的皮肤文件
+                string[] candidates = {
+                    Path.Combine(skinsDir, $"{account.Uuid}.png"),
+                    Path.Combine(skinsDir, $"{account.Name}.png")
+                };
+
+                string skinFile = null;
+                foreach (var c in candidates)
+                    if (File.Exists(c)) { skinFile = c; break; }
+
+                if (skinFile != null)
                 {
-                    var decoder = BitmapDecoder.Create(
-                        new Uri(skinFile), BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
-                    var fullFrame = decoder.Frames[0];
-
-                    int headX = 8, headY = 8, headSize = 8;
-                    if (fullFrame.PixelWidth < headX + headSize || fullFrame.PixelHeight < headY + headSize)
+                    using (var fs = new FileStream(skinFile, FileMode.Open, FileAccess.Read))
                     {
-                        var bmp = new BitmapImage();
-                        bmp.BeginInit();
-                        bmp.CacheOption = BitmapCacheOption.OnLoad;
-                        bmp.UriSource = new Uri(skinFile);
-                        bmp.EndInit();
-                        bmp.Freeze();
-                        account.HeadImage = bmp;
-                        return;
+                        var decoder = BitmapDecoder.Create(fs, BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                        var rawFrame = decoder.Frames[0];
+
+                        // 检测是否为 Minecraft 皮肤格式：
+                        //   - 正方形 (1:1)：64×64 / 128×128 / 256×256 ...
+                        //   - 宽高比 2:1：64×32 / 128×64 / 256×128 ...
+                        // 不要求宽度是 64 的整数倍，支持非标准尺寸（例如 100×100 的自定义皮肤）
+                        int w = rawFrame.PixelWidth;
+                        int h = rawFrame.PixelHeight;
+                        bool looksLikeSkin =
+                            (w >= 48) && (h >= 16) &&
+                            (w == h || w == 2 * h);
+
+                        // 统一转为 Bgra32
+                        var formatted = new FormatConvertedBitmap(rawFrame, PixelFormats.Bgra32, null, 0);
+                        formatted.Freeze();
+
+                        if (looksLikeSkin)
+                            account.HeadImage = ComposeHeadFront(formatted);   // 皮肤 → 提取头部
+                        else
+                            account.HeadImage = formatted;                     // 普通图片 → 直接展示原图
                     }
-
-                    var cropped = new CroppedBitmap(fullFrame,
-                        new Int32Rect(headX, headY, headSize, headSize));
-                    var scaled = new TransformedBitmap(cropped, new ScaleTransform(8, 8));
-
-                    var encoder = new PngBitmapEncoder();
-                    encoder.Frames.Add(BitmapFrame.Create(scaled));
-                    var ms = new MemoryStream();
-                    encoder.Save(ms);
-                    ms.Position = 0;
-
-                    var result = new BitmapImage();
-                    result.BeginInit();
-                    result.CacheOption = BitmapCacheOption.OnLoad;
-                    result.StreamSource = ms;
-                    result.EndInit();
-                    result.Freeze();
-
-                    account.HeadImage = result;
                 }
                 else
                 {
-                    bool isSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{account.Uuid}");
+                    // 没有皮肤文件 → 默认 Steve/Alex
+                    bool isSlim = false;
+                    try { isSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{account.Uuid}"); } catch { }
                     account.HeadImage = GenerateDefaultHead(isSlim);
                 }
             }
             catch
             {
-                account.HeadImage = null;
+                // 兜底：直接返回默认头像
+                try { account.HeadImage = GenerateDefaultHead(false); } catch { }
             }
         }
 
         /// <summary>
-        /// 生成默认头部（8x8 肤色方块放大到 64x64）
+        /// 从 Minecraft 皮肤中提取头部正面，组合内层脸部和外层帽子后像素化放大到 32×32。
+        /// 使用浮点缩放系数，支持标准 64×64、旧格式 64×32，以及任意 HD 皮肤尺寸（128×128、256×256 等）。
+        /// 内层脸部：皮肤坐标 x=8..16, y=8..16 的 8×8 区域
+        /// 外层帽子：皮肤坐标 x=40..48, y=8..16 的 8×8 区域（非透明像素覆盖在脸部上）
         /// </summary>
-        private BitmapImage GenerateDefaultHead(bool isSlim)
+        private BitmapSource ComposeHeadFront(BitmapSource skin)
         {
-            const int size = 8;
-            var wb = new WriteableBitmap(size, size, 96, 96, PixelFormats.Bgra32, null);
-            var pixels = new byte[size * size * 4];
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
+            const int headSize = 8;
+            const int outSize = 32;
+
+            int w = skin.PixelWidth;
+            int h = skin.PixelHeight;
+            double scale = w / 64.0;  // 浮点缩放（64宽=1，128宽=2，100宽=1.5625）
+
+            byte[] src = GetRawPixels(skin);
+            var head = new byte[headSize * headSize * 4];
+
+            // 1. 提取内层脸部正面（逻辑坐标 x=8..15, y=8..15，按 scale 映射到实际像素）
+            //    每个逻辑像素取其中心点的实际像素
+            for (int y = 0; y < headSize; y++)
+                for (int x = 0; x < headSize; x++)
                 {
-                    int idx = (y * size + x) * 4;
-                    pixels[idx + 0] = 75;
-                    pixels[idx + 1] = 105;
-                    pixels[idx + 2] = 141;
-                    pixels[idx + 3] = 255;
+                    int sx = (int)Math.Floor(8.0 * scale + (x + 0.5) * scale);
+                    int sy = (int)Math.Floor(8.0 * scale + (y + 0.5) * scale);
+                    sx = Math.Max(0, Math.Min(sx, w - 1));
+                    sy = Math.Max(0, Math.Min(sy, h - 1));
+                    int si = (sy * w + sx) * 4;
+                    int di = (y * headSize + x) * 4;
+                    head[di + 0] = src[si + 0];
+                    head[di + 1] = src[si + 1];
+                    head[di + 2] = src[si + 2];
+                    head[di + 3] = src[si + 3];
                 }
-            wb.WritePixels(new Int32Rect(0, 0, size, size), pixels, size * 4, 0);
 
-            var scaled = new TransformedBitmap(wb, new ScaleTransform(8, 8));
-            var encoder = new PngBitmapEncoder();
-            encoder.Frames.Add(BitmapFrame.Create(scaled));
-            var ms = new MemoryStream();
-            encoder.Save(ms);
-            ms.Position = 0;
+            // 2. 外层帽子（逻辑坐标 x=40..47, y=8..15）—— 非透明像素覆盖内层
+            for (int y = 0; y < headSize; y++)
+                for (int x = 0; x < headSize; x++)
+                {
+                    int sx = (int)Math.Floor(40.0 * scale + (x + 0.5) * scale);
+                    int sy = (int)Math.Floor(8.0 * scale + (y + 0.5) * scale);
+                    sx = Math.Max(0, Math.Min(sx, w - 1));
+                    sy = Math.Max(0, Math.Min(sy, h - 1));
+                    int si = (sy * w + sx) * 4;
+                    if (src[si + 3] == 0) continue;  // 透明 → 保留内层脸部
 
-            var result = new BitmapImage();
-            result.BeginInit();
-            result.CacheOption = BitmapCacheOption.OnLoad;
-            result.StreamSource = ms;
-            result.EndInit();
+                    int di = (y * headSize + x) * 4;
+                    head[di + 0] = src[si + 0];
+                    head[di + 1] = src[si + 1];
+                    head[di + 2] = src[si + 2];
+                    head[di + 3] = src[si + 3];
+                }
+
+            // 3. 8×8 → 32×32 像素化放大（最近邻 4×）
+            var outPixels = new byte[outSize * outSize * 4];
+            int ratio = outSize / headSize;
+            for (int y = 0; y < outSize; y++)
+                for (int x = 0; x < outSize; x++)
+                {
+                    int sx = x / ratio;
+                    int sy = y / ratio;
+                    int si = (sy * headSize + sx) * 4;
+                    int di = (y * outSize + x) * 4;
+                    outPixels[di + 0] = head[si + 0];
+                    outPixels[di + 1] = head[si + 1];
+                    outPixels[di + 2] = head[si + 2];
+                    outPixels[di + 3] = head[si + 3];
+                }
+
+            var result = BitmapSource.Create(outSize, outSize, 96, 96, PixelFormats.Bgra32, null, outPixels, outSize * 4);
             result.Freeze();
             return result;
+        }
+
+        /// <summary>从 BitmapSource 提取 BGRA 原始像素数组</summary>
+        private static byte[] GetRawPixels(BitmapSource src)
+        {
+            int w = src.PixelWidth;
+            int stride = w * 4;
+            var pixels = new byte[stride * src.PixelHeight];
+            src.CopyPixels(pixels, stride, 0);
+            return pixels;
+        }
+
+        /// <summary>
+        /// 生成默认头部立雕：从 Assets/Skins/steve.png 或 alex.png 加载（与 3D 预览同一皮肤源），
+        /// 再提取头部正面（内层+外层）后像素化放大到 32×32。
+        /// </summary>
+        private BitmapSource GenerateDefaultHead(bool isSlim)
+        {
+            var skin = MusicalNoteLauncher.Core.DefaultSkinFactory.GetDefaultSkinBitmap(isSlim);
+            return ComposeHeadFront(skin);
         }        /// <summary>
         /// 获取账号类型对应的颜色画刷
         /// </summary>
@@ -793,10 +1062,10 @@ namespace MusicalNoteLauncher.Pages
             var border = new Border
             {
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                    ((SolidColorBrush)FindResource("CardHoverBrush")).Color),
                 CornerRadius = new CornerRadius(16),
                 BorderBrush = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                    ((SolidColorBrush)FindResource("BorderBrush")).Color),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(24),
                 RenderTransformOrigin = new Point(0.5, 0.5),
@@ -850,7 +1119,7 @@ namespace MusicalNoteLauncher.Pages
                 Foreground = Brushes.White,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#1E1E1E")),
+                    ((SolidColorBrush)FindResource("BackgroundBrush")).Color),
                 BorderBrush = new SolidColorBrush(
                     (Color)ColorConverter.ConvertFromString("#555555")),
                 BorderThickness = new Thickness(1),
@@ -908,7 +1177,7 @@ namespace MusicalNoteLauncher.Pages
             {
                 Visibility = Visibility.Collapsed,
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#1E1E1E")),
+                    ((SolidColorBrush)FindResource("BackgroundBrush")).Color),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(14),
                 Margin = new Thickness(0, 0, 0, 0)
@@ -989,7 +1258,7 @@ namespace MusicalNoteLauncher.Pages
                 Height = 26,
                 Margin = new Thickness(8, 0, 0, 0),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#383838")),
+                    ((SolidColorBrush)FindResource("SurfaceBrush")).Color),
                 Foreground = Brushes.White,
                 BorderThickness = new Thickness(0),
                 Cursor = Cursors.Hand,
@@ -1027,7 +1296,7 @@ namespace MusicalNoteLauncher.Pages
                 Height = 36,
                 Margin = new Thickness(0, 0, 10, 0),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#383838")),
+                    ((SolidColorBrush)FindResource("SurfaceBrush")).Color),
                 Foreground = Brushes.White,
                 BorderThickness = new Thickness(0),
                 FontSize = 13,
@@ -1213,10 +1482,10 @@ namespace MusicalNoteLauncher.Pages
             var border = new Border
             {
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                    ((SolidColorBrush)FindResource("CardHoverBrush")).Color),
                 CornerRadius = new CornerRadius(16),
                 BorderBrush = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                    ((SolidColorBrush)FindResource("BorderBrush")).Color),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(20),
                 RenderTransformOrigin = new Point(0.5, 0.5),
@@ -1247,7 +1516,7 @@ namespace MusicalNoteLauncher.Pages
                 Text = "玩家名称",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                    ((SolidColorBrush)FindResource("TextSecondaryBrush")).Color),
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Margin = new Thickness(0, 0, 0, 6)
             };
@@ -1260,9 +1529,9 @@ namespace MusicalNoteLauncher.Pages
                 Foreground = Brushes.White,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#383838")),
+                    ((SolidColorBrush)FindResource("SurfaceBrush")).Color),
                 BorderBrush = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                    ((SolidColorBrush)FindResource("BorderBrush")).Color),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(12, 8, 12, 8),
                 CaretBrush = Brushes.White,
@@ -1276,7 +1545,7 @@ namespace MusicalNoteLauncher.Pages
                 Text = "认证服务器地址",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                    ((SolidColorBrush)FindResource("TextSecondaryBrush")).Color),
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Margin = new Thickness(0, 0, 0, 6)
             };
@@ -1290,9 +1559,9 @@ namespace MusicalNoteLauncher.Pages
                 Foreground = Brushes.White,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#383838")),
+                    ((SolidColorBrush)FindResource("SurfaceBrush")).Color),
                 BorderBrush = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                    ((SolidColorBrush)FindResource("BorderBrush")).Color),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(12, 8, 12, 8),
                 CaretBrush = Brushes.White,
@@ -1315,7 +1584,7 @@ namespace MusicalNoteLauncher.Pages
                 Height = 32,
                 Margin = new Thickness(0, 0, 8, 0),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#383838")),
+                    ((SolidColorBrush)FindResource("SurfaceBrush")).Color),
                 Foreground = Brushes.White,
                 BorderThickness = new Thickness(0),
                 FontSize = 13,
@@ -1446,9 +1715,9 @@ namespace MusicalNoteLauncher.Pages
 
             var rootBorder = new Border
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                Background = (Brush)Application.Current.FindResource("CardHoverBrush"),
                 CornerRadius = new CornerRadius(16),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(20),
                 RenderTransformOrigin = new Point(0.5, 0.5),
@@ -1475,9 +1744,9 @@ namespace MusicalNoteLauncher.Pages
 
             var bodyBorder = new Border
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#252525")),
+                Background = (Brush)Application.Current.FindResource("CardBackgroundBrush"),
                 CornerRadius = new CornerRadius(8),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                BorderBrush = (Brush)Application.Current.FindResource("BorderBrush"),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(12)
             };
@@ -1494,7 +1763,7 @@ namespace MusicalNoteLauncher.Pages
 
             var previewBorder = new Border
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1E1E1E")),
+                Background = (Brush)Application.Current.FindResource("BackgroundBrush"),
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(8),
                 VerticalAlignment = VerticalAlignment.Stretch
@@ -1617,7 +1886,7 @@ namespace MusicalNoteLauncher.Pages
                 Height = 36,
                 Margin = new Thickness(0, 0, 10, 0),
                 Padding = new Thickness(14, 0, 14, 0),
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
                 Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2ECC71")),
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
@@ -1643,7 +1912,7 @@ namespace MusicalNoteLauncher.Pages
                 Width = 90,
                 Height = 36,
                 Margin = new Thickness(0, 0, 10, 0),
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
                 Foreground = Brushes.White,
                 FontSize = 13,
                 FontFamily = new FontFamily("Microsoft YaHei"),
@@ -1753,7 +2022,7 @@ namespace MusicalNoteLauncher.Pages
             _lblSkinFile = new TextBlock
             {
                 Text = string.IsNullOrEmpty(_selectedSkinFile) ? "(未选择)" : System.IO.Path.GetFileName(_selectedSkinFile),
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                Foreground = (Brush)Application.Current.FindResource("TextSecondaryBrush"),
                 FontSize = 12,
                 FontFamily = new FontFamily("Consolas"),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -1764,7 +2033,7 @@ namespace MusicalNoteLauncher.Pages
             var btnPickSkin = new Button
             {
                 Content = "浏览",
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
                 Foreground = Brushes.White,
                 Padding = new Thickness(12, 4, 12, 4),
                 FontSize = 12,
@@ -1798,7 +2067,7 @@ namespace MusicalNoteLauncher.Pages
             _lblCapeFile = new TextBlock
             {
                 Text = "(未选择)",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                Foreground = (Brush)Application.Current.FindResource("TextSecondaryBrush"),
                 FontSize = 12,
                 FontFamily = new FontFamily("Consolas"),
                 VerticalAlignment = VerticalAlignment.Center,
@@ -1809,7 +2078,7 @@ namespace MusicalNoteLauncher.Pages
             var btnPickCape = new Button
             {
                 Content = "浏览",
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#383838")),
+                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
                 Foreground = Brushes.White,
                 Padding = new Thickness(12, 4, 12, 4),
                 FontSize = 12,
@@ -1894,7 +2163,7 @@ namespace MusicalNoteLauncher.Pages
 
             var itemStyle = new Style(typeof(ComboBoxItem));
             itemStyle.Setters.Add(new Setter(Control.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#252525"))));
+                (Brush)Application.Current.FindResource("CardBackgroundBrush")));
             itemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
             itemStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
             itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(4, 2, 4, 2)));
@@ -1904,7 +2173,7 @@ namespace MusicalNoteLauncher.Pages
                 Value = true
             };
             itemHoverTrigger.Setters.Add(new Setter(Control.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#3A3A3A"))));
+                (Brush)Application.Current.FindResource("BorderBrush")));
             itemStyle.Triggers.Add(itemHoverTrigger);
             var itemSelectedTrigger = new Trigger
             {
@@ -1994,7 +2263,7 @@ namespace MusicalNoteLauncher.Pages
 
             var popupBorder = new FrameworkElementFactory(typeof(Border));
             popupBorder.SetValue(Border.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#252525")));
+                (Brush)Application.Current.FindResource("CardBackgroundBrush"));
             popupBorder.SetValue(Border.BorderBrushProperty,
                 new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")));
             popupBorder.SetValue(Border.BorderThicknessProperty, new Thickness(1));
@@ -2018,81 +2287,7 @@ namespace MusicalNoteLauncher.Pages
         }
         private static BitmapSource GenerateDefaultSkinBitmap(bool isSlim)
         {
-            string skinFile = isSlim
-                ? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Skins", "alex.png")
-                : Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Skins", "steve.png");
-
-            if (File.Exists(skinFile))
-            {
-                try
-                {
-                    // 使用 BitmapDecoder + PreservePixelFormat 确保可靠的像素格式
-                    var decoder = BitmapDecoder.Create(
-                        new Uri(skinFile),
-                        BitmapCreateOptions.PreservePixelFormat,
-                        BitmapCacheOption.OnLoad);
-                    var frame = decoder.Frames[0];
-
-                    // 显式转换为 Bgra32，消除 BitmapImage 内部 Pbgra32/Bgra32 差异
-                    BitmapSource bgraSource;
-                    if (frame.Format == PixelFormats.Bgra32)
-                        bgraSource = frame;
-                    else
-                        bgraSource = new FormatConvertedBitmap(frame, PixelFormats.Bgra32, null, 0);
-
-                    // 复制到 WriteableBitmap 确保像素数据完全可控
-                    int w = bgraSource.PixelWidth;
-                    int h = bgraSource.PixelHeight;
-                    var wb = new WriteableBitmap(w, h, 96, 96, PixelFormats.Bgra32, null);
-                    int stride = w * 4;
-                    byte[] pixels = new byte[stride * h];
-                    bgraSource.CopyPixels(pixels, stride, 0);
-                    wb.WritePixels(new Int32Rect(0, 0, w, h), pixels, stride, 0);
-                    wb.Freeze();
-
-                    // 诊断：保存加载的原始皮肤到输出目录，方便排查
-                    try
-                    {
-                        string diagPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory,
-                            isSlim ? "diag_alex_loaded.png" : "diag_steve_loaded.png");
-                        using (var fs = new FileStream(diagPath, FileMode.Create))
-                        {
-                            var encoder = new PngBitmapEncoder();
-                            encoder.Frames.Add(BitmapFrame.Create(wb));
-                            encoder.Save(fs);
-                        }
-                    }
-                    catch { }
-
-                    return wb;
-                }
-                catch (Exception ex)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[Skin3D] Failed to load default skin '{skinFile}': {ex.Message}");
-                }
-            }
-
-            // Fallback：生成一个简单的 64x64 皮肤（仅头部和身体区域有颜色，其余白色）
-            const int width = 64;
-            const int height = 64;
-            int fbStride = width * 4;
-            byte[] fbPixels = new byte[fbStride * height];
-
-            // 全部填充白色 (255,255,255,255)，与 MakeOpaque 行为一致
-            for (int i = 0; i < fbPixels.Length; i += 4)
-            {
-                fbPixels[i] = 255;     // B
-                fbPixels[i + 1] = 255; // G
-                fbPixels[i + 2] = 255; // R
-                fbPixels[i + 3] = 255; // A
-            }
-
-            System.Diagnostics.Debug.WriteLine($"[Skin3D] WARNING: Using fallback skin for {(isSlim ? "Alex" : "Steve")}");
-
-            var fb = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
-            fb.WritePixels(new Int32Rect(0, 0, width, height), fbPixels, fbStride, 0);
-            fb.Freeze();
-            return fb;
+            return MusicalNoteLauncher.Core.DefaultSkinFactory.GetDefaultSkinBitmap(isSlim);
         }
         private void SelectSource(SkinSource source)
         {
@@ -2333,10 +2528,10 @@ namespace MusicalNoteLauncher.Pages
             var border = new Border
             {
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#2D2D2D")),
+                    ((SolidColorBrush)FindResource("CardHoverBrush")).Color),
                 CornerRadius = new CornerRadius(16),
                 BorderBrush = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#3A3A3A")),
+                    ((SolidColorBrush)FindResource("BorderBrush")).Color),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(24),
                 RenderTransformOrigin = new Point(0.5, 0.5),
@@ -2373,7 +2568,7 @@ namespace MusicalNoteLauncher.Pages
                 Text = "已在浏览器中打开微软登录页面。\n登录完成后，将浏览器地址栏的完整 URL 粘贴到下方：",
                 FontSize = 12,
                 Foreground = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#AAAAAA")),
+                    ((SolidColorBrush)FindResource("TextSecondaryBrush")).Color),
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextWrapping = TextWrapping.Wrap,
@@ -2389,7 +2584,7 @@ namespace MusicalNoteLauncher.Pages
                 FontSize = 12,
                 FontFamily = new FontFamily("Consolas"),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#1E1E1E")),
+                    ((SolidColorBrush)FindResource("BackgroundBrush")).Color),
                 Foreground = Brushes.White,
                 BorderBrush = new SolidColorBrush(
                     (Color)ColorConverter.ConvertFromString("#555555")),
@@ -2428,7 +2623,7 @@ namespace MusicalNoteLauncher.Pages
                 Height = 36,
                 Margin = new Thickness(0, 0, 12, 0),
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#383838")),
+                    ((SolidColorBrush)FindResource("SurfaceBrush")).Color),
                 Foreground = Brushes.White,
                 BorderThickness = new Thickness(0),
                 FontSize = 13,
@@ -2454,7 +2649,7 @@ namespace MusicalNoteLauncher.Pages
                 Width = 120,
                 Height = 36,
                 Background = new SolidColorBrush(
-                    (Color)ColorConverter.ConvertFromString("#2196F3")),
+                    ((SolidColorBrush)FindResource("PrimaryBrush")).Color),
                 Foreground = Brushes.White,
                 BorderThickness = new Thickness(0),
                 FontSize = 13,

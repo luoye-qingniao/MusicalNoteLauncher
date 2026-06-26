@@ -214,9 +214,12 @@ namespace MusicalNoteLauncher.Pages
                     });
                 }
                 BindVersionData(items);
+                loadingLatest.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {
+                loadingLatest.Text = "❌ 加载失败，请点击刷新";
+                loadingLatest.Foreground = new SolidColorBrush(Color.FromRgb(0xE5, 0x39, 0x35));
                 Logger.Error("[UI加载] 加载远程版本列表失败: " + ex.Message);
             }
         }
@@ -362,6 +365,7 @@ namespace MusicalNoteLauncher.Pages
                 var result = await VersionScanService.Instance.ScanAsync("加载已安装版本");
                 var items = await CreateVersionItemsFromScanResult(result);
                 BindInstalledVersionData(items);
+                loadingInstalled.Visibility = Visibility.Collapsed;
             }
             finally
             {
@@ -614,6 +618,7 @@ namespace MusicalNoteLauncher.Pages
                 }
 
                 txtBedrockStatus.Text = $"就绪 ({versions.Count} 个版本)";
+                loadingBedrock.Visibility = Visibility.Collapsed;
             }
             catch (Exception ex)
             {

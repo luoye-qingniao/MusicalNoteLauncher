@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using MusicalNoteLauncher.Controls;
 using MusicalNoteLauncher.Core;
 
 namespace MusicalNoteLauncher.Pages
@@ -64,7 +68,134 @@ namespace MusicalNoteLauncher.Pages
             txtAccountUser.Text = AppContext.Username;
             sliderMemory.Value = config.MemorySize;
             txtMemoryValue.Text = $"{config.MemorySize} MB";
+            UpdateCurrentUserAvatar();
             UpdateLaunchPreview();
+        }
+
+        /// <summary>
+        /// 根据当前用户名 + 已保存的 UUID 生成/加载玩家头部立雕，显示在右上角圆形头像位置。
+        /// 优先从 skins/{uuid}.png 加载（内层+外层叠加），否则使用默认 Steve/Alex 皮肤。
+        /// </summary>
+        private void UpdateCurrentUserAvatar()
+        {
+            try
+            {
+                string username = AppContext.Username;
+                if (string.IsNullOrWhiteSpace(username))
+                {
+                    imgCurrentUser.Source = BuildDefaultHead(isSlim: false);
+                    return;
+                }
+                txtCurrentUser.Text = username;
+
+                // 查找皮肤文件：先试 skins/{username}.png，再试离线 UUID 对应文件
+                string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+                string uuid;
+                using (var md5 = System.Security.Cryptography.MD5.Create())
+                {
+                    byte[] bytes = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes("OfflinePlayer:" + username));
+                    uuid = new System.Guid(bytes).ToString("N");
+                }
+
+                string skinFile = Path.Combine(exeDir, "skins", $"{username}.png");
+                if (!File.Exists(skinFile))
+                    skinFile = Path.Combine(exeDir, "skins", $"{uuid}.png");
+
+                if (File.Exists(skinFile))
+                {
+                    var decoder = BitmapDecoder.Create(new Uri(skinFile),
+                        BitmapCreateOptions.PreservePixelFormat, BitmapCacheOption.OnLoad);
+                    var frame = decoder.Frames[0];
+                    int fw = frame.PixelWidth;
+                    int fh = frame.PixelHeight;
+                    // 与 ProfilePage 相同的判断：宽高比 1:1 或 2:1 且最小尺寸符合皮肤布局 → 提取头部
+                    bool looksLikeSkin = (fw >= 48) && (fh >= 16) && (fw == fh || fw == 2 * fh);
+                    if (looksLikeSkin)
+                        imgCurrentUser.Source = BuildHeadFrontFromSkin(frame);
+                    else
+                        imgCurrentUser.Source = frame;
+                    return;
+                }
+
+                // 没有皮肤文件时按用户名选择默认 Steve/Alex
+                bool isSlim = false;
+                try { isSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{uuid}"); } catch { }
+                imgCurrentUser.Source = BuildDefaultHead(isSlim);
+            }
+            catch
+            {
+                // 兜底：默认 Steve 头部
+                imgCurrentUser.Source = BuildDefaultHead(isSlim: false);
+            }
+        }
+
+        /// <summary>从完整皮肤中提取头部正面立雕（内层+外层叠加）。
+        /// 使用浮点缩放，支持标准 64×64、旧格式 64×32，以及任意 HD 皮肤尺寸。
+        /// 输出 32×32 像素化 BitmapSource。</summary>
+        private static BitmapSource BuildHeadFrontFromSkin(BitmapSource skin)
+        {
+            const int headSize = 8;
+            const int outSize = 32;
+
+            var formatted = new FormatConvertedBitmap(skin, PixelFormats.Bgra32, null, 0);
+            int w = formatted.PixelWidth;
+            int h = formatted.PixelHeight;
+            int stride = w * 4;
+            var src = new byte[stride * h];
+            formatted.CopyPixels(src, stride, 0);
+
+            double scale = w / 64.0;  // 浮点缩放系数
+            var buf = new byte[headSize * headSize * 4];
+
+            // 内层脸部：皮肤坐标 x=8..15, y=8..15
+            for (int y = 0; y < headSize; y++)
+                for (int x = 0; x < headSize; x++)
+                {
+                    int sx = (int)Math.Floor(8.0 * scale + (x + 0.5) * scale);
+                    int sy = (int)Math.Floor(8.0 * scale + (y + 0.5) * scale);
+                    sx = Math.Max(0, Math.Min(sx, w - 1));
+                    sy = Math.Max(0, Math.Min(sy, h - 1));
+                    int sIdx = (sy * w + sx) * 4;
+                    int dIdx = (y * headSize + x) * 4;
+                    Buffer.BlockCopy(src, sIdx, buf, dIdx, 4);
+                }
+
+            // 外层帽子：皮肤坐标 x=40..47, y=8..15（非透明像素覆盖内层）
+            for (int y = 0; y < headSize; y++)
+                for (int x = 0; x < headSize; x++)
+                {
+                    int sx = (int)Math.Floor(40.0 * scale + (x + 0.5) * scale);
+                    int sy = (int)Math.Floor(8.0 * scale + (y + 0.5) * scale);
+                    sx = Math.Max(0, Math.Min(sx, w - 1));
+                    sy = Math.Max(0, Math.Min(sy, h - 1));
+                    int sIdx = (sy * w + sx) * 4;
+                    if (src[sIdx + 3] == 0) continue;  // 透明 → 保留内层
+
+                    int dIdx = (y * headSize + x) * 4;
+                    Buffer.BlockCopy(src, sIdx, buf, dIdx, 4);
+                }
+
+            // 8×8 → 32×32 像素化放大（最近邻 4×）
+            var outBuf = new byte[outSize * outSize * 4];
+            int ratio = outSize / headSize;
+            for (int y = 0; y < outSize; y++)
+                for (int x = 0; x < outSize; x++)
+                {
+                    int sIdx = ((y / ratio) * headSize + (x / ratio)) * 4;
+                    int dIdx = (y * outSize + x) * 4;
+                    Buffer.BlockCopy(buf, sIdx, outBuf, dIdx, 4);
+                }
+
+            var result = BitmapSource.Create(outSize, outSize, 96, 96, PixelFormats.Bgra32, null, outBuf, outSize * 4);
+            result.Freeze();
+            return result;
+        }
+
+        /// <summary>生成默认 Steve/Alex 头部立雕（从 Assets/Skins/*.png 加载，与 3D 预览皮肤源一致）。</summary>
+        private static BitmapSource BuildDefaultHead(bool isSlim)
+        {
+            var skin = MusicalNoteLauncher.Core.DefaultSkinFactory.GetDefaultSkinBitmap(isSlim);
+            return BuildHeadFrontFromSkin(skin);
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -408,7 +539,6 @@ namespace MusicalNoteLauncher.Pages
             {
                 config.Username = username;
                 AppContext.Username = username;
-                txtCurrentUser.Text = username;
             }
 
             config.MemorySize = (int)sliderMemory.Value;
@@ -416,6 +546,8 @@ namespace MusicalNoteLauncher.Pages
 
             _javaConfig.SaveConfig();
             config.Save();
+
+            UpdateCurrentUserAvatar();
 
             txtVersionStatus.Text = "设置已保存";
         }

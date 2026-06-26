@@ -557,7 +557,7 @@ namespace MusicalNoteLauncher.Pages
                 btnDownload.IsEnabled = false;
                 pbDownload.Visibility = Visibility.Visible;
                 pbDownload.Value = 0;
-                dotStatus.Fill = (SolidColorBrush)new BrushConverter().ConvertFrom("#2196F3");
+                dotStatus.Fill = (Brush)FindResource("PrimaryBrush");
 
                 txtDownloadSummary.Text = "正在下载 Minecraft " + mcVersion + " ...";
 

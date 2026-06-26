@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management;
 using System.Timers;
 using System.Threading.Tasks;
@@ -10,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
+using PCL.Account;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -17,8 +19,9 @@ namespace MusicalNoteLauncher.Pages
     {
         private readonly GameLauncher _gameLauncher;
         private readonly string _minecraftPath;
-        private readonly string _username;
-        private readonly bool _isOfflineMode;
+        private string _username;
+        private bool _isOfflineMode;
+        private SkinServer _skinServer;
 
         // 基岩版服务
         private BedrockEnhancedDownloadService _bedrockDownloadService;
@@ -50,6 +53,9 @@ namespace MusicalNoteLauncher.Pages
             _bedrockOfflineLauncher = new BedrockOfflineLauncher(_minecraftPath);
             _modrinthApi = new ModrinthApiService();
             _curseForgeApi = new CurseForgeApiService();
+
+            // 监听账号变更，同步昵称下拉框
+            AppContext.AccountChanged += OnAccountChanged;
 
             _gameLauncher.LaunchStatusChanged += (status) =>
             {
@@ -94,10 +100,8 @@ namespace MusicalNoteLauncher.Pages
         {
             Loaded -= OnLoaded;
 
-            if (cboPlayerName != null && cboPlayerName.Items.Count > 0)
-            {
-                cboPlayerName.SelectedIndex = 0;
-            }
+            try { RefreshAccountList(); }
+            catch (Exception ex) { Logger.Error($"[HomePage] 加载账号列表失败: {ex.Message}"); }
             
             LoadRecommendationsAsync();
 
@@ -223,7 +227,10 @@ namespace MusicalNoteLauncher.Pages
                 }
 
                 string gameVersion = (cboGameVersion?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
-                string username = (cboPlayerName?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? _username;
+                var selectedItem = cboPlayerName?.SelectedItem as ComboBoxItem;
+                var account = selectedItem?.Tag as GameAccount;
+                string username = selectedItem?.Content?.ToString() ?? _username;
+                bool offlineMode = account?.Type == AccountType.Offline;
                 int maxMemory = 4096;
 
                 if (cboMemory?.SelectedItem is ComboBoxItem memItem)
@@ -252,14 +259,26 @@ namespace MusicalNoteLauncher.Pages
                     return;
                 }
 
+                // 在后台准备皮肤，不阻塞 UI 线程
+                Task.Run(() =>
+                {
+                    StartSkinServer();
+                    SkinServer.SetupCustomSkinLoaderConfig(_minecraftPath);
+                });
+
                 await _gameLauncher.LaunchGameAsync(
                     gameVersion, username, 2048, maxMemory,
-                    "", _isOfflineMode, resolution, false);
+                    "", offlineMode, resolution, false);
             }
             catch (Exception ex)
             {
                 Logger.Error($"[HomePage] 启动失败：{ex.Message}");
                 MessageBox.Show($"启动失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                // 游戏退出后停止皮肤服务器
+                StopSkinServer();
             }
         }
 
@@ -640,6 +659,143 @@ namespace MusicalNoteLauncher.Pages
                 
                 var fadeIn = new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(300));
                 spPackContent.BeginAnimation(UIElement.OpacityProperty, fadeIn);
+            }
+        }
+
+        private void RefreshAccountList()
+        {
+            if (cboPlayerName == null) return;
+
+            // 记住当前选中项
+            string selectedName = null;
+            if (cboPlayerName.SelectedItem is ComboBoxItem prevItem && prevItem.Tag is GameAccount prevAcc)
+                selectedName = prevAcc.Name;
+
+            cboPlayerName.Items.Clear();
+
+            var accountNames = new List<(string name, AccountType type, string uuid)>();
+
+            // 离线账号
+            foreach (var name in AccountManager.GetLegacyAccounts())
+                accountNames.Add((name, AccountType.Offline, SkinServer.GenerateOfflineUuid(name)));
+
+            // 微软账号
+            foreach (var ms in AccountManager.GetMsAccounts())
+            {
+                var cached = AccountManager.LoadCachedMsLogin(ms.UserName);
+                accountNames.Add((ms.UserName, AccountType.Microsoft, cached?.Uuid ?? ""));
+            }
+
+            // Nide 账号
+            foreach (var record in AccountManager.GetServerLoginRecords("Nide"))
+                accountNames.Add((record.Item1, AccountType.AuthlibInjector, ""));
+
+            // Auth 账号
+            foreach (var record in AccountManager.GetServerLoginRecords("Auth"))
+                accountNames.Add((record.Item1, AccountType.AuthlibInjector, ""));
+
+            if (accountNames.Count == 0)
+            {
+                AddDefaultAccountItems();
+                return;
+            }
+
+            int selectedIndex = 0;
+            for (int i = 0; i < accountNames.Count; i++)
+            {
+                var a = accountNames[i];
+                var account = new GameAccount { Name = a.name, Type = a.type, Uuid = a.uuid };
+                var item = CreateAccountItem(a.name, account);
+                cboPlayerName.Items.Add(item);
+
+                if (a.name == selectedName)
+                    selectedIndex = i;
+            }
+
+            if (selectedIndex >= 0 && selectedIndex < cboPlayerName.Items.Count)
+                cboPlayerName.SelectedIndex = selectedIndex;
+            else
+                cboPlayerName.SelectedIndex = 0;
+
+            // 同步到 AppContext
+            SyncAppContextFromSelection();
+        }
+
+        private void AddDefaultAccountItems()
+        {
+            cboPlayerName.Items.Add(CreateAccountItem("Player",
+                new GameAccount { Name = "Player", Type = AccountType.Offline, Uuid = SkinServer.GenerateOfflineUuid("Player") }));
+            cboPlayerName.SelectedIndex = 0;
+        }
+
+        private static ComboBoxItem CreateAccountItem(string displayText, GameAccount account)
+        {
+            return new ComboBoxItem
+            {
+                Content = displayText,
+                Tag = account,
+                Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
+                Foreground = Brushes.White,
+                Padding = new Thickness(12, 10, 12, 10)
+            };
+        }
+
+        private void OnAccountChanged(string name, string uuid, bool isOnline)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                _username = name;
+                _isOfflineMode = !isOnline;
+
+                // 更新下拉框选中项
+                for (int i = 0; i < cboPlayerName.Items.Count; i++)
+                {
+                    if (cboPlayerName.Items[i] is ComboBoxItem item && item.Tag is GameAccount acc && acc.Name == name)
+                    {
+                        cboPlayerName.SelectedIndex = i;
+                        return;
+                    }
+                }
+
+                // 如果列表中没找到，刷新整个列表
+                RefreshAccountList();
+            });
+        }
+
+        private void SyncAppContextFromSelection()
+        {
+            if (cboPlayerName?.SelectedItem is ComboBoxItem item && item.Tag is GameAccount account)
+            {
+                AppContext.Username = account.Name;
+                AppContext.IsOfflineMode = account.Type == AccountType.Offline;
+                AppContext.CurrentAccountUuid = account.Uuid;
+            }
+        }
+
+        private void StartSkinServer()
+        {
+            try
+            {
+                _skinServer = new SkinServer(_minecraftPath);
+                _skinServer.Start();
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"[HomePage] 皮肤服务器启动失败: {ex.Message}");
+            }
+        }
+
+        private void StopSkinServer()
+        {
+            try
+            {
+                _skinServer?.Stop();
+                _skinServer?.Dispose();
+                _skinServer = null;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"[HomePage] 皮肤服务器停止异常: {ex.Message}");
             }
         }
     }
