@@ -6,7 +6,7 @@
             "type": "clr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/MusicalNoteLauncher-main/bin/Debug/net48/MusicalNoteLauncher.exe",
+            "program": "${workspaceFolder}/MusicalNoteLauncher-main/bin/Debug/net8.0-windows/MusicalNoteLauncher.exe",
             "args": [],
             "cwd": "${workspaceFolder}/MusicalNoteLauncher-main",
             "stopAtEntry": false

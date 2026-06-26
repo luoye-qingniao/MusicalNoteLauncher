@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -379,7 +379,7 @@ namespace MusicalNoteLauncher.Pages
         private string GetModsDirectory()
         {
             string minecraftPath = _config.GetMinecraftPath();
-            if (SettingsManager.Settings.EnableVersionIsolation && !string.IsNullOrEmpty(_config.GameVersion))
+            if (SettingsManager.Settings.ShouldIsolateVersionForVersion(minecraftPath, _config.GameVersion))
             {
                 return Path.Combine(minecraftPath, "versions", _config.GameVersion, "game", "mods");
             }

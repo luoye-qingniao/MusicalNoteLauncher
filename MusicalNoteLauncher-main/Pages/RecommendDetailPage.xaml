@@ -115,11 +115,11 @@
 									<TextBlock
 										Text=" · "
 										FontSize="12"
-										Foreground="#666666" />
+										Foreground="{DynamicResource TextSecondaryBrush}" />
 									<TextBlock
 										Name="txtSource"
 										FontSize="12"
-										Foreground="#666666"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontFamily="Microsoft YaHei" />
 								</StackPanel>
 							</StackPanel>
@@ -131,7 +131,7 @@
 							<TextBlock
 								Name="txtDescription"
 								FontSize="13"
-								Foreground="#DDDDDD"
+								Foreground="{DynamicResource TextPrimaryBrush}"
 								FontFamily="Microsoft YaHei"
 								TextWrapping="Wrap" />
 						</Border>
@@ -160,7 +160,7 @@
 								<TextBlock
 									Text="下载量"
 									FontSize="12"
-									Foreground="#888888"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									FontFamily="Microsoft YaHei" />
 								<TextBlock
 									Name="txtDownloads"
@@ -175,7 +175,7 @@
 								<TextBlock
 									Text="评分"
 									FontSize="12"
-									Foreground="#888888"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									FontFamily="Microsoft YaHei" />
 								<TextBlock
 									Name="txtRating"
@@ -280,7 +280,7 @@
 										<Setter
 											TargetName="border"
 											Property="Background"
-											Value="#444444" />
+											Value="{DynamicResource SurfaceBrush}" />
 									</Trigger>
 								</ControlTemplate.Triggers>
 							</ControlTemplate>

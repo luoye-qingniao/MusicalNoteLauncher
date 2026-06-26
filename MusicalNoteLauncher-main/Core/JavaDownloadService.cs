@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -689,5 +690,312 @@ namespace MusicalNoteLauncher.Core
             }
             return null;
         }
+
+        #region Mojang Runtime 下载 (PCL风格)
+
+        private const string MOJANG_RUNTIME_INDEX = "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
+        private const string MOJANG_RUNTIME_FALLBACK = "https://bmclapi2.bangbang93.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
+
+        /// <summary>
+        /// 从Mojang官方源下载Java运行时（PCL风格）
+        /// 支持版本号如 "8", "17", "21" 或组件名如 "java-runtime-beta"
+        /// </summary>
+        public async Task<string> DownloadMojangRuntimeAsync(string javaVersion, DownloadProgress progress = null, CancellationToken cancellationToken = default)
+        {
+            try
+            {
+                StatusChanged?.Invoke($"正在获取 Mojang Java 运行时列表...");
+
+                // 1. 获取运行时索引
+                string indexJson = await FetchMojangRuntimeIndexAsync(cancellationToken);
+                if (string.IsNullOrEmpty(indexJson))
+                {
+                    LogReceived?.Invoke("获取 Mojang 运行时索引失败");
+                    return null;
+                }
+
+                // 2. 查找匹配的运行时组件
+                var runtimeInfo = ParseMojangRuntimeIndex(indexJson, javaVersion);
+                if (runtimeInfo == null)
+                {
+                    LogReceived?.Invoke($"未找到适用于 Java {javaVersion} 的 Mojang 运行时");
+                    return null;
+                }
+
+                string componentName = runtimeInfo.Value.name;
+                string manifestUrl = runtimeInfo.Value.manifestUrl;
+
+                StatusChanged?.Invoke($"找到运行时: {componentName}");
+
+                // 3. 确定安装目录: .minecraft/runtime/<component-name>/
+                string runtimeDir = Path.Combine(_minecraftPath, "runtime", componentName);
+                string javaExePath = Path.Combine(runtimeDir, "bin", "java.exe");
+
+                // 如果已安装，直接返回
+                if (File.Exists(javaExePath))
+                {
+                    LogReceived?.Invoke($"Mojang 运行时已安装: {javaExePath}");
+                    return javaExePath;
+                }
+
+                // 4. 获取文件清单
+                StatusChanged?.Invoke($"正在获取文件清单...");
+                string manifestJson = await FetchStringAsync(manifestUrl, cancellationToken);
+                if (string.IsNullOrEmpty(manifestJson))
+                {
+                    LogReceived?.Invoke("获取文件清单失败");
+                    return null;
+                }
+
+                var files = ParseManifestFiles(manifestJson);
+                if (files == null || files.Count == 0)
+                {
+                    LogReceived?.Invoke("文件清单为空");
+                    return null;
+                }
+
+                LogReceived?.Invoke($"需要下载 {files.Count} 个文件");
+
+                // 5. 下载所有文件
+                Directory.CreateDirectory(runtimeDir);
+                int downloaded = 0;
+                int total = files.Count;
+
+                foreach (var file in files)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    string fileUrl = file.Value.url;
+                    string relativePath = file.Key;
+                    string destPath = Path.Combine(runtimeDir, relativePath);
+
+                    // 跳过已存在且哈希正确的文件
+                    if (File.Exists(destPath) && await VerifyFileHashAsync(destPath, file.Value.sha1))
+                    {
+                        downloaded++;
+                        continue;
+                    }
+
+                    Directory.CreateDirectory(Path.GetDirectoryName(destPath));
+
+                    bool fileOk = false;
+                    Exception lastEx = null;
+
+                    // 尝试 Mojang CDN + BMCLAPI 回退
+                    string[] urls = new[]
+                    {
+                        fileUrl,
+                        fileUrl.Replace("piston-data.mojang.com", "bmclapi2.bangbang93.com")
+                    };
+
+                    foreach (string url in urls)
+                    {
+                        try
+                        {
+                            await DownloadSmallFileAsync(url, destPath, cancellationToken);
+
+                            // 验证哈希
+                            if (await VerifyFileHashAsync(destPath, file.Value.sha1))
+                            {
+                                fileOk = true;
+                                break;
+                            }
+                            else
+                            {
+                                LogReceived?.Invoke($"文件哈希不匹配: {relativePath}，重试其他源");
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            lastEx = ex;
+                        }
+                    }
+
+                    if (!fileOk)
+                    {
+                        LogReceived?.Invoke($"下载失败: {relativePath}" + (lastEx != null ? $" ({lastEx.Message})" : ""));
+                        // 单个文件失败不中断整个流程，但记录错误
+                    }
+
+                    downloaded++;
+                    int pct = (int)((double)downloaded / total * 100);
+                    progress?.Report(new DownloadProgressInfo
+                    {
+                        Progress = pct,
+                        DownloadedBytes = downloaded,
+                        TotalBytes = total,
+                        CurrentFile = relativePath,
+                        Status = $"下载运行时文件 ({downloaded}/{total})"
+                    });
+                    StatusChanged?.Invoke($"下载运行时文件 ({downloaded}/{total})");
+                }
+
+                // 6. 验证安装
+                if (File.Exists(javaExePath))
+                {
+                    string versionOutput = GetJavaVersionOutput(javaExePath);
+                    LogReceived?.Invoke($"Mojang 运行时安装完成: {versionOutput}");
+                    StatusChanged?.Invoke($"Java {javaVersion} Mojang 运行时安装成功");
+                    return javaExePath;
+                }
+                else
+                {
+                    LogReceived?.Invoke("Mojang 运行时安装失败，未找到 java.exe");
+                    return null;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                LogReceived?.Invoke("Mojang 运行时下载已取消");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke($"Mojang 运行时下载错误: {ex.Message}");
+                return null;
+            }
+        }
+
+        private async Task<string> FetchMojangRuntimeIndexAsync(CancellationToken ct)
+        {
+            string[] urls = { MOJANG_RUNTIME_INDEX, MOJANG_RUNTIME_FALLBACK };
+            foreach (string url in urls)
+            {
+                try
+                {
+                    return await FetchStringAsync(url, ct);
+                }
+                catch { }
+            }
+            return null;
+        }
+
+        private (string name, string manifestUrl)? ParseMojangRuntimeIndex(string json, string targetVersion)
+        {
+            try
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                // 确定平台 key
+                string platformKey = Environment.Is64BitOperatingSystem ? "windows-x64" : "windows-x86";
+
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    string componentName = prop.Name;
+                    var component = prop.Value;
+
+                    // 检查是否匹配目标版本
+                    if (!component.TryGetProperty(platformKey, out var platform))
+                        continue;
+
+                    // 获取版本名称
+                    string versionName = "0";
+                    if (component.TryGetProperty("version", out var versionElem))
+                    {
+                        if (versionElem.ValueKind == System.Text.Json.JsonValueKind.Object &&
+                            versionElem.TryGetProperty("name", out var nameElem))
+                            versionName = nameElem.GetString();
+                        else if (versionElem.ValueKind == System.Text.Json.JsonValueKind.String)
+                            versionName = versionElem.GetString();
+                    }
+
+                    // 按版本号或组件名匹配
+                    bool matches = componentName.Contains(targetVersion) ||
+                                   versionName.StartsWith(targetVersion + ".") ||
+                                   versionName == targetVersion;
+
+                    if (!matches && int.TryParse(targetVersion, out int targetMajor))
+                    {
+                        // 提取版本号中的主版本进行匹配
+                        var match = System.Text.RegularExpressions.Regex.Match(versionName, @"^(\d+)");
+                        if (match.Success && int.TryParse(match.Groups[1].Value, out int versionMajor))
+                        {
+                            matches = versionMajor == targetMajor;
+                        }
+                    }
+
+                    if (matches && platform.TryGetProperty("manifest", out var manifestElem))
+                    {
+                        string manifestUrl = manifestElem.TryGetProperty("url", out var urlElem)
+                            ? urlElem.GetString()
+                            : manifestElem.GetString();
+                        return (componentName, manifestUrl);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                LogReceived?.Invoke($"解析 Mojang 运行时索引出错: {ex.Message}");
+            }
+            return null;
+        }
+
+        private List<KeyValuePair<string, (string url, string sha1)>> ParseManifestFiles(string json)
+        {
+            var files = new List<KeyValuePair<string, (string url, string sha1)>>();
+            try
+            {
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("files", out var filesElem))
+                {
+                    foreach (var prop in filesElem.EnumerateObject())
+                    {
+                        string path = prop.Name;
+                        var fileInfo = prop.Value;
+
+                        string url = null, sha1 = null;
+                        if (fileInfo.TryGetProperty("downloads", out var downloads) &&
+                            downloads.TryGetProperty("raw", out var raw))
+                        {
+                            if (raw.TryGetProperty("url", out var urlElem))
+                                url = urlElem.GetString();
+                            if (raw.TryGetProperty("sha1", out var sha1Elem))
+                                sha1 = sha1Elem.GetString();
+                        }
+
+                        if (!string.IsNullOrEmpty(url))
+                        {
+                            files.Add(new KeyValuePair<string, (string, string)>(path, (url, sha1)));
+                        }
+                    }
+                }
+            }
+            catch { }
+            return files;
+        }
+
+        private async Task<string> FetchStringAsync(string url, CancellationToken ct)
+        {
+            using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+            return await response.Content.ReadAsStringAsync();
+        }
+
+        private async Task DownloadSmallFileAsync(string url, string destPath, CancellationToken ct)
+        {
+            using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            response.EnsureSuccessStatusCode();
+            using var fs = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            await response.Content.CopyToAsync(fs);
+        }
+
+        private async Task<bool> VerifyFileHashAsync(string filePath, string expectedSha1)
+        {
+            if (string.IsNullOrEmpty(expectedSha1)) return true;
+            try
+            {
+                using var sha1 = System.Security.Cryptography.SHA1.Create();
+                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                byte[] hash = await Task.Run(() => sha1.ComputeHash(fs));
+                string actualHex = BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
+                return actualHex == expectedSha1.ToLowerInvariant();
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        #endregion
     }
 }

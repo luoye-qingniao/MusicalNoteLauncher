@@ -35,6 +35,11 @@ namespace MusicalNoteLauncher.Pages
         /// </summary>
         public static event Action OnSwitchToAccount;
 
+        /// <summary>
+        /// 当用户修改头像时触发，供外部（如 MainWindow）同步更新头像显示
+        /// </summary>
+        public static event Action OnAvatarChanged;
+
         public ProfilePage()
         {
             InitializeComponent();
@@ -286,6 +291,9 @@ namespace MusicalNoteLauncher.Pages
                 var current = _gameAccounts?.FirstOrDefault(a => a.IsSelected);
                 if (current != null)
                     current.AvatarImage = avatar;
+
+                // 通知外部（如 MainWindow）更新头像显示
+                OnAvatarChanged?.Invoke();
             }
             catch (Exception ex)
             {
@@ -323,98 +331,10 @@ namespace MusicalNoteLauncher.Pages
             return BuildDefaultAvatarBitmap();
         }
 
-        /// <summary>生成默认头像（128×128，紫蓝渐变圆 + 白色音符符号）。</summary>
+        /// <summary>生成默认头像（复用 MainWindow 的构建方法，保持一致性）。</summary>
         private static BitmapImage BuildDefaultAvatarBitmap()
         {
-            const int size = 128;
-            var pixels = new byte[size * size * 4];
-
-            // 中心与半径（比整个 128 小一点，留出背景暗色背景）
-            double cx = size / 2.0, cy = size / 2.0;
-            double r = size / 2.0 - 1;
-
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    int idx = (y * size + x) * 4;
-
-                    // 计算到圆心距离，做圆形裁剪
-                    double dx = x - cx + 0.5;
-                    double dy = y - cy + 0.5;
-                    double dist = Math.Sqrt(dx * dx + dy * dy);
-
-                    // 圆形背景（不透明）+ 外圈透明
-                    if (dist > r)
-                    {
-                        pixels[idx + 0] = 0;
-                        pixels[idx + 1] = 0;
-                        pixels[idx + 2] = 0;
-                        pixels[idx + 3] = 0;
-                        continue;
-                    }
-
-                    // 紫蓝径向渐变（中心亮，边缘略暗）
-                    double t = dist / r; // 0..1
-                    // 边缘色（深紫）
-                    byte r1 = 0x6C, g1 = 0x5C, b1 = 0xE7; // #6C5CE7
-                    // 中心色（浅蓝紫）
-                    byte r2 = 0xA2, g2 = 0x9B, b2 = 0xFE; // #A29BFE
-                    pixels[idx + 2] = (byte)(r2 + (r1 - r2) * t); // R
-                    pixels[idx + 1] = (byte)(g2 + (g1 - g2) * t); // G
-                    pixels[idx + 0] = (byte)(b2 + (b1 - b2) * t); // B
-                    pixels[idx + 3] = 255;                         // A
-                }
-
-            // 中心画一个简单白色音符符号（用一个小方块占位的"♪"形像素图）
-            // 绘制 "♪"：一个 20×8 的横向矩形（符头右边）+ 一条竖向矩形（符干）+ 一个椭圆（符头）
-            void FillRect(int x0, int y0, int w, int h, byte br, byte bg, byte bb)
-            {
-                for (int yy = y0; yy < y0 + h; yy++)
-                    for (int xx = x0; xx < x0 + w; xx++)
-                    {
-                        if (xx < 0 || yy < 0 || xx >= size || yy >= size) continue;
-                        double dxx = xx - cx + 0.5, dyy = yy - cy + 0.5;
-                        if (Math.Sqrt(dxx * dxx + dyy * dyy) > r) continue; // 不超出圆
-                        int ii = (yy * size + xx) * 4;
-                        pixels[ii + 0] = bb;
-                        pixels[ii + 1] = bg;
-                        pixels[ii + 2] = br;
-                        pixels[ii + 3] = 255;
-                    }
-            }
-
-            // "♪"：符干为竖向 28×6，从 y=35 到 y=80
-            int stemX = (int)cx - 3;
-            int stemY = 35;
-            FillRect(stemX, stemY, 6, 55, 255, 255, 255);
-
-            // 符头：在符干左下的一个矩形（近似椭圆）
-            int headX = stemX - 15;
-            int headY = stemY + 45;
-            int headW = 25, headH = 14;
-            FillRect(headX, headY, headW, headH, 255, 255, 255);
-
-            // 另一个符头（"♫" 的感觉）——放远一点作为点缀
-            int head2X = stemX - 15;
-            int head2Y = stemY + 10;
-            FillRect(head2X, head2Y, 25, 12, 220, 220, 255);
-
-            // 创建 BitmapSource → 包装为 BitmapImage
-            var wb = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, pixels, size * 4);
-            var result = new BitmapImage();
-            using (var ms = new System.IO.MemoryStream())
-            {
-                var enc = new PngBitmapEncoder();
-                enc.Frames.Add(BitmapFrame.Create(wb));
-                enc.Save(ms);
-                ms.Position = 0;
-                result.BeginInit();
-                result.CacheOption = BitmapCacheOption.OnLoad;
-                result.StreamSource = ms;
-                result.EndInit();
-                result.Freeze();
-            }
-            return result;
+            return MainWindow.BuildDefaultAvatar();
         }
 
         private void BtnSwitchAccount_Click(object sender, RoutedEventArgs e)

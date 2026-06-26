@@ -9,7 +9,7 @@
 		<Style x:Key="CardButtonStyle" TargetType="{x:Type Button}">
 			<Setter Property="Cursor" Value="Hand" />
 			<Setter Property="FontFamily" Value="Microsoft YaHei UI" />
-			<Setter Property="Foreground" Value="#FFFFFF" />
+			<Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
 			<Setter Property="FontSize" Value="13" />
 			<Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
 			<Setter Property="BorderBrush" Value="Transparent" />
@@ -32,7 +32,7 @@
 						</Border>
 						<ControlTemplate.Triggers>
 							<Trigger Property="UIElement.IsMouseOver" Value="True">
-								<Setter TargetName="border" Property="Background" Value="#444444" />
+								<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 								<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
 							</Trigger>
 							<Trigger Property="ButtonBase.IsPressed" Value="True">
@@ -164,7 +164,7 @@
 															</Border>
 															<ControlTemplate.Triggers>
 																<Trigger Property="UIElement.IsMouseOver" Value="True">
-																	<Setter TargetName="border" Property="Background" Value="#444444" />
+																	<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 																	<Setter TargetName="border" Property="BorderBrush" Value="#2196F3" />
 																</Trigger>
 															</ControlTemplate.Triggers>
@@ -186,7 +186,7 @@
 								<Setter Property="ItemContainerStyle">
 									<Setter.Value>
 										<Style TargetType="ComboBoxItem">
-											<Setter Property="Foreground" Value="#FFFFFF" />
+											<Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
 											<Setter Property="Background" Value="Transparent" />
 											<Setter Property="Padding" Value="10,6" />
 											<Setter Property="FontFamily" Value="Microsoft YaHei UI" />
@@ -368,7 +368,7 @@
 						</Button>
 					</UniformGrid>
 
-					<TextBlock Text="提示：请先在 “游戏版本” 页面选择你希望安装加载器的 Minecraft 版本。" Foreground="#888888" FontSize="12" Margin="4,18,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
+					<TextBlock Text="提示：请先在 “游戏版本” 页面选择你希望安装加载器的 Minecraft 版本。" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" Margin="4,18,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
 				</StackPanel>
 			</ScrollViewer>
 		</Grid>
@@ -437,7 +437,7 @@
 															<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 														</Trigger>
 														<Trigger Property="UIElement.IsMouseOver" Value="True">
-															<Setter TargetName="border" Property="Background" Value="#333333" />
+															<Setter TargetName="border" Property="Background" Value="{DynamicResource SurfaceBrush}" />
 														</Trigger>
 													</ControlTemplate.Triggers>
 												</ControlTemplate>
@@ -466,7 +466,7 @@
 															</Setter>
 															<Style.Triggers>
 																<DataTrigger Binding="{Binding IconImage}" Value="{x:Null}">
-																	<Setter Property="Background" Value="#444444" />
+																	<Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
 																</DataTrigger>
 															</Style.Triggers>
 														</Style>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,7 @@ namespace MusicalNoteLauncher.Pages
         private BedrockEnhancedDownloadService _bedrockService;
         private CancellationTokenSource _bedrockCts;
         private bool _bedrockIsDownloading;
+        private bool _isBedrockCacheInitialized;
 
         public GameVersionsPage()
         {
@@ -125,6 +127,10 @@ namespace MusicalNoteLauncher.Pages
         {
             Loaded -= GameVersionsPage_Loaded;
             VersionScanService.Instance.ClearCache();
+
+            // 后台预加载基岩版缓存（不阻塞UI）
+            _isBedrockCacheInitialized = true;
+            _ = BedrockVersionCacheService.Instance.LoadAsync();
 
             // 并行加载全部三个 Tab 的数据
             var tasks = new List<Task>();
@@ -588,37 +594,54 @@ namespace MusicalNoteLauncher.Pages
             {
                 txtBedrockStatus.Text = "正在获取基岩版版本列表...";
                 btnBedrockRefresh.IsEnabled = false;
+                loadingBedrock.Visibility = Visibility.Visible;
 
-                var versions = await _bedrockService.GetRemoteVersionsAsync();
-
-                // 按 GroupType 分组（正式版 / 预览版 / 测试版 / 其他）
-                _bedrockVersionGroups.Clear();
-                var groupOrder = new Dictionary<string, int>
+                if (!_isBedrockCacheInitialized)
                 {
-                    { "正式版", 0 },
-                    { "预览版", 1 },
-                    { "测试版", 2 },
-                    { "其他", 3 }
-                };
-
-                var sortedVersions = versions.OrderByDescending(v => v.ReleaseTime).ToList();
-                foreach (var grouping in sortedVersions.GroupBy(v => v.GroupType)
-                             .OrderBy(g => groupOrder.TryGetValue(g.Key, out var order) ? order : 99))
-                {
-                    var group = new BedrockVersionGroup
-                    {
-                        Name = $"{grouping.Key} ({grouping.Count()})",
-                        IsExpanded = true
-                    };
-                    group.SetCachedVersions(grouping.ToList());
-                    // 直接填充（已展开）
-                    foreach (var v in grouping)
-                        group.Versions.Add(v);
-                    _bedrockVersionGroups.Add(group);
+                    _isBedrockCacheInitialized = true;
+                    _ = BedrockVersionCacheService.Instance.LoadAsync();
                 }
 
-                txtBedrockStatus.Text = $"就绪 ({versions.Count} 个版本)";
-                loadingBedrock.Visibility = Visibility.Collapsed;
+                while (BedrockVersionCacheService.Instance.IsLoading)
+                {
+                    await Task.Delay(200);
+                }
+
+                var cache = BedrockVersionCacheService.Instance;
+                if (!cache.IsLoaded || cache.CachedVersions.Count == 0)
+                {
+                    try
+                    {
+                        var versions = await _bedrockService.GetRemoteVersionsAsync();
+                        BindBedrockVersionData(versions);
+                        cache.SetCachedVersions(versions);
+                    }
+                    catch
+                    {
+                        txtBedrockStatus.Text = "加载失败";
+                        loadingBedrock.Visibility = Visibility.Collapsed;
+                        return;
+                    }
+                }
+                else
+                {
+                    BindBedrockVersionData(cache.CachedVersions.ToList());
+                }
+            }
+            catch (TimeoutException ex)
+            {
+                txtBedrockStatus.Text = "请求超时";
+                Logger.Error("加载基岩版版本超时: " + ex.Message);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            {
+                txtBedrockStatus.Text = "访问被拒绝";
+                Logger.Error("加载基岩版版本被拒绝: " + ex.Message);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                txtBedrockStatus.Text = "接口失效";
+                Logger.Error("加载基岩版版本接口失效: " + ex.Message);
             }
             catch (Exception ex)
             {
@@ -629,12 +652,78 @@ namespace MusicalNoteLauncher.Pages
             {
                 _isBedrockLoading = false;
                 btnBedrockRefresh.IsEnabled = true;
+                loadingBedrock.Visibility = Visibility.Collapsed;
             }
+        }
+
+        private void BindBedrockVersionData(List<BedrockVersionInfo> versions)
+        {
+            _bedrockVersionGroups.Clear();
+            var groupOrder = new Dictionary<string, int>
+            {
+                { "正式版", 0 },
+                { "预览版", 1 },
+                { "测试版", 2 },
+                { "其他", 3 }
+            };
+
+            var sortedVersions = versions.OrderByDescending(v => v.ReleaseTime).ToList();
+            foreach (var grouping in sortedVersions.GroupBy(v => v.GroupType)
+                         .OrderBy(g => groupOrder.TryGetValue(g.Key, out var order) ? order : 99))
+            {
+                var group = new BedrockVersionGroup
+                {
+                    Name = $"{grouping.Key} ({grouping.Count()})",
+                    IsExpanded = true
+                };
+                group.SetCachedVersions(grouping.ToList());
+                foreach (var v in grouping)
+                    group.Versions.Add(v);
+                _bedrockVersionGroups.Add(group);
+            }
+
+            txtBedrockStatus.Text = $"就绪 ({versions.Count} 个版本)";
+            loadingBedrock.Visibility = Visibility.Collapsed;
+        }
+
+        private void ShowNetworkError(string title, string message)
+        {
+            try
+            {
+                MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+            catch { }
         }
 
         private async void BtnBedrockRefresh_Click(object sender, RoutedEventArgs e)
         {
-            LoadBedrockVersionsAsync();
+            txtBedrockStatus.Text = "正在刷新版本列表...";
+            btnBedrockRefresh.IsEnabled = false;
+            loadingBedrock.Visibility = Visibility.Visible;
+
+            try
+            {
+                await BedrockVersionCacheService.Instance.ForceRefreshAsync();
+                var cache = BedrockVersionCacheService.Instance;
+                if (cache.IsLoaded && cache.CachedVersions.Count > 0)
+                {
+                    BindBedrockVersionData(cache.CachedVersions.ToList());
+                }
+                else
+                {
+                    txtBedrockStatus.Text = "刷新失败";
+                }
+            }
+            catch (Exception ex)
+            {
+                txtBedrockStatus.Text = "刷新失败";
+                Logger.Error("刷新基岩版版本列表失败: " + ex.Message);
+            }
+            finally
+            {
+                btnBedrockRefresh.IsEnabled = true;
+                loadingBedrock.Visibility = Visibility.Collapsed;
+            }
         }
 
         private async void BtnBedrockDownload_Click(object sender, RoutedEventArgs e)

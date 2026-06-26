@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -59,58 +59,65 @@ namespace MusicalNoteLauncher.Pages
 		{
 			this.lstSaves.Items.Clear();
 			string path = this.ExpandEnvironmentVariables(SettingsManager.Settings.GamePath);
-			if (SettingsManager.Settings.EnableVersionIsolation)
+
+			// 1. 先加载各版本的独立存档（PCL风格：按版本隔离级别逐版本判断）
+			string versionsDir = Path.Combine(path, "versions");
+			if (Directory.Exists(versionsDir))
 			{
-				string path2 = Path.Combine(path, "versions");
-				if (Directory.Exists(path2))
+				foreach (string verDir in Directory.GetDirectories(versionsDir))
 				{
-					foreach (string text in Directory.GetDirectories(path2))
+					string versionId = Path.GetFileName(verDir);
+					// 检查该版本是否应被隔离
+					if (SettingsManager.Settings.ShouldIsolateVersionForVersion(path, versionId))
 					{
-						string fileName = Path.GetFileName(text);
-						string path3 = Path.Combine(text, "game", "saves");
-						if (Directory.Exists(path3))
+						string versionSavesDir = Path.Combine(verDir, "game", "saves");
+						if (Directory.Exists(versionSavesDir))
 						{
-							foreach (string text2 in Directory.GetDirectories(path3))
+							foreach (string saveDir in Directory.GetDirectories(versionSavesDir))
 							{
-								string fileName2 = Path.GetFileName(text2);
-								long directorySize = this.GetDirectorySize(text2);
-								string playTime = this.GetPlayTime(text2);
+								string saveName = Path.GetFileName(saveDir);
+								long directorySize = this.GetDirectorySize(saveDir);
+								string playTime = this.GetPlayTime(saveDir);
 								this.lstSaves.Items.Add(new SaveManagerPage.SaveItem
 								{
-									SaveName = fileName2 + " (" + fileName + ")",
+									SaveName = saveName + " (" + versionId + ")",
 									SaveInfo = this.FormatSize(directorySize),
 									PlayTime = playTime,
-									FolderPath = text2,
+									FolderPath = saveDir,
 									FileSize = directorySize
 								});
 							}
 						}
 					}
-					return;
 				}
 			}
-			else
+
+			// 2. 再加载全局存档（非隔离版本的存档在全局目录）
+			//    如果全部版本都隔离了（设为"隔离所有版本"），全局目录可能无存档
+			string globalSavesDir = Path.Combine(path, "saves");
+			if (Directory.Exists(globalSavesDir))
 			{
-				string path4 = Path.Combine(path, "saves");
-				if (!Directory.Exists(path4))
+				foreach (string saveDir in Directory.GetDirectories(globalSavesDir))
 				{
-					Directory.CreateDirectory(path4);
-					return;
-				}
-				foreach (string text3 in Directory.GetDirectories(path4))
-				{
-					string fileName3 = Path.GetFileName(text3);
-					long directorySize2 = this.GetDirectorySize(text3);
-					string playTime2 = this.GetPlayTime(text3);
+					string saveName = Path.GetFileName(saveDir);
+					long directorySize = this.GetDirectorySize(saveDir);
+					string playTime = this.GetPlayTime(saveDir);
 					this.lstSaves.Items.Add(new SaveManagerPage.SaveItem
 					{
-						SaveName = fileName3,
-						SaveInfo = this.FormatSize(directorySize2),
-						PlayTime = playTime2,
-						FolderPath = text3,
-						FileSize = directorySize2
+						SaveName = saveName,
+						SaveInfo = this.FormatSize(directorySize),
+						PlayTime = playTime,
+						FolderPath = saveDir,
+						FileSize = directorySize
 					});
 				}
+			}
+
+			// 如果没有任何存档，创建全局存档目录
+			if (this.lstSaves.Items.Count == 0)
+			{
+				if (!Directory.Exists(globalSavesDir))
+					Directory.CreateDirectory(globalSavesDir);
 			}
 		}
 

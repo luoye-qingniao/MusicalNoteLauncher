@@ -90,7 +90,7 @@
 									</Grid.ColumnDefinitions>
 
 									<!-- 图标 -->
-									<Border Grid.Column="0" Background="#444444" CornerRadius="12"
+									<Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="12"
 									        Width="80" Height="80" VerticalAlignment="Center">
 										<Border.Effect>
 											<DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.2" Color="Black"/>
@@ -122,11 +122,11 @@
 										           Margin="0,5,0,5" TextTrimming="CharacterEllipsis" MaxWidth="500"
 										           Height="24" Text="{Binding Description, FallbackValue=暂无描述}"/>
 										<StackPanel Orientation="Horizontal">
-											<TextBlock FontSize="11" Foreground="#777777"
+											<TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
 											           FontFamily="Microsoft YaHei" Margin="0,0,14,0"
 											           TextTrimming="CharacterEllipsis" MaxWidth="150"
 											           Text="{Binding Author, FallbackValue=未知作者}"/>
-											<TextBlock FontSize="11" Foreground="#777777"
+											<TextBlock FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
 											           FontFamily="Microsoft YaHei"
 											           Text="{Binding Compatible, FallbackValue=未知兼容}"/>
 										</StackPanel>
@@ -223,7 +223,7 @@
 								</ControlTemplate>
 							</Button.Template>
 						</Button>
-						<Border Width="1" Background="#3A3A3A" Margin="14,4"/>
+						<Border Width="1" Background="{DynamicResource SurfaceBrush}" Margin="14,4"/>
 						<StackPanel Orientation="Horizontal" VerticalAlignment="Center">
 							<TextBlock Text="📋" FontSize="18" VerticalAlignment="Center" Margin="0,0,10,0"/>
 							<TextBlock x:Name="VersionTitle" Text="选择下载版本"
@@ -234,12 +234,12 @@
 				</Border>
 
 				<!-- 版本筛选栏 -->
-				<Border Grid.Row="1" Background="#1A1A1A" Padding="10,8" BorderBrush="#2D2D2D" BorderThickness="0,0,0,1">
+				<Border Grid.Row="1" Background="{DynamicResource CardBackgroundBrush}" Padding="10,8" BorderBrush="#2D2D2D" BorderThickness="0,0,0,1">
 					<StackPanel x:Name="VersionFilterPanel" Orientation="Horizontal"/>
 				</Border>
 
 				<!-- 版本列表 -->
-				<Border Grid.Row="2" Background="#181818">
+				<Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}">
 					<ListView x:Name="VersionListView" Background="Transparent" Foreground="White"
 					          BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
 					          Margin="4,0" MouseDoubleClick="VersionListView_MouseDoubleClick">
@@ -303,12 +303,12 @@
 												</StackPanel>
 											</Border>
 										</StackPanel>
-										<TextBlock Text="{Binding DisplayInfo}" FontSize="12" Foreground="#999999"
+										<TextBlock Text="{Binding DisplayInfo}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
 										           FontFamily="Microsoft YaHei" Margin="0,6,0,0"/>
 									</StackPanel>
 									<StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal">
 										<TextBlock Text="{Binding FileSize, Converter={StaticResource FileSizeConverter}}"
-										           FontSize="12" Foreground="#777777" VerticalAlignment="Center" Margin="0,0,16,0"/>
+										           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,16,0"/>
 										<Button Content="下载" Width="88" Height="32" FontSize="12" FontWeight="SemiBold"
 										        FontFamily="Microsoft YaHei" Foreground="White" Cursor="Hand"
 										        Click="VersionItemDownload_Click" Tag="{Binding}">
@@ -361,15 +361,15 @@
 					</Border.Background>
 					<Grid>
 						<TextBlock x:Name="VersionCountText" Text="" FontSize="13"
-						           Foreground="#888888" VerticalAlignment="Center" HorizontalAlignment="Left"
+						           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" HorizontalAlignment="Left"
 						           FontFamily="Microsoft YaHei"/>
 						<Button x:Name="VersionCancelBtn" Content="取消" Width="110" Height="34"
 						        FontSize="13" FontWeight="SemiBold" FontFamily="Microsoft YaHei"
-						        Foreground="#CCCCCC" Cursor="Hand" HorizontalAlignment="Right"
+						        Foreground="{DynamicResource TextPrimaryBrush}" Cursor="Hand" HorizontalAlignment="Right"
 						        Click="VersionBackBtn_Click">
 							<Button.Template>
 								<ControlTemplate TargetType="Button">
-									<Border x:Name="cancelBorder" Background="#3D3D3D" CornerRadius="8"
+									<Border x:Name="cancelBorder" Background="{DynamicResource SurfaceBrush}" CornerRadius="8"
 									        BorderBrush="#555555" BorderThickness="1">
 										<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
 									</Border>
@@ -379,7 +379,7 @@
 											<Setter TargetName="cancelBorder" Property="BorderBrush" Value="#777777"/>
 										</Trigger>
 										<Trigger Property="IsPressed" Value="True">
-											<Setter TargetName="cancelBorder" Property="Background" Value="#555555"/>
+											<Setter TargetName="cancelBorder" Property="Background" Value="{DynamicResource SurfaceBrush}"/>
 										</Trigger>
 									</ControlTemplate.Triggers>
 								</ControlTemplate>

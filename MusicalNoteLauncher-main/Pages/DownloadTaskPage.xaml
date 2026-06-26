@@ -289,7 +289,7 @@
 												Width="50"
 												Height="26"
 												FontSize="11"
-												Background="#4A4A4A"
+												Background="{DynamicResource SurfaceBrush}"
 												Foreground="{DynamicResource TextPrimaryBrush}"
 												BorderThickness="0"
 												IsEnabled="{Binding IsDownloading}">
@@ -323,7 +323,7 @@
 																	Value="#2E2E2E" />
 																<Setter
 																	Property="TextElement.Foreground"
-																	Value="#888888" />
+																	Value="{DynamicResource TextSecondaryBrush}" />
 															</Trigger>
 														</ControlTemplate.Triggers>
 													</ControlTemplate>
@@ -371,7 +371,7 @@
 																	Value="#2E2E2E" />
 																<Setter
 																	Property="TextElement.Foreground"
-																	Value="#888888" />
+																	Value="{DynamicResource TextSecondaryBrush}" />
 															</Trigger>
 														</ControlTemplate.Triggers>
 													</ControlTemplate>
@@ -432,13 +432,13 @@
 							Margin="0,0,0,15" />
 						<TextBlock
 							Text="暂无下载任务"
-							Foreground="#888888"
+							Foreground="{DynamicResource TextSecondaryBrush}"
 							FontSize="16"
 							FontFamily="Microsoft YaHei"
 							HorizontalAlignment="Center" />
 						<TextBlock
 							Text="前往下载页面开始下载资源"
-							Foreground="#666666"
+							Foreground="{DynamicResource TextSecondaryBrush}"
 							FontSize="13"
 							FontFamily="Microsoft YaHei"
 							HorizontalAlignment="Center"

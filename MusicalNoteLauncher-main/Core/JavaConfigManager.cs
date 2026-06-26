@@ -1,10 +1,14 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Management;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MusicalNoteLauncher.Core
 {
@@ -41,97 +45,258 @@ namespace MusicalNoteLauncher.Core
             public long MaxMemoryMb { get; set; }
         }
 
+        // PCL 风格关键词：用于递归搜索时的目录过滤
+        private static readonly HashSet<string> _javaSearchKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "java", "jdk", "jre", "jvm", "jbr", "env", "run", "mc", "dragon", "well", "bin",
+            "sdk", "candidate", "current", "software", "cache", "temp", "corretto", "roaming",
+            "users", "craft", "program", "net", "oracle", "game", "file", "data", "server",
+            "client", "mojang", "eclipse", "microsoft", "hotspot", "runtime", "x86", "x64",
+            "arm", "forge", "optifine", "hmcl", "mod", "fabric", "download", "launch", "path",
+            "version", "baka", "pcl", "zulu", "local", "packages", "4297127d64ec6", "1.", "jbr",
+            // 中文关键词
+            "环境", "软件", "世界", "游戏", "服务", "客户", "整合", "应用", "运行", "前置",
+            "官启", "官方", "新建文件夹", "原版", "启动", "程序"
+        };
+
         public List<DetectedJava> DetectInstalledJava()
         {
-            List<DetectedJava> detectedJava = new List<DetectedJava>();
+            var javaCandidates = new ConcurrentDictionary<string, byte>(StringComparer.OrdinalIgnoreCase);
             StatusChanged?.Invoke("正在检测系统Java环境...");
 
-            List<string> searchPaths = new List<string>();
+            // 1. 从 PATH 和 JAVA_HOME 环境变量收集候选路径
+            string pathEnv = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+            string userPath = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User) ?? "";
+            string javaHome = Environment.GetEnvironmentVariable("JAVA_HOME") ?? "";
+            string combinedEnv = (pathEnv + ";" + userPath + ";" + javaHome).Replace("\\", "\\").Replace("/", "\\");
 
-            string javaHome = Environment.GetEnvironmentVariable("JAVA_HOME");
-            if (!string.IsNullOrEmpty(javaHome))
+            foreach (string rawPath in combinedEnv.Split(';'))
             {
-                searchPaths.Add(javaHome);
+                string trimmed = rawPath.Trim(' ', '"');
+                if (string.IsNullOrEmpty(trimmed)) continue;
+                if (!trimmed.EndsWith("\\")) trimmed += "\\";
+                string javawExe = Path.Combine(trimmed, "javaw.exe");
+                if (File.Exists(javawExe))
+                {
+                    javaCandidates.TryAdd(Path.GetFullPath(javawExe), 0);
+                }
             }
 
+            // 2. 使用 where.exe 查找 PATH 中所有 java
+            foreach (string javaPath in FindAllJavaInPath())
+            {
+                if (File.Exists(javaPath))
+                    javaCandidates.TryAdd(Path.GetFullPath(javaPath), 0);
+            }
+
+            // 3. 遍历所有本地磁盘进行关键词递归搜索
+            foreach (DriveInfo drive in DriveInfo.GetDrives())
+            {
+                try
+                {
+                    if (drive.DriveType == DriveType.Network || !drive.IsReady) continue;
+                    JavaSearchFolder(drive.RootDirectory.FullName, javaCandidates, isFullSearch: false);
+                }
+                catch { }
+            }
+
+            // 4. 搜索用户目录和特殊路径
+            string userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            // 用户目录（部分搜索）
+            if (Directory.Exists(userProfile))
+                JavaSearchFolder(userProfile, javaCandidates, isFullSearch: false);
+
+            // .jdks 目录
+            string jdksPath = Path.Combine(userProfile, ".jdks");
+            if (Directory.Exists(jdksPath))
+                JavaSearchFolder(jdksPath, javaCandidates, isFullSearch: true);
+
+            // .sdkman 目录
+            string sdkmanPath = Path.Combine(userProfile, ".sdkman", "candidates", "java");
+            if (Directory.Exists(sdkmanPath))
+                JavaSearchFolder(sdkmanPath, javaCandidates, isFullSearch: true);
+
+            // 启动器自身目录
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            if (Directory.Exists(appDir))
+                JavaSearchFolder(appDir, javaCandidates, isFullSearch: true);
+
+            // Program Files 中的 Java 目录（完全搜索）
             string programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
             string programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            string pfJava = Path.Combine(programFiles, "Java");
+            string pfx86Java = Path.Combine(programFilesX86, "Java");
+            if (Directory.Exists(pfJava))
+                JavaSearchFolder(pfJava, javaCandidates, isFullSearch: true);
+            if (Directory.Exists(pfx86Java))
+                JavaSearchFolder(pfx86Java, javaCandidates, isFullSearch: true);
 
-            searchPaths.Add(Path.Combine(programFiles, "Java"));
-            searchPaths.Add(Path.Combine(programFilesX86, "Java"));
-
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            searchPaths.Add(Path.Combine(appData, "..", "Local", "Programs", "Eclipse Adoptium"));
-            searchPaths.Add(Path.Combine(appData, "..", "Local", "Programs", "Amazon Corretto"));
-            searchPaths.Add(Path.Combine(appData, "..", "Local", "Programs", "Microsoft"));
-
-            foreach (string basePath in searchPaths)
+            // Common third-party Java distribution paths
+            var thirdPartyDirs = new[]
             {
-                if (Directory.Exists(basePath))
-                {
-                    try
-                    {
-                        foreach (string dir in Directory.GetDirectories(basePath))
-                        {
-                            string javaExe = Path.Combine(dir, "bin", "java.exe");
-                            if (File.Exists(javaExe))
-                            {
-                                DetectedJava java = GetJavaInfo(javaExe);
-                                if (java != null && !detectedJava.Exists(j => j.Path == java.Path))
-                                {
-                                    detectedJava.Add(java);
-                                    LogReceived?.Invoke($"检测到Java: {java.Path} (版本: {java.MajorVersion}, 最大内存: {java.MaxMemoryMb}MB)");
-                                }
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        LogReceived?.Invoke($"搜索路径失败: {basePath} - {ex.Message}");
-                    }
-                }
+                Path.Combine(localAppData, "Programs", "Eclipse Adoptium"),
+                Path.Combine(localAppData, "Programs", "Amazon Corretto"),
+                Path.Combine(localAppData, "Programs", "Microsoft"),
+                Path.Combine(localAppData, "Programs", "Zulu"),
+                Path.Combine(programFiles, "Eclipse Adoptium"),
+                Path.Combine(programFiles, "Amazon Corretto"),
+                Path.Combine(programFiles, "Zulu"),
+                Path.Combine(programFiles, "Microsoft"),
+                Path.Combine(programFiles, "Oracle", "Java"),
+                Path.Combine(programFilesX86, "Oracle", "Java"),
+            };
+            foreach (string dir in thirdPartyDirs)
+            {
+                if (Directory.Exists(dir))
+                    JavaSearchFolder(dir, javaCandidates, isFullSearch: true);
             }
 
-            string pathEnv = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine);
-            if (!string.IsNullOrEmpty(pathEnv))
-            {
-                foreach (string path in pathEnv.Split(';'))
-                {
-                    if (path.Contains("java", StringComparison.OrdinalIgnoreCase) && !path.Contains("jre", StringComparison.OrdinalIgnoreCase))
-                    {
-                        string javaExe = Path.Combine(path, "java.exe");
-                        if (File.Exists(javaExe) && !detectedJava.Exists(j => j.Path.Equals(javaExe, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            DetectedJava java = GetJavaInfo(javaExe);
-                            if (java != null)
-                            {
-                                detectedJava.Add(java);
-                                LogReceived?.Invoke($"检测到Java: {java.Path} (版本: {java.MajorVersion}, 最大内存: {java.MaxMemoryMb}MB)");
-                            }
-                        }
-                    }
-                }
-            }
+            // 5. 多线程验证候选 Java
+            var detectedJava = new ConcurrentBag<DetectedJava>();
+            int total = javaCandidates.Count;
+            int processed = 0;
 
-            if (detectedJava.Count == 0)
+            Parallel.ForEach(javaCandidates.Keys, new ParallelOptions { MaxDegreeOfParallelism = 4 }, javaPath =>
             {
-                string defaultJava = FindJavaInPATH();
-                if (!string.IsNullOrEmpty(defaultJava))
+                try
                 {
-                    DetectedJava java = GetJavaInfo(defaultJava);
+                    // 将 javaw.exe 转换为 java.exe
+                    string exePath = javaPath;
+                    if (exePath.EndsWith("javaw.exe", StringComparison.OrdinalIgnoreCase))
+                        exePath = Path.Combine(Path.GetDirectoryName(exePath) ?? "", "java.exe");
+                    if (!File.Exists(exePath)) return;
+
+                    DetectedJava java = GetJavaInfo(exePath);
                     if (java != null)
                     {
                         detectedJava.Add(java);
-                        LogReceived?.Invoke($"在PATH中找到Java: {java.Path}");
+                        int current = Interlocked.Increment(ref processed);
+                        StatusChanged?.Invoke($"验证Java ({current}/{total}): Java {java.MajorVersion}");
                     }
+                }
+                catch { }
+            });
+
+            var result = detectedJava
+                .GroupBy(j => j.Path, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First())
+                .OrderByDescending(j => j.MajorVersion)
+                .ToList();
+
+            // 6. 如果没找到，回退到简单检测
+            if (result.Count == 0)
+            {
+                string defaultJava = FindFirstJavaInPath();
+                if (!string.IsNullOrEmpty(defaultJava))
+                {
+                    DetectedJava java = GetJavaInfo(defaultJava);
+                    if (java != null) result.Add(java);
                 }
             }
 
-            StatusChanged?.Invoke($"检测到 {detectedJava.Count} 个Java环境");
-            return detectedJava;
+            foreach (var j in result)
+                LogReceived?.Invoke($"检测到Java: {j.Path} (版本: {j.MajorVersion}, 最大内存: {j.MaxMemoryMb}MB)");
+
+            StatusChanged?.Invoke($"检测到 {result.Count} 个Java环境");
+            return result;
         }
 
-        private string FindJavaInPATH()
+        /// <summary>
+        /// 关键词引导的递归目录搜索（PCL风格）
+        /// </summary>
+        private void JavaSearchFolder(string folderPath, ConcurrentDictionary<string, byte> results, bool isFullSearch)
+        {
+            try
+            {
+                if (!Directory.Exists(folderPath)) return;
+
+                // 检查当前目录是否包含 javaw.exe
+                string javawExe = Path.Combine(folderPath, "javaw.exe");
+                string javaExe = Path.Combine(folderPath, "java.exe");
+                if (File.Exists(javawExe))
+                {
+                    results.TryAdd(Path.GetFullPath(javawExe), 0);
+                }
+                else if (File.Exists(javaExe))
+                {
+                    results.TryAdd(Path.GetFullPath(javaExe), 0);
+                }
+
+                // 枚举子目录，关键词过滤
+                foreach (string subDir in Directory.GetDirectories(folderPath))
+                {
+                    try
+                    {
+                        DirectoryInfo di = new DirectoryInfo(subDir);
+                        if ((di.Attributes & FileAttributes.ReparsePoint) != 0) continue; // 跳过符号链接
+
+                        string dirName = di.Name;
+
+                        // 父目录为 users 时总是递归
+                        string parentName = di.Parent?.Name ?? "";
+                        bool alwaysRecurse = parentName.Equals("users", StringComparison.OrdinalIgnoreCase);
+
+                        // 数字目录总是递归
+                        bool isNumericDir = int.TryParse(dirName, out int _);
+
+                        // 关键词匹配
+                        bool keywordMatch = _javaSearchKeywords.Any(k =>
+                            dirName.StartsWith(k, StringComparison.OrdinalIgnoreCase) ||
+                            dirName.Equals(k, StringComparison.OrdinalIgnoreCase));
+
+                        bool isBinDir = dirName.Equals("bin", StringComparison.OrdinalIgnoreCase);
+
+                        if (alwaysRecurse || isNumericDir || keywordMatch || isBinDir || isFullSearch)
+                        {
+                            JavaSearchFolder(subDir, results, isFullSearch);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            catch { }
+        }
+
+        /// <summary>
+        /// 使用 where.exe 查找 PATH 中所有 java 路径
+        /// </summary>
+        private List<string> FindAllJavaInPath()
+        {
+            var results = new List<string>();
+            try
+            {
+                ProcessStartInfo psi = new ProcessStartInfo
+                {
+                    FileName = "where",
+                    Arguments = "java",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    CreateNoWindow = true
+                };
+
+                using (Process p = Process.Start(psi))
+                {
+                    if (p == null) return results;
+                    string output = p.StandardOutput.ReadToEnd();
+                    p.WaitForExit(5000);
+                    foreach (string line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        string trimmed = line.Trim();
+                        if (!string.IsNullOrEmpty(trimmed) && File.Exists(trimmed))
+                            results.Add(trimmed);
+                    }
+                }
+            }
+            catch { }
+            return results;
+        }
+
+        /// <summary>
+        /// 回退：查找 PATH 中第一个 java
+        /// </summary>
+        private string FindFirstJavaInPath()
         {
             try
             {
@@ -146,17 +311,14 @@ namespace MusicalNoteLauncher.Core
 
                 using (Process p = Process.Start(psi))
                 {
+                    if (p == null) return null;
                     string output = p.StandardOutput.ReadLine();
                     p.WaitForExit();
                     if (!string.IsNullOrEmpty(output) && File.Exists(output))
-                    {
                         return output;
-                    }
                 }
             }
-            catch
-            {
-            }
+            catch { }
             return null;
         }
 

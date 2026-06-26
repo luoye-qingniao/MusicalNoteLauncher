@@ -9,7 +9,7 @@ using System.Windows.Media;
 namespace MusicalNoteLauncher.Core
 {
     /// <summary>
-    /// 5套Minecraft风格主题配色预设枚举
+    /// 6套Minecraft风格主题配色预设枚举
     /// </summary>
     public enum ThemeColorPreset
     {
@@ -22,7 +22,9 @@ namespace MusicalNoteLauncher.Core
         /// <summary>暖沙石橙黄 - 主色#F57C00 强调色#FFB74D</summary>
         WarmSandOrange,
         /// <summary>丛林绯红 - 主色#C62828 强调色#EF5350</summary>
-        JungleCrimson
+        JungleCrimson,
+        /// <summary>暖白温馨 - 主色#FDFBF7 强调色#E67E22</summary>
+        PureWhite
     }
 
     /// <summary>
@@ -178,6 +180,26 @@ namespace MusicalNoteLauncher.Core
                     ComboBoxHoverColor = "#452A2A",
                     ComboBoxSelectedColor = "#880E4F",
                     CardHoverColor = "#352222"
+                },
+                // ── 暖白温馨 ──
+                [ThemeColorPreset.PureWhite] = new ThemeColorInfo
+                {
+                    Preset = ThemeColorPreset.PureWhite,
+                    Name = "暖白温馨",
+                    BackgroundColor = "#FDFBF7",
+                    CardBackgroundColor = "#FAF7F2",
+                    SurfaceColor = "#F0ECE5",
+                    BorderColor = "#D0C4B5",
+                    TextPrimaryColor = "#000000",
+                    TextSecondaryColor = "#333333",
+                    PrimaryColor = "#E67E22",
+                    PrimaryDarkColor = "#D35400",
+                    AccentColor = "#F0932B",
+                    AccentLightColor = "#F9CA24",
+                    ComboBoxBgColor = "#FAF7F2",
+                    ComboBoxHoverColor = "#F0ECE5",
+                    ComboBoxSelectedColor = "#FDE9D9",
+                    CardHoverColor = "#F5F0E8"
                 }
             };
 

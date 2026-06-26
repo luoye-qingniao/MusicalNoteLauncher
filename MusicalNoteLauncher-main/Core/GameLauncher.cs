@@ -410,6 +410,40 @@ namespace MusicalNoteLauncher.Core
             catch { return false; }
         }
 
+        /// <summary>
+        /// 判断版本是否可安装 Mod（有 Forge/Fabric/NeoForge 等加载器）
+        /// </summary>
+        private bool IsVersionModable(string versionId)
+        {
+            try
+            {
+                return ModLoaderDetector.DetectModLoader(_minecraftPath, versionId) != ModLoaderDetector.ModLoaderType.None;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>
+        /// 判断版本是否为正式版（非快照、非旧版、非愚人节版本）
+        /// </summary>
+        private bool IsVersionRelease(string versionId)
+        {
+            try
+            {
+                string jsonFile = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.json");
+                if (!File.Exists(jsonFile)) return true; // 没有 JSON 视为正式版
+                using (JsonDocument doc = JsonDocument.Parse(File.ReadAllText(jsonFile)))
+                {
+                    if (doc.RootElement.TryGetProperty("type", out var typeProp))
+                    {
+                        string type = typeProp.GetString() ?? "";
+                        return type == "release";
+                    }
+                }
+                return true; // 没有 type 字段视为正式版
+            }
+            catch { return true; }
+        }
+
         private void SetupChineseLanguageForVersion(string versionId)
         {
             try
@@ -467,14 +501,17 @@ namespace MusicalNoteLauncher.Core
                 Log($"[语言] 使用的 Minecraft 次版本号: {majorVersion}");
 
                 // 步骤3：获取游戏的 options.txt 路径（使用版本隔离的游戏目录）
-                string gameDir = _minecraftPath;
-                if (SettingsManager.Settings.EnableVersionIsolation || IsInheritedVersion(versionId))
+                string gameDir2 = _minecraftPath;
+                bool isInheritedForLang = IsInheritedVersion(versionId);
+                bool isModableForLang = IsVersionModable(versionId);
+                bool isReleaseForLang = IsVersionRelease(versionId);
+                if (SettingsManager.Settings.ShouldIsolateVersion(isModableForLang, isReleaseForLang, isInheritedForLang))
                 {
-                    gameDir = Path.Combine(_minecraftPath, "versions", versionId, "game");
-                    Directory.CreateDirectory(gameDir);
+                    gameDir2 = Path.Combine(_minecraftPath, "versions", versionId, "game");
+                    Directory.CreateDirectory(gameDir2);
                 }
                 
-                string optionsPath = Path.Combine(gameDir, "options.txt");
+                string optionsPath = Path.Combine(gameDir2, "options.txt");
                 
                 // 步骤4：确保 options.txt 存在
                 if (!File.Exists(optionsPath))
@@ -609,6 +646,22 @@ namespace MusicalNoteLauncher.Core
                     Log("【步骤0】清理临时文件...");
                     await Task.Run(() => CleanupTempClasspathFiles());
                     Log("【步骤0】清理完成");
+
+                    // 内存优化 (PCL风格)
+                    if (SettingsManager.Settings.LaunchArgumentRam)
+                    {
+                        Log("【内存优化】启动游戏前执行内存优化...");
+                        await PostStatusAsync("正在进行内存优化...");
+                        try
+                        {
+                            long freed = await MemoryOptimizer.OptimizeAsync(null);
+                            Log($"[内存优化] 完成，释放内存: {freed} MB");
+                        }
+                        catch (Exception memEx)
+                        {
+                            Log($"[内存优化] 警告 - 优化失败: {memEx.Message}（将跳过继续启动）");
+                        }
+                    }
 
                     Log("【步骤1】验证Java路径...");
                     await PostStatusAsync("正在验证Java路径...");
@@ -2492,7 +2545,9 @@ namespace MusicalNoteLauncher.Core
             // 整合包版本（有 inheritsFrom）自动启用，避免文件污染其他版本
             string gameDir = _minecraftPath;
             bool isInherited = versionInfo.TryGetProperty("inheritsFrom", out _);
-            if (SettingsManager.Settings.EnableVersionIsolation || isInherited)
+            bool isModable = IsVersionModable(versionId);
+            bool isRelease = IsVersionRelease(versionId);
+            if (SettingsManager.Settings.ShouldIsolateVersion(isModable, isRelease, isInherited))
             {
                 gameDir = Path.Combine(_minecraftPath, "versions", versionId, "game");
                 // 确保目录存在
@@ -2511,7 +2566,8 @@ namespace MusicalNoteLauncher.Core
                     Log($"[版本隔离] 已复制主目录的 options.txt 到版本隔离目录");
                 }
                 
-                Log($"[版本隔离] 已启用{(isInherited && !SettingsManager.Settings.EnableVersionIsolation ? " (自动，整合包版本)" : "")}，游戏目录: {gameDir}");
+                string reason = isInherited ? " (自动，整合包版本)" : "";
+                Log($"[版本隔离] 已启用{reason}，等级: {SettingsManager.Settings.VersionIsolationLevel}，游戏目录: {gameDir}");
             }
             argsDict["--gameDir"] = gameDir;
             argsDict["--assetsDir"] = Path.Combine(_minecraftPath, "assets");

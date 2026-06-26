@@ -24,9 +24,9 @@
                 <!-- 顶部 Logo -->
                 <StackPanel Grid.Row="0" Margin="0,20,0,20">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <TextBlock Text="&#127925;" FontSize="28" Foreground="White" VerticalAlignment="Center"/>
+                            <TextBlock Text="&#127925;" FontSize="28" Foreground="{DynamicResource PrimaryBrush}" VerticalAlignment="Center"/>
                             <StackPanel Margin="10,0,0,0">
-                                <TextBlock Text="MNL" FontSize="20" FontWeight="Bold" Foreground="White" FontFamily="Microsoft YaHei"/>
+                                <TextBlock Text="MNL" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei"/>
                                 <TextBlock Text="启动器" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="Microsoft YaHei"/>
                             </StackPanel>
                         </StackPanel>
@@ -35,7 +35,7 @@
                 <!-- 导航菜单 -->
                 <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                     <StackPanel>
-                        <Button x:Name="btnHome" Tag="Home" Click="BtnNav_Click" Background="#2196F3" Foreground="White" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                        <Button x:Name="btnHome" Tag="Home" Click="BtnNav_Click" Background="{DynamicResource PrimaryBrush}" Foreground="White" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
                             <Button.Style>
                                 <Style TargetType="Button">
                                     <Setter Property="Template">
@@ -70,7 +70,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -94,7 +94,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -118,7 +118,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -142,7 +142,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -166,7 +166,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -190,7 +190,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -214,7 +214,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -238,7 +238,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -262,7 +262,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -286,7 +286,7 @@
                                                 </Border>
                                                 <ControlTemplate.Triggers>
                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter TargetName="btnBorder" Property="Background" Value="#3A3A3A"/>
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
                                                     </Trigger>
                                                 </ControlTemplate.Triggers>
                                             </ControlTemplate>
@@ -315,7 +315,7 @@
                                 </Image>
                             </Border>
                         </Border>
-                        <TextBlock x:Name="txtCurrentUserName" Text="Player" FontSize="14" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="txtCurrentUserName" Text="Player" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
                         <TextBlock x:Name="txtCurrentUserMode" Text="离线模式" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,6"/>
                         <Button Background="Transparent" Foreground="#FF6B6B" BorderThickness="0" Padding="6,3" FontSize="12" Cursor="Hand" Click="BtnLogout_Click">
                             <StackPanel Orientation="Horizontal">

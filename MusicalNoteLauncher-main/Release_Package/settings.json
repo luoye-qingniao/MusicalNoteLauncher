@@ -15,5 +15,7 @@
   "DownloadPath": "",
   "AutoInstallDependencies": true,
   "EnableVersionIsolation": false,
+  "VersionIsolationLevel": 4,
+  "LaunchArgumentRam": false,
   "ToolDownloadVersion": 0
 }

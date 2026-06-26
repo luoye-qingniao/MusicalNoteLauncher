@@ -28,11 +28,23 @@ namespace MusicalNoteLauncher
         {
             InitializeComponent();
             _config = new ConfigManager();
-            string effectiveMcPath = _config.GetMinecraftPath();
+
+            string settingsGamePath = SettingsManager.Settings.GamePath;
+            string effectiveMcPath;
+            if (!string.IsNullOrWhiteSpace(settingsGamePath))
+            {
+                effectiveMcPath = Environment.ExpandEnvironmentVariables(settingsGamePath);
+            }
+            else
+            {
+                effectiveMcPath = _config.GetMinecraftPath();
+            }
+
             AppContext.Initialize(username, isOfflineMode, minecraftPath: effectiveMcPath, config: _config);
             _launcherCore = new LauncherCore(_config);
             App.InitializeBedrockServices(effectiveMcPath);
             AppContext.NavigateRequested += pageKey => Dispatcher.Invoke(() => ShowPage(pageKey));
+            ProfilePage.OnAvatarChanged += () => Dispatcher.Invoke(() => UpdateCurrentUserInfo(AppContext.Username, AppContext.IsOfflineMode));
             Loaded += (s, e) =>
             {
                 UpdateCurrentUserInfo(username, isOfflineMode);
@@ -85,62 +97,54 @@ namespace MusicalNoteLauncher
             return BuildDefaultAvatar();
         }
 
-        /// <summary>生成简洁默认头像（128×128，紫蓝渐变圆 + 白色音符 "♪"）。</summary>
+        /// <summary>生成简洁默认头像（128×128，紫蓝渐变圆 + 白色人物字符）。</summary>
         public static BitmapImage BuildDefaultAvatar()
         {
             const int size = 128;
-            var pixels = new byte[size * size * 4];
-            double cx = size / 2.0, cy = size / 2.0;
-            double r = size / 2.0 - 1;
-
-            for (int y = 0; y < size; y++)
-                for (int x = 0; x < size; x++)
-                {
-                    int idx = (y * size + x) * 4;
-                    double dx = x - cx + 0.5, dy = y - cy + 0.5;
-                    double dist = Math.Sqrt(dx * dx + dy * dy);
-
-                    if (dist > r)
-                    {
-                        pixels[idx + 0] = 0; pixels[idx + 1] = 0;
-                        pixels[idx + 2] = 0; pixels[idx + 3] = 0;
-                        continue;
-                    }
-
-                    double t = dist / r;
-                    byte r1 = 0x6C, g1 = 0x5C, b1 = 0xE7;
-                    byte r2 = 0xA2, g2 = 0x9B, b2 = 0xFE;
-                    pixels[idx + 2] = (byte)(r2 + (r1 - r2) * t);
-                    pixels[idx + 1] = (byte)(g2 + (g1 - g2) * t);
-                    pixels[idx + 0] = (byte)(b2 + (b1 - b2) * t);
-                    pixels[idx + 3] = 255;
-                }
-
-            void FillRect(int x0, int y0, int w, int h, byte br, byte bg, byte bb)
+            var visual = new DrawingVisual();
+            
+            using (var dc = visual.RenderOpen())
             {
-                for (int yy = y0; yy < y0 + h; yy++)
-                    for (int xx = x0; xx < x0 + w; xx++)
-                    {
-                        if (xx < 0 || yy < 0 || xx >= size || yy >= size) continue;
-                        double dxx = xx - cx + 0.5, dyy = yy - cy + 0.5;
-                        if (Math.Sqrt(dxx * dxx + dyy * dyy) > r) continue;
-                        int ii = (yy * size + xx) * 4;
-                        pixels[ii + 0] = bb; pixels[ii + 1] = bg;
-                        pixels[ii + 2] = br; pixels[ii + 3] = 255;
-                    }
+                var center = new Point(size / 2.0, size / 2.0);
+                var radius = size / 2.0 - 1;
+
+                var gradient = new RadialGradientBrush
+                {
+                    Center = center,
+                    GradientOrigin = center,
+                    RadiusX = radius,
+                    RadiusY = radius,
+                    MappingMode = BrushMappingMode.Absolute
+                };
+                gradient.GradientStops.Add(new GradientStop(Color.FromRgb(0xA2, 0x9B, 0xFE), 0));
+                gradient.GradientStops.Add(new GradientStop(Color.FromRgb(0x7B, 0x68, 0xE1), 0.7));
+                gradient.GradientStops.Add(new GradientStop(Color.FromRgb(0x5B, 0x48, 0xD3), 1));
+
+                dc.DrawEllipse(gradient, null, center, radius, radius);
+
+                var text = new FormattedText(
+                    "👤",
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight,
+                    new Typeface("Segoe UI Emoji"),
+                    64,
+                    Brushes.White
+                );
+                
+                double textX = size / 2.0 - text.WidthIncludingTrailingWhitespace / 2.0;
+                double textY = size / 2.0 - text.Height / 2.0;
+                
+                dc.DrawText(text, new Point(textX, textY));
             }
 
-            int stemX = (int)cx - 3, stemY = 35;
-            FillRect(stemX, stemY, 6, 55, 255, 255, 255);
-            FillRect(stemX - 15, stemY + 45, 25, 14, 255, 255, 255);
-            FillRect(stemX - 15, stemY + 10, 25, 12, 220, 220, 255);
+            var renderTarget = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
+            renderTarget.Render(visual);
 
-            var wb = BitmapSource.Create(size, size, 96, 96, PixelFormats.Bgra32, null, pixels, size * 4);
             var result = new BitmapImage();
             using (var ms = new System.IO.MemoryStream())
             {
                 var enc = new PngBitmapEncoder();
-                enc.Frames.Add(BitmapFrame.Create(wb));
+                enc.Frames.Add(BitmapFrame.Create(renderTarget));
                 enc.Save(ms);
                 ms.Position = 0;
                 result.BeginInit();
