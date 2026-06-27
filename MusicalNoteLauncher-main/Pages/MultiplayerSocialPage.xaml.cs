@@ -5,24 +5,34 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Markup;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.Utils;
+using MusicalNoteLauncher.Controls;
+using SharpCompress.Archives;
+using SharpCompress.Common;
 
 namespace MusicalNoteLauncher.Pages
 {
 		public partial class MultiplayerSocialPage : UserControl
 	{
+        private string MinecraftPath => AppContext.MinecraftPath;
+
 		// Token: 0x0600031C RID: 796 RVA: 0x0001057F File Offset: 0x0000E77F
 		public MultiplayerSocialPage()
 		{
 			this.InitializeComponent();
 			this._easyTier = new EasyTierManager();
+			this._mctierManager = new MCTierManager();
 			LoadServerVersions();
 		}
 
@@ -57,7 +67,7 @@ namespace MusicalNoteLauncher.Pages
 		private List<string> GetInstalledVersions()
 		{
 			List<string> versions = new List<string>();
-			string minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "versions");
+			string minecraftPath = Path.Combine(MinecraftPath, "versions");
 			
 			if (Directory.Exists(minecraftPath))
 			{
@@ -112,6 +122,159 @@ namespace MusicalNoteLauncher.Pages
 			this.TaoWaPage.Visibility = Visibility.Visible;
 		}
 
+		private void Card_MCTier_Click(object sender, RoutedEventArgs e)
+		{
+			this.MainPage.Visibility = Visibility.Collapsed;
+			this.MCTierPage.Visibility = Visibility.Visible;
+			RefreshMCTierState();
+		}
+
+		private void RefreshMCTierState()
+		{
+			bool installed = _mctierManager.IsCoreInstalled();
+			MCTierNetworkPanel.Visibility = installed ? Visibility.Visible : Visibility.Collapsed;
+			if (installed)
+			{
+				MCTierMainPage.Visibility = Visibility.Visible;
+				MCTierHostPage.Visibility = Visibility.Collapsed;
+				MCTierClientPage.Visibility = Visibility.Collapsed;
+				if (!_mctierManager.IsRunning)
+				{
+					MCTierHostStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+						System.Windows.Media.Color.FromRgb(76, 175, 80));
+					txtMCTierHostStatus.Text = "已停止";
+					MCTierClientStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+						System.Windows.Media.Color.FromRgb(76, 175, 80));
+					txtMCTierClientStatus.Text = "已停止";
+				}
+			}
+		}
+
+		private void MCTierHostCard_Click(object sender, RoutedEventArgs e)
+		{
+			if (!_mctierManager.IsCoreInstalled())
+			{
+				ModernMessageBox.ShowWarning("请先下载安装 MCTier 核心", "提示");
+				return;
+			}
+			MCTierMainPage.Visibility = Visibility.Collapsed;
+			MCTierHostPage.Visibility = Visibility.Visible;
+
+			var (name, secret) = _mctierManager.GenerateNetworkCredentials();
+			txtMCTierHostName.Text = name;
+			txtMCTierHostCode.Text = secret;
+
+			_mctierManager.OnLogOutput += OnMCTierLog;
+			_mctierManager.OnStatusChanged += OnMCTierStatusChanged;
+
+			if (_mctierManager.Start(name, secret))
+			{
+				MCTierHostStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+					System.Windows.Media.Color.FromRgb(76, 175, 80));
+				txtMCTierHostStatus.Text = "运行中";
+			}
+			else
+			{
+				MCTierHostStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+					System.Windows.Media.Color.FromRgb(244, 67, 54));
+				txtMCTierHostStatus.Text = "启动失败";
+			}
+		}
+
+		private void MCTierClientCard_Click(object sender, RoutedEventArgs e)
+		{
+			if (!_mctierManager.IsCoreInstalled())
+			{
+				ModernMessageBox.ShowWarning("请先下载安装 MCTier 核心", "提示");
+				return;
+			}
+			MCTierMainPage.Visibility = Visibility.Collapsed;
+			MCTierClientPage.Visibility = Visibility.Visible;
+			txtMCTierInviteCode.Text = "";
+			MCTierClientStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+				System.Windows.Media.Color.FromRgb(158, 158, 158));
+			txtMCTierClientStatus.Text = "未连接";
+
+			_mctierManager.OnLogOutput += OnMCTierLog;
+			_mctierManager.OnStatusChanged += OnMCTierStatusChanged;
+		}
+
+		private void MCTierBack_Click(object sender, RoutedEventArgs e)
+		{
+			MCTierMainPage.Visibility = Visibility.Visible;
+			MCTierHostPage.Visibility = Visibility.Collapsed;
+			MCTierClientPage.Visibility = Visibility.Collapsed;
+		}
+
+		private void MCTierHostStop_Click(object sender, RoutedEventArgs e)
+		{
+			_mctierManager.OnLogOutput -= OnMCTierLog;
+			_mctierManager.OnStatusChanged -= OnMCTierStatusChanged;
+			_mctierManager.Stop();
+			RefreshMCTierState();
+		}
+
+		private void MCTierClientJoin_Click(object sender, RoutedEventArgs e)
+		{
+			string code = txtMCTierInviteCode.Text.Trim();
+			if (string.IsNullOrEmpty(code))
+			{
+				ModernMessageBox.ShowWarning("请输入邀请码", "提示");
+				return;
+			}
+
+			if (_mctierManager.Start(code, code))
+			{
+				MCTierClientStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+					System.Windows.Media.Color.FromRgb(76, 175, 80));
+				txtMCTierClientStatus.Text = "已连接";
+			}
+			else
+			{
+				MCTierClientStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+					System.Windows.Media.Color.FromRgb(244, 67, 54));
+				txtMCTierClientStatus.Text = "连接失败";
+			}
+		}
+
+		private void MCTierClientStop_Click(object sender, RoutedEventArgs e)
+		{
+			_mctierManager.OnLogOutput -= OnMCTierLog;
+			_mctierManager.OnStatusChanged -= OnMCTierStatusChanged;
+			_mctierManager.Stop();
+			RefreshMCTierState();
+		}
+
+		private void OnMCTierLog(string message)
+		{
+			Dispatcher.Invoke(() =>
+			{
+				txtMCTierLog.Text += Environment.NewLine + message;
+				MCTierLogScroll.ScrollToEnd();
+			});
+		}
+
+		private void OnMCTierStatusChanged(bool isRunning)
+		{
+			Dispatcher.Invoke(() =>
+			{
+				if (MCTierHostPage.Visibility == Visibility.Visible)
+				{
+					MCTierHostStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+						isRunning ? System.Windows.Media.Color.FromRgb(76, 175, 80)
+								  : System.Windows.Media.Color.FromRgb(244, 67, 54));
+					txtMCTierHostStatus.Text = isRunning ? "运行中" : "已停止";
+				}
+				else if (MCTierClientPage.Visibility == Visibility.Visible)
+				{
+					MCTierClientStatusDot.Background = new System.Windows.Media.SolidColorBrush(
+						isRunning ? System.Windows.Media.Color.FromRgb(76, 175, 80)
+								  : System.Windows.Media.Color.FromRgb(158, 158, 158));
+					txtMCTierClientStatus.Text = isRunning ? "已连接" : "未连接";
+				}
+			});
+		}
+
 		// Token: 0x06000322 RID: 802 RVA: 0x00010625 File Offset: 0x0000E825
 		private void Card_Mod_Click(object sender, RoutedEventArgs e)
 		{
@@ -142,6 +305,7 @@ namespace MusicalNoteLauncher.Pages
 			this.NATPage.Visibility = Visibility.Collapsed;
 			this.ServerPage.Visibility = Visibility.Collapsed;
 			this.TaoWaPage.Visibility = Visibility.Collapsed;
+			this.MCTierPage.Visibility = Visibility.Collapsed;
 			this.ModPage.Visibility = Visibility.Collapsed;
 			this.SettingsPage.Visibility = Visibility.Collapsed;
 		}
@@ -177,7 +341,7 @@ namespace MusicalNoteLauncher.Pages
 			{
 				if (!this._easyTier.IsCoreInstalled())
 				{
-					MessageBox.Show("请先下载陶瓦核心", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("请先下载陶瓦核心", "提示");
 				}
 				else
 				{
@@ -195,18 +359,18 @@ namespace MusicalNoteLauncher.Pages
 						}
 						else
 						{
-							MessageBox.Show("创建房间失败，请检查网络连接", "创建失败", MessageBoxButton.OK, MessageBoxImage.Hand);
+							ModernMessageBox.ShowError("创建房间失败，请检查网络连接", "创建失败");
 						}
 					}
 					else
 					{
-						MessageBox.Show("未检测到 Minecraft 局域网服务器\n\n请先进入单人存档，按 ESC 键选择\"对局域网开放\"，然后点击\"创建局域网世界\"", "未检测到服务器", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+						ModernMessageBox.ShowWarning("未检测到 Minecraft 局域网服务器\n\n请先进入单人存档，按 ESC 键选择\"对局域网开放\"，然后点击\"创建局域网世界\"", "未检测到服务器");
 					}
 				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("创建房间时发生错误：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("创建房间时发生错误：" + ex.Message, "错误");
 			}
 		}
 
@@ -217,21 +381,21 @@ namespace MusicalNoteLauncher.Pages
 			{
 				if (!this._easyTier.IsCoreInstalled())
 				{
-					MessageBox.Show("请先下载陶瓦核心", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("请先下载陶瓦核心", "提示");
 				}
 				else
 				{
 					string text = this.txtInviteCode.Text.Trim();
 					if (string.IsNullOrEmpty(text))
 					{
-						MessageBox.Show("请输入邀请码", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+						ModernMessageBox.ShowWarning("请输入邀请码", "提示");
 					}
 					else
 					{
 						string text2 = this.FixCodeFormat(text);
 						if (text2.Length < 14 || text2[0] != 'P' || text2[5] != '-' || text2[11] != '-')
 						{
-							MessageBox.Show("邀请码格式不正确\n\n请使用 PCL 创建的房间邀请码 (格式：PXXXX-XXXXX-XXXXX)", "邀请码无效", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+							ModernMessageBox.ShowWarning("邀请码格式不正确\n\n请使用 PCL 创建的房间邀请码 (格式：PXXXX-XXXXX-XXXXX)", "邀请码无效");
 						}
 						else
 						{
@@ -243,7 +407,7 @@ namespace MusicalNoteLauncher.Pages
 							}
 							else
 							{
-								MessageBox.Show("加入房间失败，请检查网络连接或邀请码是否正确", "加入失败", MessageBoxButton.OK, MessageBoxImage.Hand);
+								ModernMessageBox.ShowError("加入房间失败，请检查网络连接或邀请码是否正确", "加入失败");
 							}
 						}
 					}
@@ -251,7 +415,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("加入房间时发生错误：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("加入房间时发生错误：" + ex.Message, "错误");
 			}
 		}
 
@@ -263,11 +427,11 @@ namespace MusicalNoteLauncher.Pages
 				this._easyTier.Stop();
 				this.JoinStatusPanel.Visibility = Visibility.Collapsed;
 				this.txtInviteCode.Text = string.Empty;
-				MessageBox.Show("已离开房间", "操作成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("已离开房间", "操作成功");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("离开房间失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("离开房间失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -277,11 +441,11 @@ namespace MusicalNoteLauncher.Pages
 			try
 			{
 				Clipboard.SetText(this._currentInviteCode);
-				MessageBox.Show("邀请码已复制到剪贴板", "复制成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("邀请码已复制到剪贴板", "复制成功");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("复制失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("复制失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -293,11 +457,11 @@ namespace MusicalNoteLauncher.Pages
 				this._easyTier.Stop();
 				this.RoomInfoPanel.Visibility = Visibility.Collapsed;
 				this._currentInviteCode = string.Empty;
-				MessageBox.Show("房间已关闭", "操作成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("房间已关闭", "操作成功");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("关闭房间失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("关闭房间失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -328,7 +492,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("获取IP失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("获取IP失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -349,7 +513,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("检测失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("检测失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -366,7 +530,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -375,17 +539,17 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "mods");
+				string text = Path.Combine(MinecraftPath, "mods");
 				if (!Directory.Exists(text))
 				{
 					Directory.CreateDirectory(text);
 				}
-				MessageBox.Show("请将下载的 e4mc-x.x.x.jar 文件放入以下文件夹：\n\n" + text + "\n\n放入后重启游戏即可生效。", "安装提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("请将下载的 e4mc-x.x.x.jar 文件放入以下文件夹：\n\n" + text + "\n\n放入后重启游戏即可生效。", "安装提示");
 				Process.Start("explorer.exe", text);
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开文件夹失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开文件夹失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -402,7 +566,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -419,7 +583,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -436,7 +600,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -445,11 +609,11 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				MessageBox.Show("启动ngrok步骤：\n\n1. 下载并解压ngrok\n2. 注册账号获取AuthToken\n3. 运行：ngrok authtoken 你的token\n4. 开启Minecraft局域网世界\n5. 运行：ngrok tcp 25565\n6. 将生成的地址分享给房客", "ngrok使用说明", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("启动ngrok步骤：\n\n1. 下载并解压ngrok\n2. 注册账号获取AuthToken\n3. 运行：ngrok authtoken 你的token\n4. 开启Minecraft局域网世界\n5. 运行：ngrok tcp 25565\n6. 将生成的地址分享给房客", "ngrok使用说明");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("操作失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("操作失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -466,7 +630,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -516,7 +680,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -525,7 +689,7 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "server");
+				string text = Path.Combine(MinecraftPath, "server");
 				string text2 = Path.Combine(text, "server.properties");
 				if (!Directory.Exists(text))
 				{
@@ -539,7 +703,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开配置文件失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开配置文件失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -548,7 +712,7 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "server");
+				string text = Path.Combine(MinecraftPath, "server");
 				if (!Directory.Exists(text))
 				{
 					Directory.CreateDirectory(text);
@@ -557,7 +721,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开文件夹失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开文件夹失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -566,8 +730,8 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "server");
-				MessageBox.Show("启动服务器步骤：\n\n1. 将下载的 server.jar 放入：\n" + text + "\n\n2. 打开CMD，进入该目录\n\n3. 运行：java -Xmx2G -Xms1G -jar server.jar nogui\n\n4. 首次运行会生成配置文件", "服务器启动说明", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				string text = Path.Combine(MinecraftPath, "server");
+				ModernMessageBox.ShowInfo("启动服务器步骤：\n\n1. 将下载的 server.jar 放入：\n" + text + "\n\n2. 打开CMD，进入该目录\n\n3. 运行：java -Xmx2G -Xms1G -jar server.jar nogui\n\n4. 首次运行会生成配置文件", "服务器启动说明");
 				if (!Directory.Exists(text))
 				{
 					Directory.CreateDirectory(text);
@@ -576,7 +740,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("操作失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("操作失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -585,19 +749,19 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "server", "server.properties");
+				string text = Path.Combine(MinecraftPath, "server", "server.properties");
 				if (File.Exists(text))
 				{
 					Process.Start("notepad.exe", text);
 				}
 				else
 				{
-					MessageBox.Show("server.properties 文件不存在\n\n请先启动一次服务器以生成配置文件", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("server.properties 文件不存在\n\n请先启动一次服务器以生成配置文件", "提示");
 				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开文件失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开文件失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -614,7 +778,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开网页失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开网页失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -623,7 +787,7 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "mods");
+				string text = Path.Combine(MinecraftPath, "mods");
 				if (!Directory.Exists(text))
 				{
 					Directory.CreateDirectory(text);
@@ -632,7 +796,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开文件夹失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开文件夹失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -641,11 +805,11 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				MessageBox.Show("安装Mod步骤：\n\n1. 下载Mod的 .jar 文件\n2. 确保Mod版本与游戏版本匹配\n3. 将 .jar 文件放入 mods 文件夹\n4. 重启游戏", "安装说明", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("安装Mod步骤：\n\n1. 下载Mod的 .jar 文件\n2. 确保Mod版本与游戏版本匹配\n3. 将 .jar 文件放入 mods 文件夹\n4. 重启游戏", "安装说明");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("操作失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("操作失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -654,7 +818,7 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "server", "plugins");
+				string text = Path.Combine(MinecraftPath, "server", "plugins");
 				if (!Directory.Exists(text))
 				{
 					Directory.CreateDirectory(text);
@@ -663,7 +827,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("打开文件夹失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("打开文件夹失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -672,11 +836,11 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				MessageBox.Show("安装插件步骤：\n\n1. 下载插件的 .jar 文件\n2. 将 .jar 文件放入 plugins 文件夹\n3. 重启服务器", "安装说明", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("安装插件步骤：\n\n1. 下载插件的 .jar 文件\n2. 将 .jar 文件放入 plugins 文件夹\n3. 重启服务器", "安装说明");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("操作失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("操作失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -685,20 +849,20 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "mods");
+				string path = Path.Combine(MinecraftPath, "mods");
 				if (Directory.Exists(path))
 				{
 					string[] files = Directory.GetFiles(path, "*.jar");
-					MessageBox.Show(string.Format("找到 {0} 个Mod文件", files.Length), "刷新完成", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo(string.Format("找到 {0} 个Mod文件", files.Length), "刷新完成");
 				}
 				else
 				{
-					MessageBox.Show("mods文件夹不存在", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("mods文件夹不存在", "提示");
 				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("刷新失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("刷新失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -710,11 +874,11 @@ namespace MusicalNoteLauncher.Pages
 				string text = this.txtUsername.Text.Trim();
 				if (string.IsNullOrEmpty(text))
 				{
-					MessageBox.Show("请输入用户名", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("请输入用户名", "提示");
 				}
 				else if (text.Length < 3 || text.Length > 16)
 				{
-					MessageBox.Show("用户名长度必须在3-16个字符之间", "验证失败", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("用户名长度必须在3-16个字符之间", "验证失败");
 				}
 				else
 				{
@@ -722,16 +886,16 @@ namespace MusicalNoteLauncher.Pages
 					{
 						if (!char.IsLetterOrDigit(c) && c != '_')
 						{
-							MessageBox.Show("用户名只能包含字母、数字和下划线", "验证失败", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+							ModernMessageBox.ShowWarning("用户名只能包含字母、数字和下划线", "验证失败");
 							return;
 						}
 					}
-					MessageBox.Show("✅ 用户名 \"" + text + "\" 格式正确！", "验证成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("✅ 用户名 \"" + text + "\" 格式正确！", "验证成功");
 				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("验证失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("验证失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -740,11 +904,213 @@ namespace MusicalNoteLauncher.Pages
 		{
 			try
 			{
-				MessageBox.Show("版本一致性检查：\n\n✅ 游戏版本：1.20.x\n✅ Forge版本：匹配\n✅ Mod版本：一致\n\n所有玩家请确保使用相同的版本！", "版本检查", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("版本一致性检查：\n\n✅ 游戏版本：1.20.x\n✅ Forge版本：匹配\n✅ Mod版本：一致\n\n所有玩家请确保使用相同的版本！", "版本检查");
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("检查失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("检查失败：" + ex.Message, "错误");
+			}
+		}
+
+		private async void BtnDownloadMCTier_Click(object sender, RoutedEventArgs e)
+		{
+			try
+			{
+				btnDownloadMCTier.IsEnabled = false;
+				pbMCTierDownload.Visibility = Visibility.Visible;
+				txtMCTierDownloadStatus.Visibility = Visibility.Visible;
+				txtMCTierDownloadStatus.Text = "正在获取最新版本信息...";
+				pbMCTierDownload.IsIndeterminate = true;
+
+				string downloadUrl = null;
+			string fileName = null;
+			long fileSize = 0;
+
+			// GitHub API 镜像列表（国内加速）
+			string[] apiMirrors = new[]
+			{
+				"https://api.github.com/repos/pmh1314520/MCTier/releases/latest",
+				"https://ghfast.top/https://api.github.com/repos/pmh1314520/MCTier/releases/latest",
+				"https://ghproxy.com/https://api.github.com/repos/pmh1314520/MCTier/releases/latest",
+			};
+
+			string releaseJson = null;
+			using (var apiClient = new HttpClient())
+			{
+				apiClient.DefaultRequestHeaders.UserAgent.ParseAdd("MusicalNoteLauncher/1.0");
+				apiClient.Timeout = TimeSpan.FromSeconds(10);
+
+				foreach (string apiUrl in apiMirrors)
+				{
+					try
+					{
+						releaseJson = await apiClient.GetStringAsync(apiUrl);
+						break;
+					}
+					catch { }
+				}
+			}
+
+			if (releaseJson != null)
+			{
+				using var doc = JsonDocument.Parse(releaseJson);
+				var assets = doc.RootElement.GetProperty("assets");
+
+				foreach (var asset in assets.EnumerateArray())
+				{
+					var name = asset.GetProperty("name").GetString();
+					if (name != null && name.EndsWith(".7z"))
+					{
+						downloadUrl = asset.GetProperty("browser_download_url").GetString();
+						fileName = name;
+						fileSize = asset.GetProperty("size").GetInt64();
+						break;
+					}
+				}
+
+				if (downloadUrl == null)
+				{
+					foreach (var asset in assets.EnumerateArray())
+					{
+						var name = asset.GetProperty("name").GetString();
+						if (name != null && (name.EndsWith(".exe") || name.EndsWith(".zip")))
+						{
+							downloadUrl = asset.GetProperty("browser_download_url").GetString();
+							fileName = name;
+							fileSize = asset.GetProperty("size").GetInt64();
+							break;
+						}
+					}
+				}
+			}
+
+			if (downloadUrl == null)
+			{
+				ModernMessageBox.ShowWarning("未找到可下载的 MCTier 程序，请前往 mctier.top 手动下载", "下载失败");
+				return;
+			}
+
+			string mctDir = Path.Combine(MinecraftPath, "mctier");
+			string savePath = Path.Combine(mctDir, fileName);
+
+			pbMCTierDownload.IsIndeterminate = false;
+			txtMCTierDownloadStatus.Text = $"正在下载 {fileName} ({FileSizeFormatter.FormatFileSize(fileSize)})...";
+
+			// GitHub 下载加速镜像
+			string[] downloadMirrors = new[]
+			{
+				downloadUrl,
+				"https://ghfast.top/" + downloadUrl,
+				"https://ghproxy.com/" + downloadUrl,
+				"https://mirror.ghproxy.com/" + downloadUrl,
+			};
+
+			var httpClient = SafeHttpClientFactory.CreateClient(600);
+			var progress = new DownloadProgress();
+			progress.ProgressChanged += info =>
+			{
+				Dispatcher.Invoke(() =>
+				{
+					pbMCTierDownload.Value = info.Progress;
+					txtMCTierDownloadStatus.Text = $"下载中 {info.Progress:F1}%  " +
+						$"{FileSizeFormatter.FormatFileSize(info.DownloadedBytes)}/{FileSizeFormatter.FormatFileSize(info.TotalBytes)}";
+				});
+			};
+
+			bool downloadSuccess = false;
+			var cts = new CancellationTokenSource();
+
+			foreach (string mirrorUrl in downloadMirrors)
+			{
+				try
+				{
+					await DownloadHelper.DownloadFileWithRetryAsync(httpClient, mirrorUrl, savePath, progress, cts.Token);
+					downloadSuccess = true;
+					break;
+				}
+				catch { }
+			}
+
+			if (!downloadSuccess)
+			{
+				txtMCTierDownloadStatus.Text = "下载失败，请检查网络后重试";
+				return;
+			}
+
+				pbMCTierDownload.Value = 100;
+				txtMCTierDownloadStatus.Text = "正在解压...";
+				pbMCTierDownload.IsIndeterminate = true;
+
+				await Task.Run(() =>
+				{
+					using (var archive = ArchiveFactory.Open(savePath))
+					{
+						archive.WriteToDirectory(mctDir, new ExtractionOptions
+						{
+							ExtractFullPath = true,
+							Overwrite = true
+						});
+					}
+				});
+
+				try { File.Delete(savePath); } catch { }
+
+				pbMCTierDownload.IsIndeterminate = false;
+				pbMCTierDownload.Value = 100;
+				txtMCTierDownloadStatus.Text = "MCTier 下载解压完成！";
+
+				ModernMessageBox.ShowInfo($"MCTier 下载完成！\n\n位置：{mctDir}\n\n请运行 mctier.exe 启动联机。", "下载完成");
+			}
+			catch (Exception ex)
+			{
+				txtMCTierDownloadStatus.Text = $"下载失败：{ex.Message}";
+				ModernMessageBox.ShowError("下载 MCTier 失败：" + ex.Message, "错误");
+			}
+			finally
+			{
+				btnDownloadMCTier.IsEnabled = true;
+				pbMCTierDownload.IsIndeterminate = false;
+			}
+		}
+
+		private void BtnOpenMCTierFolder_Click(object sender, RoutedEventArgs e)
+		{
+			try
+			{
+				string text = Path.Combine(MinecraftPath, "mctier");
+				if (!Directory.Exists(text))
+				{
+					Directory.CreateDirectory(text);
+				}
+				Process.Start("explorer.exe", text);
+			}
+			catch (Exception ex)
+			{
+				ModernMessageBox.ShowError("打开文件夹失败：" + ex.Message, "错误");
+			}
+		}
+
+		private void BtnLaunchMCTier_Click(object sender, RoutedEventArgs e)
+		{
+			try
+			{
+				string corePath = _mctierManager.GetCorePath();
+				if (corePath == null)
+				{
+					ModernMessageBox.ShowWarning("未找到 MCTier 程序，请先下载安装", "提示");
+					return;
+				}
+				Process.Start(new ProcessStartInfo
+				{
+					FileName = corePath,
+					WorkingDirectory = Path.GetDirectoryName(corePath),
+					UseShellExecute = true
+				});
+				ModernMessageBox.ShowInfo("MCTier 已启动！\n\n在 MCTier 中创建或加入房间后，\n返回启动器查看运行日志。", "MCTier 已启动");
+			}
+			catch (Exception ex)
+			{
+				ModernMessageBox.ShowError("启动 MCTier 失败：" + ex.Message, "错误");
 			}
 		}
 
@@ -864,7 +1230,8 @@ namespace MusicalNoteLauncher.Pages
 			return message.Trim();
 		}
 
-				private EasyTierManager _easyTier;
+		private EasyTierManager _easyTier;
+		private MCTierManager _mctierManager;
 
 				private string _currentInviteCode = string.Empty;
 	}

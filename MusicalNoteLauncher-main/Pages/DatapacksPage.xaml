@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
 	x:Class="MusicalNoteLauncher.Pages.DatapacksPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:MusicalNoteLauncher.Pages" xmlns:core="clr-namespace:MusicalNoteLauncher.Core"
 	Background="{DynamicResource BackgroundBrush}">
 	<Grid Background="{DynamicResource BackgroundBrush}">
@@ -15,43 +15,174 @@
 				<Border Background="#00BCD4" CornerRadius="8" Width="32" Height="32" Margin="0,0,10,0">
 					<TextBlock Text="📊" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
 				</Border>
-				<TextBlock Text="数据包" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei"/>
+				<TextBlock Text="数据包" FontSize="20" FontWeight="Bold" Foreground="White" FontFamily="Microsoft YaHei"/>
 			</StackPanel>
 		</Border>
 
-		<Grid Row="1" Margin="24,20,24,24">
+		<Grid Grid.Row="1" Margin="24,20,24,24">
 			<Grid.RowDefinitions>
+				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
 				<RowDefinition Height="*" />
 			</Grid.RowDefinitions>
 
 			<!-- 信息横幅 -->
-			<Border Grid.Row="0" Background="{DynamicResource CardHoverBrush}" CornerRadius="12" Padding="0" Margin="0,0,0,16">
-				<Border CornerRadius="12,0,0,12">
-					<Border.Background>
-						<LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-							<GradientStop Color="#1A2F33" Offset="0"/>
-							<GradientStop Color="#2D2D2D" Offset="1"/>
-						</LinearGradientBrush>
-					</Border.Background>
-					<Grid>
+			<Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Padding="0" Margin="0,0,0,16"
+			        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+				<Grid>
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition Width="4"/>
+						<ColumnDefinition Width="*"/>
+					</Grid.ColumnDefinitions>
+					<Border Grid.Column="0" Background="#00BCD4" CornerRadius="12,0,0,12"/>
+					<StackPanel Grid.Column="1" Margin="16,14,16,14">
+						<TextBlock Text="📊 数据包下载" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+						           FontFamily="Microsoft YaHei" Margin="0,0,0,6"/>
+						<TextBlock Text="数据包可以在不修改代码的情况下改变游戏规则、添加新内容和自定义游戏玩法"
+						           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="Microsoft YaHei" TextWrapping="Wrap"/>
+					</StackPanel>
+				</Grid>
+			</Border>
+
+			<!-- 筛选面板 —— PCL 风格 -->
+			<Border Grid.Row="1" Background="{DynamicResource CardHoverBrush}" CornerRadius="12" Padding="25,20,25,15" Margin="0,0,0,14">
+				<StackPanel>
+					<Grid Margin="0,0,0,10" HorizontalAlignment="Stretch">
 						<Grid.ColumnDefinitions>
-							<ColumnDefinition Width="4"/>
-							<ColumnDefinition Width="*"/>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="1.3*"/>
+							<ColumnDefinition Width="1.2*"/>
+							<ColumnDefinition Width="50"/>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="1*"/>
 						</Grid.ColumnDefinitions>
-						<Border Grid.Column="0" Background="#00BCD4" CornerRadius="3,0,0,3"/>
-						<StackPanel Grid.Column="1" Margin="16,14,16,14">
-							<TextBlock Text="📊 数据包下载" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
-							           FontFamily="Microsoft YaHei" Margin="0,0,0,6"/>
-							<TextBlock Text="数据包可以在不修改代码的情况下改变游戏规则、添加新内容和自定义游戏玩法"
-							           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="Microsoft YaHei" TextWrapping="Wrap"/>
-						</StackPanel>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="30"/>
+							<RowDefinition Height="10"/>
+							<RowDefinition Height="30"/>
+						</Grid.RowDefinitions>
+
+						<!-- 名称 -->
+						<TextBlock VerticalAlignment="Center" Text="名称" Margin="0,0,16,0"
+						           Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" FontFamily="Microsoft YaHei"/>
+						<Border Grid.Column="1" Grid.ColumnSpan="2" Height="30" Background="Transparent"
+						        BorderBrush="#444" BorderThickness="1" CornerRadius="6">
+							<Grid>
+								<Path Width="12" Margin="10,0,0,0" IsHitTestVisible="False" Height="12"
+								      Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Left"
+								      Data="M675.9168 242.816C556.3008 123.2 362.4448 123.2 242.8288 242.816 123.2128 362.432 123.2128 556.288 242.8288 675.904 362.4448 795.52 556.3008 795.52 675.9168 675.904 795.5328 556.288 795.5328 362.432 675.9168 242.816L675.9168 242.816ZM1000.7168 892.48C1030.6048 922.368 1030.6048 970.816 1000.7168 1000.704 970.8288 1030.656 922.3808 1030.656 892.4288 1000.704L730.0608 838.336C728.1408 836.416 727.4368 833.92 725.7728 831.872 546.3168 960.448 295.7568 945.408 134.5408 784.192-44.8512 604.8-44.8512 313.92 134.5408 134.528 313.9328-44.864 604.8128-44.864 784.2048 134.528 945.4208 295.744 960.4608 546.304 831.8848 725.76 833.9328 727.424 836.4288 728.128 838.3488 730.048L1000.7168 892.48Z"/>
+								<TextBox x:Name="txtSearch" Padding="28,0,28,0" BorderThickness="0"
+								         Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
+								         FontSize="13" FontFamily="Microsoft YaHei" CaretBrush="{DynamicResource TextPrimaryBrush}"
+								         VerticalContentAlignment="Center" TextChanged="TxtSearch_TextChanged"
+								         KeyDown="TxtSearch_KeyDown" MaxLength="50"/>
+								<TextBlock Text="搜索数据包名称..." Padding="28,0,0,0"
+								           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
+								           FontFamily="Microsoft YaHei" VerticalAlignment="Center"
+								           IsHitTestVisible="False" x:Name="txtSearchHint"/>
+								<Button x:Name="btnSearchClear" Width="20" Height="20" Cursor="Hand"
+								        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
+								        Opacity="0" IsHitTestVisible="False" Click="BtnSearchClear_Click"
+								        Background="Transparent" BorderThickness="0">
+									<Path Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource TextSecondaryBrush}"
+									      Data="F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z"/>
+								</Button>
+							</Grid>
+						</Border>
+
+						<!-- 来源 -->
+						<TextBlock VerticalAlignment="Center" Grid.Column="4" Text="来源" Margin="0,0,16,0"
+						           Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" FontFamily="Microsoft YaHei"/>
+						<ComboBox x:Name="cmbSource" Grid.Column="5" Height="30" FontSize="13" FontFamily="Microsoft YaHei"
+						          Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+						          BorderBrush="#444" BorderThickness="1" SelectionChanged="Filter_SelectionChanged">
+							<ComboBoxItem Content="全部" Tag="All" IsSelected="True"/>
+							<ComboBoxItem Content="CurseForge" Tag="CurseForge"/>
+							<ComboBoxItem Content="Modrinth" Tag="Modrinth"/>
+						</ComboBox>
+
+						<!-- 版本 -->
+					<TextBlock VerticalAlignment="Center" Grid.Row="2" Text="版本" Margin="0,0,16,0"
+					           Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" FontFamily="Microsoft YaHei"/>
+					<ComboBox x:Name="cmbVersion" Grid.Row="2" Grid.Column="1"
+					          Height="30" FontSize="13" FontFamily="Microsoft YaHei" IsEditable="True"
+					          Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+					          BorderBrush="#444" BorderThickness="1" SelectionChanged="Filter_SelectionChanged"
+					          Text="全部 (也可自行输入)">
+						<ComboBoxItem Content="全部 (也可自行输入)" Tag=""/>
+					</ComboBox>
+
+					<!-- 类型 -->
+					<TextBlock VerticalAlignment="Center" Grid.Column="4" Grid.Row="2" Text="类型" Margin="0,0,16,0"
+					           Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" FontFamily="Microsoft YaHei"/>
+					<ComboBox x:Name="cmbType" Grid.Column="5" Grid.Row="2" Height="30" FontSize="13" FontFamily="Microsoft YaHei"
+					          Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+					          BorderBrush="#444" BorderThickness="1" SelectionChanged="Filter_SelectionChanged">
+						<ComboBoxItem Content="全部" Tag="" IsSelected="True"/>
+						<ComboBoxItem Content="世界元素" Tag="worldgen"/>
+						<ComboBoxItem Content="科技" Tag="technology"/>
+						<ComboBoxItem Content="游戏机制" Tag="game-mechanics"/>
+						<ComboBoxItem Content="运输" Tag="transportation"/>
+						<ComboBoxItem Content="仓储" Tag="storage"/>
+						<ComboBoxItem Content="魔法" Tag="magic"/>
+						<ComboBoxItem Content="冒险" Tag="adventure"/>
+						<ComboBoxItem Content="幻想" Tag="fantasy"/>
+						<ComboBoxItem Content="装饰" Tag="decoration"/>
+						<ComboBoxItem Content="生物" Tag="mobs"/>
+						<ComboBoxItem Content="实用" Tag="utility"/>
+						<ComboBoxItem Content="装备与工具" Tag="equipment"/>
+						<ComboBoxItem Content="性能优化" Tag="optimization"/>
+						<ComboBoxItem Content="服务器" Tag="social"/>
+						<ComboBoxItem Content="支持库" Tag="library"/>
+						<ComboBoxItem Content="Mod 相关" Tag="modded"/>
+					</ComboBox>
+				</Grid>
+
+					<!-- 按钮行 -->
+					<Grid Height="35">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="Auto"/>
+						</Grid.ColumnDefinitions>
+						<Button x:Name="BtnSearchRun" Content="搜索" MinWidth="120" Padding="13,0" Margin="0,0,16,0"
+						        FontSize="13" FontWeight="SemiBold" FontFamily="Microsoft YaHei"
+						        Foreground="White" Cursor="Hand" Click="BtnSearchRun_Click">
+							<Button.Template>
+								<ControlTemplate TargetType="Button">
+									<Border x:Name="bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
+									        Background="#00BCD4" BorderThickness="0">
+										<Border.Effect>
+											<DropShadowEffect BlurRadius="6" ShadowDepth="2" Opacity="0.3" Color="#00BCD4"/>
+										</Border.Effect>
+										<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+										                  TextElement.Foreground="White" TextElement.FontWeight="SemiBold"/>
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger Property="IsMouseOver" Value="True">
+											<Setter TargetName="bd" Property="Background" Value="#4DD0E1"/>
+										</Trigger>
+										<Trigger Property="IsPressed" Value="True">
+											<Setter TargetName="bd" Property="Background" Value="#00838F"/>
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Button.Template>
+						</Button>
+						<Button x:Name="BtnSearchReset" Content="重置条件" Grid.Column="1" MinWidth="120" Padding="13,0"
+						        FontSize="13" FontFamily="Microsoft YaHei" Cursor="Hand" Click="BtnSearchReset_Click"
+						        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+						        BorderBrush="#555" BorderThickness="1"/>
 					</Grid>
-				</Border>
+				</StackPanel>
 			</Border>
 
 			<!-- 列表区域 -->
-			<Border Grid.Row="1" Background="{DynamicResource CardHoverBrush}" CornerRadius="12" Padding="4">
+			<Grid Grid.Row="2">
+				<Grid.RowDefinitions>
+					<RowDefinition Height="*"/>
+					<RowDefinition Height="Auto"/>
+				</Grid.RowDefinitions>
+				<Border Grid.Row="0" Background="{DynamicResource CardHoverBrush}" CornerRadius="12,12,0,0" Padding="4">
 				<ListBox Name="lbDatapacks" Background="#00FFFFFF" BorderThickness="0"
 				         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
 					<ItemsControl.ItemContainerStyle>
@@ -173,6 +304,90 @@
 						</DataTemplate>
 					</ItemsControl.ItemTemplate>
 				</ListBox>
+			</Border>
+			<!-- 分页条 -->
+			<Border Grid.Row="1" Background="{DynamicResource CardHoverBrush}" CornerRadius="0,0,12,12" Padding="10,8"
+			        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+				<StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+					<Button x:Name="BtnPageFirst" Content="首页"
+					        FontSize="12" FontFamily="Microsoft YaHei" Cursor="Hand"
+					        Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,4,0" Click="BtnPageFirst_Click">
+						<Button.Template>
+							<ControlTemplate TargetType="Button">
+								<Border x:Name="bd" Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="12,6"
+								        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+									<Border.Effect>
+										<DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.08" Color="Black"/>
+									</Border.Effect>
+									<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+									                  TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontSize="12"/>
+								</Border>
+								<ControlTemplate.Triggers>
+									<Trigger Property="IsMouseOver" Value="True">
+										<Setter TargetName="bd" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+										<Setter TargetName="bd" Property="BorderBrush" Value="#FF9800"/>
+									</Trigger>
+									<Trigger Property="IsEnabled" Value="False">
+										<Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+									</Trigger>
+								</ControlTemplate.Triggers>
+							</ControlTemplate>
+						</Button.Template>
+					</Button>
+					<Button x:Name="BtnPagePrev" Content="←"
+					        FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand"
+					        Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,4,0" Click="BtnPagePrev_Click">
+						<Button.Template>
+							<ControlTemplate TargetType="Button">
+								<Border x:Name="bd" Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="10,6"
+								        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+									<Border.Effect>
+										<DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.08" Color="Black"/>
+									</Border.Effect>
+									<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+									                  TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontSize="14"/>
+								</Border>
+								<ControlTemplate.Triggers>
+									<Trigger Property="IsMouseOver" Value="True">
+										<Setter TargetName="bd" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+										<Setter TargetName="bd" Property="BorderBrush" Value="#FF9800"/>
+									</Trigger>
+									<Trigger Property="IsEnabled" Value="False">
+										<Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+									</Trigger>
+								</ControlTemplate.Triggers>
+							</ControlTemplate>
+						</Button.Template>
+					</Button>
+					<TextBlock x:Name="LabPage" Text="1 / 1" FontSize="13"
+					           Foreground="{DynamicResource TextSecondaryBrush}"
+					           FontFamily="Microsoft YaHei" VerticalAlignment="Center" Margin="10,0,10,0"/>
+					<Button x:Name="BtnPageNext" Content="→"
+					        FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand"
+					        Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,4,0" Click="BtnPageNext_Click">
+						<Button.Template>
+							<ControlTemplate TargetType="Button">
+								<Border x:Name="bd" Background="{DynamicResource SurfaceBrush}" CornerRadius="6" Padding="10,6"
+								        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1">
+									<Border.Effect>
+										<DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.08" Color="Black"/>
+									</Border.Effect>
+									<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+									                  TextElement.Foreground="{TemplateBinding Foreground}" TextElement.FontSize="14"/>
+								</Border>
+								<ControlTemplate.Triggers>
+									<Trigger Property="IsMouseOver" Value="True">
+										<Setter TargetName="bd" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+										<Setter TargetName="bd" Property="BorderBrush" Value="#FF9800"/>
+									</Trigger>
+									<Trigger Property="IsEnabled" Value="False">
+										<Setter TargetName="bd" Property="Opacity" Value="0.4"/>
+									</Trigger>
+								</ControlTemplate.Triggers>
+							</ControlTemplate>
+						</Button.Template>
+					</Button>
+				</StackPanel>
 			</Border>
 		</Grid>
 
@@ -389,5 +604,6 @@
 				</Border>
 			</Grid>
 		</Border>
+	</Grid>
 	</Grid>
 </UserControl>

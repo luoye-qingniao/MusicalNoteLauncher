@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Windows
 {
@@ -84,7 +85,7 @@ namespace MusicalNoteLauncher.Windows
                 Dispatcher.Invoke(() => DownloadService_DownloadCompleted(versionId));
                 return;
             }
-            MessageBox.Show($"版本 {versionId} 下载完成！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            ModernMessageBox.ShowInfo($"版本 {versionId} 下载完成！", "成功");
             _ = LoadVersionsAsync();
         }
 
@@ -95,7 +96,7 @@ namespace MusicalNoteLauncher.Windows
                 Dispatcher.Invoke(() => DownloadService_DownloadFailed(versionId, error));
                 return;
             }
-            MessageBox.Show($"版本 {versionId} 下载失败:\n{error}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            ModernMessageBox.ShowError($"版本 {versionId} 下载失败:\n{error}", "错误");
         }
 
         private async void VersionDownloader_Loaded(object sender, RoutedEventArgs e)
@@ -149,13 +150,9 @@ namespace MusicalNoteLauncher.Windows
             {
                 Logger.Error($"加载版本列表失败: {ex.Message}");
 
-                var result = MessageBox.Show(
+                if (ModernMessageBox.ShowYesNo(
                     $"获取版本列表失败:\n{ex.Message}\n\n是否使用离线模式（仅显示本地版本）？",
-                    "网络错误",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-
-                if (result == MessageBoxResult.Yes)
+                    "网络错误"))
                 {
                     await LoadLocalVersionsAsync();
                 }
@@ -315,20 +312,20 @@ namespace MusicalNoteLauncher.Windows
         {
             if (string.IsNullOrEmpty(_selectedVersionId))
             {
-                MessageBox.Show("请先选择一个版本！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("请先选择一个版本！", "提示");
                 return;
             }
 
             if (_isOfflineMode)
             {
-                MessageBox.Show("当前处于离线模式，无法下载新版本", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("当前处于离线模式，无法下载新版本", "提示");
                 return;
             }
 
             var selectedVersion = _allVersions.FirstOrDefault(v => v.Id == _selectedVersionId);
             if (selectedVersion == null)
             {
-                MessageBox.Show("未找到选中的版本信息", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("未找到选中的版本信息", "错误");
                 return;
             }
 
@@ -375,34 +372,34 @@ namespace MusicalNoteLauncher.Windows
                                 
                                 if (forgeSuccess)
                                 {
-                                    MessageBox.Show($"版本 {_selectedVersionId} 下载完成！\nForge {forgeVersion.Version} 安装成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                                    ModernMessageBox.ShowInfo($"版本 {_selectedVersionId} 下载完成！\nForge {forgeVersion.Version} 安装成功！", "成功");
                                 }
                                 else
                                 {
-                                    MessageBox.Show($"版本 {_selectedVersionId} 下载完成！\nForge 安装失败，请手动安装", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                                    ModernMessageBox.ShowWarning($"版本 {_selectedVersionId} 下载完成！\nForge 安装失败，请手动安装", "提示");
                                 }
                             }
                         }
                         else
                         {
-                            MessageBox.Show($"版本 {_selectedVersionId} 下载完成！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                            ModernMessageBox.ShowInfo($"版本 {_selectedVersionId} 下载完成！", "成功");
                         }
                         
                         await LoadVersionsAsync();
                     }
                     else
                     {
-                        MessageBox.Show($"版本 {_selectedVersionId} 下载失败:\n{result.ErrorMessage}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        ModernMessageBox.ShowError($"版本 {_selectedVersionId} 下载失败:\n{result.ErrorMessage}", "错误");
                     }
                 }
                 catch (OperationCanceledException)
                 {
-                    MessageBox.Show("下载已取消", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.ShowInfo("下载已取消", "提示");
                 }
                 catch (Exception ex)
                 {
                     Logger.Error($"下载失败: {ex.Message}");
-                    MessageBox.Show($"下载失败:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ModernMessageBox.ShowError($"下载失败:\n{ex.Message}", "错误");
                 }
                 finally
                 {
@@ -430,7 +427,7 @@ namespace MusicalNoteLauncher.Windows
             if (_loadingCts != null)
             {
                 _loadingCts.Cancel();
-                MessageBox.Show("已暂停下载", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("已暂停下载", "提示");
             }
         }
 

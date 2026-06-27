@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
@@ -12,6 +12,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.Windows;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -122,14 +123,14 @@ namespace MusicalNoteLauncher.Pages
 
             if (string.IsNullOrEmpty(_selectedMcVersion))
             {
-                MessageBox.Show("未选择游戏版本", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("未选择游戏版本", "错误");
                 AppContext.NavigateTo("GameVersions");
                 return;
             }
 
             if (string.IsNullOrEmpty(_selectedLoaderType))
             {
-                MessageBox.Show("未选择加载器类型", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("未选择加载器类型", "错误");
                 AppContext.NavigateTo("LoaderSelection");
                 return;
             }
@@ -288,7 +289,7 @@ namespace MusicalNoteLauncher.Pages
             {
                 pnlLoading.Visibility = Visibility.Collapsed;
                 txtInfo.Text = $"获取版本列表失败: {ex.Message}";
-                MessageBox.Show($"获取版本列表失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"获取版本列表失败: {ex.Message}", "错误");
             }
         }
 
@@ -384,8 +385,7 @@ namespace MusicalNoteLauncher.Pages
                 };
                 downloader.ShowDialog();
 
-                MessageBox.Show($"Minecraft {_selectedMcVersion} 原版下载完成！", "下载完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"Minecraft {_selectedMcVersion} 原版下载完成！", "下载完成");
             }
             finally
             {
@@ -422,13 +422,12 @@ namespace MusicalNoteLauncher.Pages
                 await VersionScanService.Instance.ScanAsync("Forge下载完成");
 
                 string forgeVerId = $"{_selectedMcVersion}-forge{forgeVer.ForgeVersion}";
-                MessageBox.Show($"Minecraft {_selectedMcVersion} + Forge {forgeVer.ForgeVersion} 下载安装完成！\n" +
-                    $"安装版本: {forgeVerId}", "下载完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"Minecraft {_selectedMcVersion} + Forge {forgeVer.ForgeVersion} 下载安装完成！\n" +
+                    $"安装版本: {forgeVerId}", "下载完成");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"下载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"下载失败: {ex.Message}", "错误");
             }
             finally
             {
@@ -463,13 +462,12 @@ namespace MusicalNoteLauncher.Pages
 
                 await VersionScanService.Instance.ScanAsync("Fabric下载完成");
 
-                MessageBox.Show($"Minecraft {_selectedMcVersion} + Fabric {fabricVer.LoaderVersion} 下载安装完成！\n" +
-                    $"安装版本: {fabricVer.VersionId}", "下载完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"Minecraft {_selectedMcVersion} + Fabric {fabricVer.LoaderVersion} 下载安装完成！\n" +
+                    $"安装版本: {fabricVer.VersionId}", "下载完成");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"下载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"下载失败: {ex.Message}", "错误");
             }
             finally
             {
@@ -504,13 +502,12 @@ namespace MusicalNoteLauncher.Pages
 
                 await VersionScanService.Instance.ScanAsync("NeoForge下载完成");
 
-                MessageBox.Show($"Minecraft {_selectedMcVersion} + NeoForge {neoForgeVer.NeoForgeVersion} 下载安装完成！\n" +
-                    $"安装版本: {neoForgeVer.VersionId}", "下载完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"Minecraft {_selectedMcVersion} + NeoForge {neoForgeVer.NeoForgeVersion} 下载安装完成！\n" +
+                    $"安装版本: {neoForgeVer.VersionId}", "下载完成");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"下载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"下载失败: {ex.Message}", "错误");
             }
             finally
             {
@@ -545,13 +542,12 @@ namespace MusicalNoteLauncher.Pages
 
                 await VersionScanService.Instance.ScanAsync("OptiFine下载完成");
 
-                MessageBox.Show($"Minecraft {_selectedMcVersion} + OptiFine {optiFineVer.Type} {optiFineVer.Patch} 已准备就绪！\n" +
-                    $"安装版本: {optiFineVer.VersionId}", "下载完成",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"Minecraft {_selectedMcVersion} + OptiFine {optiFineVer.Type} {optiFineVer.Patch} 已准备就绪！\n" +
+                    $"安装版本: {optiFineVer.VersionId}", "下载完成");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"下载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"下载失败: {ex.Message}", "错误");
             }
             finally
             {

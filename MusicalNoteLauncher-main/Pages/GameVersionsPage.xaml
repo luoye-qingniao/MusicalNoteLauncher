@@ -275,8 +275,110 @@
 		<Grid
 			Row="1"
 			Margin="20">
+			<Grid.RowDefinitions>
+				<RowDefinition Height="Auto"/>
+				<RowDefinition Height="*"/>
+			</Grid.RowDefinitions>
+
+			<!-- 筛选面板 —— PCL 风格 -->
+			<Border Grid.Row="0" Background="{DynamicResource CardHoverBrush}" CornerRadius="12" Padding="25,20,25,15" Margin="0,0,0,14">
+				<StackPanel>
+					<Grid Margin="0,0,0,10" HorizontalAlignment="Stretch">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="1.3*"/>
+							<ColumnDefinition Width="1.2*"/>
+							<ColumnDefinition Width="50"/>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="1*"/>
+						</Grid.ColumnDefinitions>
+						<Grid.RowDefinitions>
+							<RowDefinition Height="30"/>
+						</Grid.RowDefinitions>
+
+						<!-- 名称 -->
+						<TextBlock VerticalAlignment="Center" Text="名称" Margin="0,0,16,0"
+						           Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" FontFamily="Microsoft YaHei"/>
+						<Border Grid.Column="1" Grid.ColumnSpan="2" Height="30" Background="Transparent"
+						        BorderBrush="#444" BorderThickness="1" CornerRadius="6">
+							<Grid>
+								<Path Width="12" Margin="10,0,0,0" IsHitTestVisible="False" Height="12"
+								      Fill="{DynamicResource TextSecondaryBrush}" Stretch="Uniform" HorizontalAlignment="Left"
+								      Data="M675.9168 242.816C556.3008 123.2 362.4448 123.2 242.8288 242.816 123.2128 362.432 123.2128 556.288 242.8288 675.904 362.4448 795.52 556.3008 795.52 675.9168 675.904 795.5328 556.288 795.5328 362.432 675.9168 242.816L675.9168 242.816ZM1000.7168 892.48C1030.6048 922.368 1030.6048 970.816 1000.7168 1000.704 970.8288 1030.656 922.3808 1030.656 892.4288 1000.704L730.0608 838.336C728.1408 836.416 727.4368 833.92 725.7728 831.872 546.3168 960.448 295.7568 945.408 134.5408 784.192-44.8512 604.8-44.8512 313.92 134.5408 134.528 313.9328-44.864 604.8128-44.864 784.2048 134.528 945.4208 295.744 960.4608 546.304 831.8848 725.76 833.9328 727.424 836.4288 728.128 838.3488 730.048L1000.7168 892.48Z"/>
+								<TextBox x:Name="txtSearch" Padding="28,0,28,0" BorderThickness="0"
+								         Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
+								         FontSize="13" FontFamily="Microsoft YaHei" CaretBrush="{DynamicResource TextPrimaryBrush}"
+								         VerticalContentAlignment="Center" TextChanged="TxtSearch_TextChanged"
+								         KeyDown="TxtSearch_KeyDown" MaxLength="50"/>
+								<TextBlock Text="搜索版本 ID..." Padding="28,0,0,0"
+								           Foreground="{DynamicResource TextSecondaryBrush}" FontSize="13"
+								           FontFamily="Microsoft YaHei" VerticalAlignment="Center"
+								           IsHitTestVisible="False" x:Name="txtSearchHint"/>
+								<Button x:Name="btnSearchClear" Width="20" Height="20" Cursor="Hand"
+								        HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0"
+								        Opacity="0" IsHitTestVisible="False" Click="BtnSearchClear_Click"
+								        Background="Transparent" BorderThickness="0">
+									<Path Width="10" Height="10" Stretch="Uniform" Fill="{DynamicResource TextSecondaryBrush}"
+									      Data="F1 M2,0 L0,2 8,10 0,18 2,20 10,12 18,20 20,18 12,10 20,2 18,0 10,8 2,0Z"/>
+								</Button>
+							</Grid>
+						</Border>
+
+						<!-- 版本类型 -->
+						<TextBlock VerticalAlignment="Center" Grid.Column="4" Text="类型" Margin="0,0,16,0"
+						           Foreground="{DynamicResource TextPrimaryBrush}" FontSize="13" FontFamily="Microsoft YaHei"/>
+						<ComboBox x:Name="cmbVersionType" Grid.Column="5" Height="30" FontSize="13" FontFamily="Microsoft YaHei"
+						          Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+						          BorderBrush="#444" BorderThickness="1" SelectionChanged="Filter_SelectionChanged">
+							<ComboBoxItem Content="全部" Tag="" IsSelected="True"/>
+							<ComboBoxItem Content="release" Tag="release"/>
+							<ComboBoxItem Content="snapshot" Tag="snapshot"/>
+							<ComboBoxItem Content="old_alpha" Tag="old_alpha"/>
+							<ComboBoxItem Content="old_beta" Tag="old_beta"/>
+						</ComboBox>
+					</Grid>
+
+					<!-- 按钮行 -->
+					<Grid Height="35">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition Width="Auto"/>
+							<ColumnDefinition Width="Auto"/>
+						</Grid.ColumnDefinitions>
+						<Button x:Name="BtnSearchRun" Content="搜索" MinWidth="120" Padding="13,0" Margin="0,0,16,0"
+						        FontSize="13" FontWeight="SemiBold" FontFamily="Microsoft YaHei"
+						        Foreground="White" Cursor="Hand" Click="BtnSearchRun_Click">
+							<Button.Template>
+								<ControlTemplate TargetType="Button">
+									<Border x:Name="bd" CornerRadius="6" Padding="{TemplateBinding Padding}"
+									        Background="#2196F3" BorderThickness="0">
+										<Border.Effect>
+											<DropShadowEffect BlurRadius="6" ShadowDepth="2" Opacity="0.3" Color="#2196F3"/>
+										</Border.Effect>
+										<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+										                  TextElement.Foreground="White" TextElement.FontWeight="SemiBold"/>
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger Property="IsMouseOver" Value="True">
+											<Setter TargetName="bd" Property="Background" Value="#42A5F5"/>
+										</Trigger>
+										<Trigger Property="IsPressed" Value="True">
+											<Setter TargetName="bd" Property="Background" Value="#1565C0"/>
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Button.Template>
+						</Button>
+						<Button x:Name="BtnSearchReset" Content="重置条件" Grid.Column="1" MinWidth="120" Padding="13,0"
+						        FontSize="13" FontFamily="Microsoft YaHei" Cursor="Hand" Click="BtnSearchReset_Click"
+						        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+						        BorderBrush="#555" BorderThickness="1"/>
+					</Grid>
+				</StackPanel>
+			</Border>
+
 			<TabControl
 				Name="VersionTabControl"
+				Grid.Row="1"
 				Background="#00FFFFFF"
 				BorderThickness="0">
 				<FrameworkElement.Resources>

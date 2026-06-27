@@ -3,7 +3,7 @@
 	Background="#00FFFFFF" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<Grid>
 		<Border
-			Background="{StaticResource BackgroundBrush}" />
+			Background="{DynamicResource BackgroundBrush}" />
 		<Grid
 			Margin="0">
 			<Grid.RowDefinitions>
@@ -14,7 +14,7 @@
 			</Grid.RowDefinitions>
 			<Border
 				Grid.Row="0"
-				Background="{StaticResource CardBackgroundBrush}">
+				Background="{DynamicResource CardBackgroundBrush}">
 				<Grid
 					Margin="20,0">
 					<Grid.ColumnDefinitions>
@@ -32,13 +32,13 @@
 						<TextBlock
 							Text="♪"
 							FontSize="24"
-							Foreground="{StaticResource PrimaryBrush}"
+							Foreground="{DynamicResource PrimaryBrush}"
 							VerticalAlignment="Center"
 							FontWeight="Bold" />
 						<TextBlock
 							Text="MNL"
 							FontSize="16"
-							Foreground="{StaticResource TextPrimaryBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
 							VerticalAlignment="Center"
 							Margin="10,0,0,0"
 							FontWeight="SemiBold" />
@@ -48,7 +48,7 @@
 						Orientation="Horizontal"
 						VerticalAlignment="Center">
 						<Border
-							Background="{StaticResource SurfaceBrush}"
+							Background="{DynamicResource SurfaceBrush}"
 							CornerRadius="12"
 							Padding="12,6">
 							<StackPanel
@@ -57,7 +57,7 @@
 									Width="24"
 									Height="24"
 									CornerRadius="12"
-									Background="{StaticResource PrimaryBrush}"
+									Background="{DynamicResource PrimaryBrush}"
 									Padding="0"
 									VerticalAlignment="Center">
 									<Image
@@ -67,7 +67,7 @@
 								<TextBlock
 									Name="txtCurrentUser"
 									Text="Player"
-									Foreground="{StaticResource TextPrimaryBrush}"
+									Foreground="{DynamicResource TextPrimaryBrush}"
 									VerticalAlignment="Center"
 									Margin="10,0,0,0"
 									FontSize="14" />
@@ -103,13 +103,13 @@
 								<TextBlock
 									Text="Java 环境"
 									FontSize="16"
-									Foreground="{StaticResource TextPrimaryBrush}"
+									Foreground="{DynamicResource TextPrimaryBrush}"
 									FontWeight="SemiBold"
 									Margin="0,0,0,15" />
 								<TextBlock
 									Text="Java 路径"
 									FontSize="12"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									Margin="0,0,0,5" />
 								<Grid
 									Margin="0,0,0,15">
@@ -141,7 +141,7 @@
 								<TextBlock
 									Name="txtJavaStatus"
 									Text="未检测"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									FontSize="12" />
 							</StackPanel>
 						</Border>
@@ -152,8 +152,8 @@
 							<StackPanel>
 								<!-- [增量新增] 游戏类型切换 -->
 								<StackPanel Orientation="Horizontal" Margin="0,0,0,15">
-									<RadioButton x:Name="rbJava" Content="Java版" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,16,0" GroupName="GameType" Click="RbJava_Click"/>
-									<RadioButton x:Name="rbBedrock" Content="基岩版" Foreground="{StaticResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" GroupName="GameType" Click="RbBedrock_Click"/>
+									<RadioButton x:Name="rbJava" Content="Java版" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,16,0" GroupName="GameType" Click="RbJava_Click"/>
+									<RadioButton x:Name="rbBedrock" Content="基岩版" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" GroupName="GameType" Click="RbBedrock_Click"/>
 								</StackPanel>
 								<Grid
 									Margin="0,0,0,15" x:Name="panelJavaVersion">
@@ -169,7 +169,7 @@
 										Grid.Column="0"
 										Text="游戏版本"
 										FontSize="16"
-										Foreground="{StaticResource TextPrimaryBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										FontWeight="SemiBold" />
 									<Button
 										Grid.Column="1"
@@ -188,26 +188,26 @@
 								<TextBlock
 									Text="选择版本"
 									FontSize="12"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									Margin="0,0,0,5" x:Name="lblVersionSelect"/>
 								<ComboBox
 									Name="cmbGameVersion"
-									Background="{StaticResource SurfaceBrush}"
-									Foreground="{StaticResource TextPrimaryBrush}"
-									BorderBrush="{StaticResource BorderBrush}"
+									Background="{DynamicResource SurfaceBrush}"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									BorderBrush="{DynamicResource BorderBrush}"
 									Padding="12,10"
 									Margin="0,0,0,15"
 									SelectionChanged="CmbGameVersion_SelectionChanged" />
 								<!-- [增量新增] 基岩版离线用户名（基岩模式下显示） -->
 								<StackPanel x:Name="panelBedrockUser" Visibility="Collapsed" Margin="0,0,0,15">
-									<TextBlock Text="离线用户名" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+									<TextBlock Text="离线用户名" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
 									<TextBox x:Name="txtBedrockUsername" Style="{StaticResource ModernTextBox}" Text="Player"/>
 									<TextBlock Text="⚠ 离线模式不支持多人联机" FontSize="11" Foreground="#FF9800" Margin="0,4,0,0"/>
 								</StackPanel>
 								<TextBlock
 									Text="游戏目录"
 									FontSize="12"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									Margin="0,0,0,5" />
 								<Grid>
 									<Grid.ColumnDefinitions>
@@ -231,7 +231,7 @@
 								<TextBlock
 									Name="txtVersionStatus"
 									Text="请选择游戏版本"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									FontSize="12"
 									Margin="0,10,0,0" />
 							</StackPanel>
@@ -253,18 +253,18 @@
 								<TextBlock
 									Text="启动设置"
 									FontSize="16"
-									Foreground="{StaticResource TextPrimaryBrush}"
+									Foreground="{DynamicResource TextPrimaryBrush}"
 									FontWeight="SemiBold"
 									Margin="0,0,0,15" />
 								<TextBlock
 									FontSize="12"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									Margin="0,0,0,5">
 									<Run
 										Text="分配内存: " /> <Run
 										Name="txtMemoryValue"
 										Text="2048 MB"
-										Foreground="{StaticResource PrimaryBrush}" /></TextBlock>
+										Foreground="{DynamicResource PrimaryBrush}" /></TextBlock>
 								<Slider
 									Name="sliderMemory"
 									Minimum="512"
@@ -278,28 +278,28 @@
 									Margin="0,0,0,15">
 									<TextBlock
 										Text="512 MB"
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="10"
 										HorizontalAlignment="Left" />
 									<TextBlock
 										Text="8192 MB"
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="10"
 										HorizontalAlignment="Right" />
 								</Grid>
 								<TextBlock
 									Text="启动参数预览"
 									FontSize="12"
-									Foreground="{StaticResource TextSecondaryBrush}"
+									Foreground="{DynamicResource TextSecondaryBrush}"
 									Margin="0,0,0,5" />
 								<Border
-									Background="{StaticResource SurfaceBrush}"
+									Background="{DynamicResource SurfaceBrush}"
 									CornerRadius="4"
 									Padding="10">
 									<TextBlock
 										Name="txtLaunchPreview"
 										Text="-Xmx2048M -Xms2048M ..."
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										FontSize="11"
 										TextWrapping="Wrap" />
 								</Border>
@@ -313,7 +313,7 @@
 								<TextBlock
 									Text="账号信息"
 									FontSize="16"
-									Foreground="{StaticResource TextPrimaryBrush}"
+									Foreground="{DynamicResource TextPrimaryBrush}"
 									FontWeight="SemiBold"
 									Margin="0,0,0,15" />
 								<Grid
@@ -326,13 +326,13 @@
 									</Grid.ColumnDefinitions>
 									<TextBlock
 										Text="用户名:"
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										VerticalAlignment="Center" />
 									<TextBlock
 										Name="txtAccountUser"
 										Grid.Column="1"
 										Text="Player"
-										Foreground="{StaticResource TextPrimaryBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
 										VerticalAlignment="Center" />
 								</Grid>
 								<Grid
@@ -345,13 +345,13 @@
 									</Grid.ColumnDefinitions>
 									<TextBlock
 										Text="游戏模式:"
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										VerticalAlignment="Center" />
 									<TextBlock
 										Name="txtGameMode"
 										Grid.Column="1"
 										Text="离线模式"
-										Foreground="{StaticResource PrimaryBrush}"
+										Foreground="{DynamicResource PrimaryBrush}"
 										VerticalAlignment="Center" />
 								</Grid>
 								<Grid
@@ -364,13 +364,13 @@
 									</Grid.ColumnDefinitions>
 									<TextBlock
 										Text="游戏目录:"
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										VerticalAlignment="Center" />
 									<TextBlock
 										Name="txtMinecraftDir"
 										Grid.Column="1"
 										Text=".minecraft"
-										Foreground="{StaticResource TextSecondaryBrush}"
+										Foreground="{DynamicResource TextSecondaryBrush}"
 										VerticalAlignment="Center"
 										TextTrimming="CharacterEllipsis" />
 								</Grid>
@@ -398,4 +398,3 @@
 		</Grid>
 	</Grid>
 </UserControl>
-

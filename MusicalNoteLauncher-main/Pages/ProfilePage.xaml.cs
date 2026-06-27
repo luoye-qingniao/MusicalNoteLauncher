@@ -1,4 +1,4 @@
-using System;
+﻿﻿using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
@@ -48,8 +48,10 @@ namespace MusicalNoteLauncher.Pages
 
         public ProfilePage(string username, bool isOfflineMode) : this()
         {
+            txtQingniaoName.Text = MusicalNoteLauncher.AppContext.QingniaoName ?? username;
             txtUsername.Text = username;
             txtLoginMode.Text = isOfflineMode ? "离线模式" : "正版模式";
+            txtQingniaoId.Text = MusicalNoteLauncher.AppContext.QingniaoId ?? "0000000000";
             // 青鸟账号页使用用户自定义头像（AvatarImage），而非 MC 皮肤头部立雕
             if (imgQingniaoHead != null)
                 imgQingniaoHead.Source = GetDefaultAvatarImage();
@@ -61,6 +63,9 @@ namespace MusicalNoteLauncher.Pages
             // 兜底：确保有一个默认头像图片展示
             if (imgQingniaoHead != null && imgQingniaoHead.Source == null)
                 imgQingniaoHead.Source = GetDefaultAvatarImage();
+            // 初始化青鸟ID显示
+            txtQingniaoId.Text = MusicalNoteLauncher.AppContext.QingniaoId ?? "--";
+            txtQingniaoName.Text = MusicalNoteLauncher.AppContext.QingniaoName ?? MusicalNoteLauncher.AppContext.Username ?? "Player";
             LoadGameAccounts();
         }
 
@@ -196,6 +201,104 @@ namespace MusicalNoteLauncher.Pages
 
         #region 青鸟账号按钮
 
+        /// <summary>编辑青鸟显示名称</summary>
+        private void BtnEditQingniaoName_Click(object sender, RoutedEventArgs e)
+        {
+            string currentName = txtQingniaoName.Text ?? "";
+
+            // 内联输入弹窗
+            var inputWindow = new Window
+            {
+                Title = "修改青鸟名字",
+                Width = 360, Height = 200,
+                WindowStartupLocation = WindowStartupLocation.CenterOwner,
+                Owner = Window.GetWindow(this),
+                WindowStyle = WindowStyle.None,
+                AllowsTransparency = true,
+                ResizeMode = ResizeMode.NoResize,
+                Background = Brushes.Transparent
+            };
+
+            var textPri = TryFindResource("TextPrimaryBrush") as Brush ?? Brushes.White;
+            var textSec = TryFindResource("TextSecondaryBrush") as Brush ?? Brushes.Gray;
+            var surfaceBg = TryFindResource("SurfaceBrush") as Brush ?? Brushes.Gray;
+            var cardBg = TryFindResource("CardBackgroundBrush") as Brush ?? Brushes.Black;
+            var borderBr = TryFindResource("BorderBrush") as Brush ?? Brushes.Gray;
+            var primaryBr = TryFindResource("PrimaryBrush") as Brush ?? Brushes.Blue;
+
+            var root = new Border { Background = cardBg, CornerRadius = new CornerRadius(12), BorderBrush = borderBr, BorderThickness = new Thickness(1), Margin = new Thickness(4) };
+            var stack = new StackPanel { Margin = new Thickness(20) };
+
+            stack.Children.Add(new TextBlock { Text = "修改青鸟名字", FontSize = 16, FontWeight = FontWeights.SemiBold, Foreground = textPri, FontFamily = new FontFamily("Microsoft YaHei"), Margin = new Thickness(0, 0, 0, 12) });
+
+            var txtInput = new TextBox { Text = currentName, FontSize = 14, Padding = new Thickness(10, 8, 10, 8), Background = surfaceBg, Foreground = textPri, BorderBrush = borderBr, BorderThickness = new Thickness(1), FontFamily = new FontFamily("Microsoft YaHei"), Margin = new Thickness(0, 0, 0, 14) };
+            txtInput.SelectAll();
+            txtInput.Focus();
+            stack.Children.Add(txtInput);
+
+            var btnRow = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+            var cancelBtn = new Button { Content = "取消", FontSize = 13, Padding = new Thickness(18, 7, 18, 7), Foreground = textPri, Background = Brushes.Transparent, BorderBrush = borderBr, BorderThickness = new Thickness(1), Cursor = Cursors.Hand, Margin = new Thickness(0, 0, 8, 0), FontFamily = new FontFamily("Microsoft YaHei") };
+            cancelBtn.Style = CreateRoundedButtonStyle(cancelBtn, Brushes.Transparent, borderBr);
+            cancelBtn.Click += (s2, ev2) => { inputWindow.DialogResult = false; inputWindow.Close(); };
+            btnRow.Children.Add(cancelBtn);
+
+            var okBtn = new Button { Content = "确定", FontSize = 13, Padding = new Thickness(18, 7, 18, 7), Foreground = Brushes.White, Background = primaryBr, BorderThickness = new Thickness(0), Cursor = Cursors.Hand, FontFamily = new FontFamily("Microsoft YaHei") };
+            okBtn.Style = CreateRoundedButtonStyle(okBtn, primaryBr, null);
+            okBtn.Click += (s2, ev2) => { inputWindow.Tag = txtInput.Text; inputWindow.DialogResult = true; inputWindow.Close(); };
+            btnRow.Children.Add(okBtn);
+            stack.Children.Add(btnRow);
+            root.Child = stack;
+            inputWindow.Content = root;
+
+            // 回车确认
+            txtInput.KeyDown += (s2, ev2) => { if (ev2.Key == System.Windows.Input.Key.Enter) { inputWindow.Tag = txtInput.Text; inputWindow.DialogResult = true; inputWindow.Close(); } };
+
+            if (inputWindow.ShowDialog() == true)
+            {
+                string newName = (inputWindow.Tag as string)?.Trim() ?? "";
+                if (!string.IsNullOrWhiteSpace(newName))
+                {
+                    if (newName.Length < 2 || newName.Length > 24)
+                    {
+                        ModernMessageBox.ShowWarning("名字长度应在2-24个字符之间", "提示");
+                        return;
+                    }
+                    AppContext.SetQingniaoName(newName);
+                    txtQingniaoName.Text = newName;
+                }
+            }
+        }
+
+        /// <summary>创建圆角按钮 Style</summary>
+        private static Style CreateRoundedButtonStyle(Button btn, Brush bg, Brush border)
+        {
+            var style = new Style(typeof(Button));
+            var template = new ControlTemplate(typeof(Button));
+            var borderElem = new FrameworkElementFactory(typeof(Border));
+            borderElem.Name = "border";
+            borderElem.SetValue(Border.BackgroundProperty, bg);
+            borderElem.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            if (border != null) borderElem.SetValue(Border.BorderBrushProperty, border);
+            borderElem.SetValue(Border.BorderThicknessProperty, new Thickness(1));
+            borderElem.SetValue(Border.PaddingProperty, btn.Padding);
+            var contentPresenter = new FrameworkElementFactory(typeof(ContentPresenter));
+            contentPresenter.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            contentPresenter.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            borderElem.AppendChild(contentPresenter);
+            template.VisualTree = borderElem;
+
+            var hoverTrigger = new Trigger { Property = UIElement.IsMouseOverProperty, Value = true };
+            hoverTrigger.Setters.Add(new Setter(Border.BackgroundProperty, border, "border"));
+            template.Triggers.Add(hoverTrigger);
+
+            var pressedTrigger = new Trigger { Property = Button.IsPressedProperty, Value = true };
+            pressedTrigger.Setters.Add(new Setter(Border.BackgroundProperty, border, "border"));
+            template.Triggers.Add(pressedTrigger);
+
+            style.Setters.Add(new Setter(Button.TemplateProperty, template));
+            return style;
+        }
+
         private void BtnEditSkin_Click(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button btn && btn.Tag is GameAccount account)) return;
@@ -212,11 +315,21 @@ namespace MusicalNoteLauncher.Pages
                 if (dialog.IsDefault)
                 {
                     DeleteCustomSkin(account);
+                    DeleteCustomCape(account);
                     PCL.Account.Settings.Set($"SkinSlim_{account.Uuid}", dialog.IsSlim);
                 }
                 else if (!string.IsNullOrEmpty(dialog.SkinFilePath))
                 {
                     SaveCustomSkin(account, dialog.SkinFilePath, dialog.IsSlim);
+                    // 保存披风 (如果有)
+                    if (!string.IsNullOrEmpty(dialog.CapeFilePath) && File.Exists(dialog.CapeFilePath))
+                    {
+                        SaveCustomCape(account, dialog.CapeFilePath);
+                    }
+                    else
+                    {
+                        DeleteCustomCape(account);
+                    }
                 }
 
                 LoadAccountHeadImage(account);
@@ -237,14 +350,14 @@ namespace MusicalNoteLauncher.Pages
 
             try
             {
-                string username = AppContext.Username ?? "player";
+                string uid = MusicalNoteLauncher.AppContext.QingniaoId ?? "player";
 
                 // avatars 目录
                 string avatarsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "avatars");
                 if (!Directory.Exists(avatarsDir))
                     Directory.CreateDirectory(avatarsDir);
 
-                string targetFile = Path.Combine(avatarsDir, $"{username}.png");
+                string targetFile = Path.Combine(avatarsDir, $"{uid}.png");
 
                 // 方法 A：直接拷贝源文件到目标位置（若源是 PNG 可直接拷贝，否则解码后再编码成 PNG）
                 string ext = Path.GetExtension(dlg.FileName)?.ToLower() ?? "";
@@ -297,7 +410,7 @@ namespace MusicalNoteLauncher.Pages
             }
             catch (Exception ex)
             {
-                MessageBox.Show("头像加载失败：" + ex.Message, "提示", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("头像加载失败：" + ex.Message, "提示");
             }
         }
 
@@ -307,8 +420,8 @@ namespace MusicalNoteLauncher.Pages
             try
             {
                 string exeDir = AppDomain.CurrentDomain.BaseDirectory;
-                string username = AppContext.Username ?? "player";
-                string avatarFile = Path.Combine(exeDir, "avatars", username + ".png");
+                string uid = MusicalNoteLauncher.AppContext.QingniaoId ?? "player";
+                string avatarFile = Path.Combine(exeDir, "avatars", uid + ".png");
 
                 // 已有自定义头像 → 直接加载
                 if (File.Exists(avatarFile))
@@ -344,17 +457,17 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnQuickStart_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("快速开始功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            ModernMessageBox.ShowInfo("快速开始功能开发中...", "提示");
         }
 
         private void BtnBrowseMods_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("浏览模组功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            ModernMessageBox.ShowInfo("浏览模组功能开发中...", "提示");
         }
 
         private void BtnGameSettings_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("游戏设置功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            ModernMessageBox.ShowInfo("游戏设置功能开发中...", "提示");
         }
 
         /// <summary>
@@ -380,17 +493,17 @@ namespace MusicalNoteLauncher.Pages
 
                 if (string.IsNullOrWhiteSpace(name))
                 {
-                    MessageBox.Show("玩家名称不能为空", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("玩家名称不能为空", "提示");
                     return;
                 }
                 if (name.Length < 3 || name.Length > 16)
                 {
-                    MessageBox.Show("用户名长度需要在3-16个字符之间", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("用户名长度需要在3-16个字符之间", "提示");
                     return;
                 }
                 if (_gameAccounts.Any(a => a.Type == AccountType.Offline && a.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
                 {
-                    MessageBox.Show("已存在同名离线账号", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("已存在同名离线账号", "提示");
                     return;
                 }
 
@@ -450,16 +563,16 @@ namespace MusicalNoteLauncher.Pages
                     _gameAccounts.Insert(0, account);
                     SelectAccount(account);
 
-                    MessageBox.Show($"微软账号 {result.UserName} 登录成功！", "登录成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.ShowInfo($"微软账号 {result.UserName} 登录成功！", "登录成功");
                 }
             }
             catch (MsAuthException ex)
             {
-                MessageBox.Show(ex.Message, "登录失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError(ex.Message, "登录失败");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("登录失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("登录失败: " + ex.Message, "错误");
             }
             finally
             {
@@ -561,14 +674,14 @@ namespace MusicalNoteLauncher.Pages
 
                 if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(server))
                 {
-                    MessageBox.Show("玩家名称和认证服务器地址不能为空", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("玩家名称和认证服务器地址不能为空", "提示");
                     return;
                 }
                 if (_gameAccounts.Any(a => a.Type == AccountType.AuthlibInjector &&
                     a.Name.Equals(name, StringComparison.OrdinalIgnoreCase) &&
                     a.AuthServer == server))
                 {
-                    MessageBox.Show("已存在相同的外置登录账号", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("已存在相同的外置登录账号", "提示");
                     return;
                 }
 
@@ -605,13 +718,9 @@ namespace MusicalNoteLauncher.Pages
 
             if (account != null)
             {
-                var result = MessageBox.Show(
+                if (ModernMessageBox.ShowYesNo(
                     $"确定要删除账号 \"{account.Name}\" 吗？\n此操作不可撤销。",
-                    "确认删除",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning);
-
-                if (result == MessageBoxResult.Yes)
+                    "确认删除"))
                 {
                     string loginType;
                     switch (account.Type)
@@ -678,8 +787,10 @@ namespace MusicalNoteLauncher.Pages
                 AccountManager.SetLoginType(loginType);
 
                 // 同步到青鸟账号页
+                txtQingniaoName.Text = MusicalNoteLauncher.AppContext.QingniaoName ?? account.Name;
                 txtUsername.Text = account.Name;
                 txtLoginMode.Text = account.TypeDisplay + "模式";
+                txtQingniaoId.Text = MusicalNoteLauncher.AppContext.QingniaoId ?? "0000000000";
                 if (imgQingniaoHead != null)
                     imgQingniaoHead.Source = account.AvatarImage ?? GetDefaultAvatarImage();
 
@@ -756,6 +867,31 @@ namespace MusicalNoteLauncher.Pages
             }
             catch { }
             PCL.Account.Settings.Set($"SkinSlim_{account.Uuid}", false);
+        }
+
+        private void SaveCustomCape(GameAccount account, string sourceFile)
+        {
+            string skinsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
+            if (!Directory.Exists(skinsDir))
+                Directory.CreateDirectory(skinsDir);
+
+            string destFile = Path.Combine(skinsDir, $"{account.Uuid}_cape.png");
+            try
+            {
+                File.Copy(sourceFile, destFile, true);
+            }
+            catch { }
+        }
+
+        private void DeleteCustomCape(GameAccount account)
+        {
+            string capeFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins", $"{account.Uuid}_cape.png");
+            try
+            {
+                if (File.Exists(capeFile))
+                    File.Delete(capeFile);
+            }
+            catch { }
         }
 
         /// <summary>
@@ -928,11 +1064,7 @@ namespace MusicalNoteLauncher.Pages
         /// </summary>
         private string GenerateOfflineUuid(string username)
         {
-            using (var md5 = System.Security.Cryptography.MD5.Create())
-            {
-                byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes("OfflinePlayer:" + username));
-                return BitConverter.ToString(hash).Replace("-", "").ToLower();
-            }
+            return SkinServer.GenerateOfflineUuid(username);
         }
 
         #endregion
@@ -1364,11 +1496,7 @@ namespace MusicalNoteLauncher.Pages
 
         private static string GenerateOfflineUuidStatic(string username)
         {
-            using (var md5 = System.Security.Cryptography.MD5.Create())
-            {
-                byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes("OfflinePlayer:" + username));
-                return BitConverter.ToString(hash).Replace("-", "").ToLower();
-            }
+            return SkinServer.GenerateOfflineUuid(username);
         }
     }
 
@@ -1587,6 +1715,7 @@ namespace MusicalNoteLauncher.Pages
     public class SkinEditDialog : Window
     {
         public string SkinFilePath { get; private set; }
+        public string CapeFilePath { get; private set; }
         public bool IsSlim { get; private set; }
         public bool IsDefault { get; private set; }
 
@@ -1616,6 +1745,13 @@ namespace MusicalNoteLauncher.Pages
         private enum SkinSource { Default, Steve, Alex, LocalFile, LittleSkin, CslApi }
         private SkinSource _currentSource;
 
+        // 主题刷子（类成员，供构造函和辅助方法共用）
+        private Brush _textPri;
+        private Brush _textSec;
+        private Brush _surfaceBg;
+        private Brush _borderBr;
+        private Brush _cardBg;
+
         public SkinEditDialog(string accountName, string existingSkinFile, bool isSlim)
         {
             Title = "编辑皮肤 - " + accountName;
@@ -1627,6 +1763,12 @@ namespace MusicalNoteLauncher.Pages
             Background = Brushes.Transparent;
             ResizeMode = ResizeMode.NoResize;
             Topmost = false;
+
+            _textPri = (Brush)FindResource("TextPrimaryBrush");
+            _textSec = (Brush)FindResource("TextSecondaryBrush");
+            _surfaceBg = (Brush)FindResource("SurfaceBrush");
+            _borderBr = (Brush)FindResource("BorderBrush");
+            _cardBg = (Brush)FindResource("CardBackgroundBrush");
 
             _currentSkinFile = existingSkinFile;
             _selectedSkinFile = existingSkinFile;
@@ -1656,7 +1798,7 @@ namespace MusicalNoteLauncher.Pages
                 Text = "编辑皮肤 - " + accountName,
                 FontSize = 16,
                 FontWeight = FontWeights.Bold,
-                Foreground = Brushes.White,
+                Foreground = _textPri,
                 FontFamily = new FontFamily("Microsoft YaHei")
             };
             Grid.SetRow(title, 0);
@@ -1691,12 +1833,12 @@ namespace MusicalNoteLauncher.Pages
             Grid.SetColumn(previewBorder, 0);
             var previewGrid = new Grid();
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(4) });
+            previewGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             previewGrid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
             var lblPreview = new TextBlock
             {
                 Text = "3D 预览",
-                Foreground = Brushes.White,
+                Foreground = _textPri,
                 FontSize = 12,
                 FontWeight = FontWeights.SemiBold,
                 FontFamily = new FontFamily("Microsoft YaHei"),
@@ -1704,6 +1846,44 @@ namespace MusicalNoteLauncher.Pages
             };
             Grid.SetRow(lblPreview, 0);
             previewGrid.Children.Add(lblPreview);
+
+            // 背景颜色切换按钮
+            var bgSwatchPanel = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                Margin = new Thickness(0, 2, 0, 2)
+            };
+            var bgColors = new[]
+            {
+                new { Color = (Color)ColorConverter.ConvertFromString("#2D2D2D"), Tip = "深灰" },
+                new { Color = (Color)ColorConverter.ConvertFromString("#808080"), Tip = "灰色" },
+                new { Color = (Color)ColorConverter.ConvertFromString("#C0C0C0"), Tip = "浅灰" },
+                new { Color = (Color)ColorConverter.ConvertFromString("#F0F0F0"), Tip = "白色" },
+                new { Color = (Color)ColorConverter.ConvertFromString("#00FF00"), Tip = "绿幕" },
+                new { Color = (Color)ColorConverter.ConvertFromString("#4488FF"), Tip = "蓝色" }
+            };
+            foreach (var c in bgColors)
+            {
+                var swatch = new Border
+                {
+                    Width = 18,
+                    Height = 18,
+                    CornerRadius = new CornerRadius(3),
+                    Background = new SolidColorBrush(c.Color),
+                    BorderBrush = _borderBr,
+                    BorderThickness = new Thickness(1),
+                    Margin = new Thickness(2, 0, 2, 0),
+                    Cursor = Cursors.Hand,
+                    ToolTip = c.Tip
+                };
+                var colorCopy = c.Color;
+                swatch.MouseLeftButtonDown += (s, e) => _skin3dViewer.SetBackground(colorCopy);
+                bgSwatchPanel.Children.Add(swatch);
+            }
+            Grid.SetRow(bgSwatchPanel, 1);
+            previewGrid.Children.Add(bgSwatchPanel);
+
             _skin3dViewer = new Skin3DViewer();
             Grid.SetRow(_skin3dViewer, 2);
             previewGrid.Children.Add(_skin3dViewer);
@@ -1712,7 +1892,7 @@ namespace MusicalNoteLauncher.Pages
 
             var rightBorder = new Border
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#1A1A1A")),
+                Background = _surfaceBg,
                 CornerRadius = new CornerRadius(8),
                 Padding = new Thickness(12),
                 VerticalAlignment = VerticalAlignment.Stretch
@@ -1723,7 +1903,7 @@ namespace MusicalNoteLauncher.Pages
 
             Action<RadioButton> rbStyle = (rb) =>
             {
-                rb.Foreground = Brushes.White;
+                rb.Foreground = _textPri;
                 rb.FontFamily = new FontFamily("Microsoft YaHei");
                 rb.FontSize = 13;
                 rb.Margin = new Thickness(0, 0, 0, 8);
@@ -1765,7 +1945,7 @@ namespace MusicalNoteLauncher.Pages
             _dynamicPanel = new Border
             {
                 Margin = new Thickness(0, 8, 0, 0),
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#222222")),
+                Background = _surfaceBg,
                 CornerRadius = new CornerRadius(6),
                 Padding = new Thickness(10),
                 Child = (_dynamicStack = new StackPanel())
@@ -1783,7 +1963,7 @@ namespace MusicalNoteLauncher.Pages
             _lblStatus = new TextBlock
             {
                 Text = "",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#888888")),
+                Foreground = _textSec,
                 FontSize = 11,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Margin = new Thickness(0, 8, 0, 0),
@@ -1815,7 +1995,7 @@ namespace MusicalNoteLauncher.Pages
             var border_btnLittleLink = new Border
             {
                 CornerRadius = new CornerRadius(4),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderBrush = _borderBr,
                 BorderThickness = new Thickness(1),
                 Child = btnLittleLink
             };
@@ -1832,8 +2012,8 @@ namespace MusicalNoteLauncher.Pages
                 Width = 90,
                 Height = 36,
                 Margin = new Thickness(0, 0, 10, 0),
-                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
-                Foreground = Brushes.White,
+                Background = _surfaceBg,
+                Foreground = _textPri,
                 FontSize = 13,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Cursor = Cursors.Hand
@@ -1841,7 +2021,7 @@ namespace MusicalNoteLauncher.Pages
             var border_btnCancel = new Border
             {
                 CornerRadius = new CornerRadius(4),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderBrush = _borderBr,
                 BorderThickness = new Thickness(1),
                 Child = btnCancel
             };
@@ -1863,7 +2043,7 @@ namespace MusicalNoteLauncher.Pages
             var border_btnOk = new Border
             {
                 CornerRadius = new CornerRadius(4),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderBrush = _borderBr,
                 BorderThickness = new Thickness(1),
                 Child = btnOk
             };
@@ -1901,7 +2081,7 @@ namespace MusicalNoteLauncher.Pages
             var lblModel = new TextBlock
             {
                 Text = "模型",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC")),
+                Foreground = _textSec,
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Margin = new Thickness(0, 0, 0, 4)
@@ -1910,8 +2090,8 @@ namespace MusicalNoteLauncher.Pages
 
             _modelCombo = new ComboBox
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")),
-                Foreground = Brushes.White,
+                Background = _surfaceBg,
+                Foreground = _textPri,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 FontSize = 12,
                 Height = 28,
@@ -1931,7 +2111,7 @@ namespace MusicalNoteLauncher.Pages
             var lblSkin = new TextBlock
             {
                 Text = "皮肤",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC")),
+                Foreground = _textSec,
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Margin = new Thickness(0, 0, 0, 4)
@@ -1953,8 +2133,8 @@ namespace MusicalNoteLauncher.Pages
             var btnPickSkin = new Button
             {
                 Content = "浏览",
-                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
-                Foreground = Brushes.White,
+                Background = _surfaceBg,
+                Foreground = _textPri,
                 Padding = new Thickness(12, 4, 12, 4),
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
@@ -1976,7 +2156,7 @@ namespace MusicalNoteLauncher.Pages
             var lblCape = new TextBlock
             {
                 Text = "披风",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#CCCCCC")),
+                Foreground = _textSec,
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Margin = new Thickness(0, 10, 0, 4)
@@ -1998,8 +2178,8 @@ namespace MusicalNoteLauncher.Pages
             var btnPickCape = new Button
             {
                 Content = "浏览",
-                Background = (Brush)Application.Current.FindResource("SurfaceBrush"),
-                Foreground = Brushes.White,
+                Background = _surfaceBg,
+                Foreground = _textPri,
                 Padding = new Thickness(12, 4, 12, 4),
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
@@ -2009,7 +2189,7 @@ namespace MusicalNoteLauncher.Pages
             var border_btnPickCape = new Border
             {
                 CornerRadius = new CornerRadius(4),
-                BorderBrush = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")),
+                BorderBrush = _borderBr,
                 BorderThickness = new Thickness(1),
                 Child = btnPickCape
             };
@@ -2027,7 +2207,7 @@ namespace MusicalNoteLauncher.Pages
             var hint = new TextBlock
             {
                 Text = "在 https://littleskin.cn 上上传并管理皮肤",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB")),
+                Foreground = _textSec,
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 TextWrapping = TextWrapping.Wrap,
@@ -2043,7 +2223,7 @@ namespace MusicalNoteLauncher.Pages
             var hint = new TextBlock
             {
                 Text = "请输入 CSL API 基础 URL（当前版本仍需通过本地文件路径来应用皮肤）",
-                Foreground = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#BBBBBB")),
+                Foreground = _textSec,
                 FontSize = 12,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 TextWrapping = TextWrapping.Wrap,
@@ -2053,8 +2233,8 @@ namespace MusicalNoteLauncher.Pages
 
             var urlBox = new TextBox
             {
-                Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")),
-                Foreground = Brushes.White,
+                Background = _surfaceBg,
+                Foreground = _textPri,
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 FontSize = 12,
                 Height = 28,
@@ -2068,12 +2248,15 @@ namespace MusicalNoteLauncher.Pages
 
         private static Style BuildDarkComboBoxStyle()
         {
+            var bgBrush = (Brush)Application.Current.FindResource("SurfaceBrush");
+            var fgBrush = (Brush)Application.Current.FindResource("TextPrimaryBrush");
+            var borderBrush = (Brush)Application.Current.FindResource("BorderBrush");
+            var cbBg = (Brush)Application.Current.FindResource("CardBackgroundBrush");
+
             var style = new Style(typeof(ComboBox));
-            style.Setters.Add(new Setter(Control.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E"))));
-            style.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
-            style.Setters.Add(new Setter(Control.BorderBrushProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A"))));
+            style.Setters.Add(new Setter(Control.BackgroundProperty, bgBrush));
+            style.Setters.Add(new Setter(Control.ForegroundProperty, fgBrush));
+            style.Setters.Add(new Setter(Control.BorderBrushProperty, borderBrush));
             style.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(1)));
             style.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(4, 2, 4, 2)));
             style.Setters.Add(new Setter(ComboBox.HorizontalContentAlignmentProperty,
@@ -2082,9 +2265,8 @@ namespace MusicalNoteLauncher.Pages
                 VerticalAlignment.Center));
 
             var itemStyle = new Style(typeof(ComboBoxItem));
-            itemStyle.Setters.Add(new Setter(Control.BackgroundProperty,
-                (Brush)Application.Current.FindResource("CardBackgroundBrush")));
-            itemStyle.Setters.Add(new Setter(Control.ForegroundProperty, Brushes.White));
+            itemStyle.Setters.Add(new Setter(Control.BackgroundProperty, cbBg));
+            itemStyle.Setters.Add(new Setter(Control.ForegroundProperty, fgBrush));
             itemStyle.Setters.Add(new Setter(Control.BorderThicknessProperty, new Thickness(0)));
             itemStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(4, 2, 4, 2)));
             var itemHoverTrigger = new Trigger
@@ -2101,7 +2283,7 @@ namespace MusicalNoteLauncher.Pages
                 Value = true
             };
             itemSelectedTrigger.Setters.Add(new Setter(Control.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A"))));
+                (Brush)Application.Current.FindResource("CardHoverBrush")));
             itemStyle.Triggers.Add(itemSelectedTrigger);
             style.Setters.Add(new Setter(ComboBox.ItemContainerStyleProperty, itemStyle));
 
@@ -2109,10 +2291,8 @@ namespace MusicalNoteLauncher.Pages
 
             var rootBorderFactory = new FrameworkElementFactory(typeof(Border), "templateRoot");
             rootBorderFactory.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
-            rootBorderFactory.SetValue(Border.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")));
-            rootBorderFactory.SetValue(Border.BorderBrushProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4A4A4A")));
+            rootBorderFactory.SetValue(Border.BackgroundProperty, bgBrush);
+            rootBorderFactory.SetValue(Border.BorderBrushProperty, borderBrush);
             rootBorderFactory.SetValue(Border.BorderThicknessProperty, new Thickness(1));
             rootBorderFactory.SetValue(Border.SnapsToDevicePixelsProperty, true);
             template.VisualTree = rootBorderFactory;
@@ -2143,9 +2323,8 @@ namespace MusicalNoteLauncher.Pages
             toggleButtonFactory.SetValue(ToggleButton.FocusableProperty, false);
             toggleButtonFactory.SetValue(ToggleButton.IsCheckedProperty,
                 new Binding("IsDropDownOpen") { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) });
-            toggleButtonFactory.SetValue(Control.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")));
-            toggleButtonFactory.SetValue(Control.ForegroundProperty, Brushes.White);
+            toggleButtonFactory.SetValue(Control.BackgroundProperty, bgBrush);
+            toggleButtonFactory.SetValue(Control.ForegroundProperty, fgBrush);
             toggleButtonFactory.SetValue(Control.BorderThicknessProperty, new Thickness(0));
             toggleButtonFactory.SetValue(Control.PaddingProperty, new Thickness(4, 0, 4, 0));
             toggleButtonFactory.SetValue(FrameworkElement.MinWidthProperty, 18.0);
@@ -2153,15 +2332,14 @@ namespace MusicalNoteLauncher.Pages
 
             var toggleTemplate = new ControlTemplate(typeof(ToggleButton));
             var toggleBorder = new FrameworkElementFactory(typeof(Border));
-            toggleBorder.SetValue(Border.BackgroundProperty,
-                new SolidColorBrush((Color)ColorConverter.ConvertFromString("#2E2E2E")));
+            toggleBorder.SetValue(Border.BackgroundProperty, bgBrush);
             toggleBorder.SetValue(Border.CornerRadiusProperty, new CornerRadius(0, 4, 4, 0));
             toggleBorder.SetValue(Border.BorderThicknessProperty, new Thickness(0));
             toggleTemplate.VisualTree = toggleBorder;
 
             var pathFactory = new FrameworkElementFactory(typeof(System.Windows.Shapes.Path));
             pathFactory.SetValue(System.Windows.Shapes.Path.DataProperty, Geometry.Parse("M 0,0 L 4,4 L 8,0 Z"));
-            pathFactory.SetValue(System.Windows.Shapes.Shape.FillProperty, Brushes.White);
+            pathFactory.SetValue(System.Windows.Shapes.Shape.FillProperty, fgBrush);
             pathFactory.SetValue(System.Windows.Shapes.Shape.StretchProperty, Stretch.None);
             pathFactory.SetValue(FrameworkElement.HorizontalAlignmentProperty,
                 HorizontalAlignment.Center);
@@ -2351,10 +2529,9 @@ namespace MusicalNoteLauncher.Pages
                     bool okSize = (frame.PixelWidth == 64 && (frame.PixelHeight == 32 || frame.PixelHeight == 64));
                     if (!okSize)
                     {
-                        var res = MessageBox.Show(
+                        if (!ModernMessageBox.ShowYesNo(
                             "所选图片不是标准尺寸。仍然继续使用吗？",
-                            "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                        if (res != MessageBoxResult.Yes)
+                            "提示"))
                             return;
                     }
                     _selectedSkinFile = filePath;
@@ -2394,22 +2571,25 @@ namespace MusicalNoteLauncher.Pages
             {
                 IsDefault = true;
                 SkinFilePath = null;
+                CapeFilePath = null;
             }
             else if (_currentSource == SkinSource.LocalFile)
             {
                 IsDefault = false;
                 if (string.IsNullOrEmpty(_selectedSkinFile) || !File.Exists(_selectedSkinFile))
                 {
-                    MessageBox.Show("请选择有效的皮肤文件", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ModernMessageBox.ShowWarning("请选择有效的皮肤文件", "提示");
                     return;
                 }
                 SkinFilePath = _selectedSkinFile;
+                CapeFilePath = _selectedCapeFile;
             }
             else
             {
                 IsDefault = false;
                 SkinFilePath = null;
-                MessageBox.Show("请选择默认或本地文件来应用皮肤", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                CapeFilePath = null;
+                ModernMessageBox.ShowInfo("请选择默认或本地文件来应用皮肤", "提示");
                 return;
             }
             DialogResult = true;

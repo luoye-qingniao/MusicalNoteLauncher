@@ -11,22 +11,24 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
+using MusicalNoteLauncher.Controls;
 using PCL.Account;
 
 namespace MusicalNoteLauncher.Pages
 {
     public partial class HomePage : UserControl
     {
-        private readonly GameLauncher _gameLauncher;
-        private readonly string _minecraftPath;
+        private GameLauncher _gameLauncher;
         private string _username;
         private bool _isOfflineMode;
         private SkinServer _skinServer;
 
+        private string _minecraftPath => AppContext.MinecraftPath;
+        private string _launcherMinecraftPath; // 记录 _gameLauncher 创建时使用的路径
+
         // 基岩版服务
         private BedrockEnhancedDownloadService _bedrockDownloadService;
         private BedrockOfflineLauncher _bedrockOfflineLauncher;
-        private List<BedrockVersionInfo> _bedrockVersionList = new List<BedrockVersionInfo>();
         private bool _isBedrockMode;
         private bool _isSwitchingType;
 
@@ -45,10 +47,10 @@ namespace MusicalNoteLauncher.Pages
             
             _username = AppContext.Username ?? "Player";
             _isOfflineMode = AppContext.IsOfflineMode;
-            _minecraftPath = AppContext.MinecraftPath;
 
-            var javaConfig = new JavaConfigManager(_minecraftPath);
-            _gameLauncher = new GameLauncher(_minecraftPath, javaConfig);
+            _launcherMinecraftPath = AppContext.MinecraftPath;
+            var javaConfig = new JavaConfigManager(_launcherMinecraftPath);
+            _gameLauncher = new GameLauncher(_launcherMinecraftPath, javaConfig);
             _bedrockDownloadService = new BedrockEnhancedDownloadService(_minecraftPath);
             _bedrockOfflineLauncher = new BedrockOfflineLauncher(_minecraftPath);
             _modrinthApi = new ModrinthApiService();
@@ -57,6 +59,29 @@ namespace MusicalNoteLauncher.Pages
             // 监听账号变更，同步昵称下拉框
             AppContext.AccountChanged += OnAccountChanged;
 
+            WireGameLauncherEvents();
+
+            Loaded += OnLoaded;
+            IsVisibleChanged += OnVisibleChanged;
+        }
+
+        private void OnVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue && _launcherMinecraftPath != AppContext.MinecraftPath)
+            {
+                _launcherMinecraftPath = AppContext.MinecraftPath;
+                var javaConfig = new JavaConfigManager(_launcherMinecraftPath);
+                _gameLauncher = new GameLauncher(_launcherMinecraftPath, javaConfig);
+                _bedrockDownloadService = new BedrockEnhancedDownloadService(_launcherMinecraftPath);
+                _bedrockOfflineLauncher = new BedrockOfflineLauncher(_launcherMinecraftPath);
+                WireGameLauncherEvents();
+                LoadInstalledVersions();
+                Logger.Info($"[HomePage] 游戏目录已变更，已刷新启动器: {_launcherMinecraftPath}");
+            }
+        }
+
+        private void WireGameLauncherEvents()
+        {
             _gameLauncher.LaunchStatusChanged += (status) =>
             {
                 Dispatcher.Invoke(() =>
@@ -92,8 +117,6 @@ namespace MusicalNoteLauncher.Pages
                     }
                 });
             };
-
-            Loaded += OnLoaded;
         }
 
         private void OnLoaded(object sender, RoutedEventArgs e)
@@ -218,6 +241,7 @@ namespace MusicalNoteLauncher.Pages
 
         private async void BtnLaunchGame_Click(object sender, RoutedEventArgs e)
         {
+            string actualGameDir = _minecraftPath;
             try
             {
                 if (_isBedrockMode)
@@ -255,15 +279,53 @@ namespace MusicalNoteLauncher.Pages
 
                 if (string.IsNullOrEmpty(gameVersion) || gameVersion == "无已安装版本")
                 {
-                    MessageBox.Show("请先选择游戏版本", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ModernMessageBox.ShowWarning("请先选择游戏版本", "提示");
                     return;
                 }
 
-                // 在后台准备皮肤，不阻塞 UI 线程
-                Task.Run(() =>
+                // 计算版本隔离后的实际游戏目录（与 GameLauncher 一致）
+                if (SettingsManager.Settings.ShouldIsolateVersionForVersion(_minecraftPath, gameVersion))
+                {
+                    actualGameDir = Path.Combine(_minecraftPath, "versions", gameVersion, "game");
+                    Directory.CreateDirectory(actualGameDir);
+                    
+                    // 如果隔离目录没有 options.txt，从主目录复制
+                    string isolatedOptionsPath = Path.Combine(actualGameDir, "options.txt");
+                    string mainOptionsPath = Path.Combine(_minecraftPath, "options.txt");
+                    if (!File.Exists(isolatedOptionsPath) && File.Exists(mainOptionsPath))
+                    {
+                        File.Copy(mainOptionsPath, isolatedOptionsPath);
+                    }
+                }
+
+                // 准备皮肤并等待完成（确保游戏启动前资源包已就绪）
+                await Task.Run(() =>
                 {
                     StartSkinServer();
-                    SkinServer.SetupCustomSkinLoaderConfig(_minecraftPath);
+                    SkinServer.SetupCustomSkinLoaderConfig(actualGameDir);
+
+                    // PCL 风格: 构建资源包并注入 options.txt (无需 CustomSkinLoader Mod)
+                    // 仅在设置中启用时生效
+                    if (SettingsManager.Settings.EnableSkinResourcePack)
+                    {
+                        // 优先使用自定义皮肤；没有则回退到默认 Steve/Alex 皮肤
+                        string skinFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins", $"{account.Uuid}.png");
+                        bool isSlim = false;
+                        if (File.Exists(skinFile))
+                        {
+                            isSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{account.Uuid}");
+                        }
+                        else
+                        {
+                            // 无自定义皮肤：读取用户在个人资料页保存的 Steve/Alex 偏好
+                            isSlim = PCL.Account.Settings.Get<bool>($"SkinSlim_{account.Uuid}");
+                            skinFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Assets", "Skins",
+                                isSlim ? "alex.png" : "steve.png");
+                        }
+
+                        SkinResourcePackBuilder.Build(skinFile, isSlim, actualGameDir, gameVersion);
+                        SkinResourcePackBuilder.InjectToOptions(actualGameDir);
+                    }
                 });
 
                 await _gameLauncher.LaunchGameAsync(
@@ -273,12 +335,14 @@ namespace MusicalNoteLauncher.Pages
             catch (Exception ex)
             {
                 Logger.Error($"[HomePage] 启动失败：{ex.Message}");
-                MessageBox.Show($"启动失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"启动失败：{ex.Message}", "错误");
             }
             finally
             {
                 // 游戏退出后停止皮肤服务器
                 StopSkinServer();
+                // 清理资源包 (避免下次不同账号看到错误皮肤)
+                SkinResourcePackBuilder.CleanFromOptions(actualGameDir);
             }
         }
 
@@ -287,9 +351,9 @@ namespace MusicalNoteLauncher.Pages
             string versionId = (cboGameVersion?.SelectedItem as ComboBoxItem)?.Content?.ToString() ?? "";
             string username = _username;
 
-            if (string.IsNullOrEmpty(versionId) || versionId == "无可用基岩版版本" || versionId == "正在获取基岩版版本...")
+            if (string.IsNullOrEmpty(versionId) || versionId == "无已安装基岩版版本" || versionId == "正在扫描本地基岩版...")
             {
-                MessageBox.Show("请先选择基岩版版本", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请先选择基岩版版本", "提示");
                 return;
             }
 
@@ -392,21 +456,22 @@ namespace MusicalNoteLauncher.Pages
                 cboGameVersion.Items.Clear();
                 cboGameVersion.Items.Add(new ComboBoxItem
                 {
-                    Content = "正在获取基岩版版本...",
+                    Content = "正在扫描本地基岩版...",
                     Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
                     Foreground = Brushes.White,
                     Padding = new Thickness(12, 10, 12, 10)
                 });
                 cboGameVersion.SelectedIndex = 0;
 
-                _bedrockVersionList = await _bedrockDownloadService.GetRemoteVersionsAsync();
+                // 扫描本地已安装的基岩版版本，而非从网络获取
+                var result = await VersionScanService.Instance.ScanAsync("切换到基岩版");
 
                 cboGameVersion.Items.Clear();
-                if (_bedrockVersionList.Count == 0)
+                if (result.BedrockVersions.Count == 0)
                 {
                     cboGameVersion.Items.Add(new ComboBoxItem
                     {
-                        Content = "无可用基岩版版本",
+                        Content = "无已安装基岩版版本",
                         Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
                         Foreground = Brushes.White,
                         Padding = new Thickness(12, 10, 12, 10)
@@ -415,11 +480,11 @@ namespace MusicalNoteLauncher.Pages
                 }
                 else
                 {
-                    foreach (var v in _bedrockVersionList)
+                    foreach (var v in result.BedrockVersions)
                     {
                         cboGameVersion.Items.Add(new ComboBoxItem
                         {
-                            Content = v.Id,
+                            Content = v,
                             Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
                             Foreground = Brushes.White,
                             Padding = new Thickness(12, 10, 12, 10)
@@ -433,7 +498,7 @@ namespace MusicalNoteLauncher.Pages
                 cboGameVersion.Items.Clear();
                 cboGameVersion.Items.Add(new ComboBoxItem
                 {
-                    Content = "获取基岩版版本失败",
+                    Content = "扫描基岩版版本失败",
                     Background = new SolidColorBrush(Color.FromRgb(51, 51, 51)),
                     Foreground = Brushes.White,
                     Padding = new Thickness(12, 10, 12, 10)
@@ -449,7 +514,7 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnResolutionConfig_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("分辨率设置功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+            ModernMessageBox.ShowInfo("分辨率设置功能开发中...", "提示");
         }
 
         private async Task CheckGpuCompatibilityAsync()

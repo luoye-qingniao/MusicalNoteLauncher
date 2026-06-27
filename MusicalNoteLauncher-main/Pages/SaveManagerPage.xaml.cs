@@ -1,4 +1,4 @@
-using System;
+﻿﻿using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -9,6 +9,7 @@ using System.Windows.Controls;
 using System.Windows.Markup;
 using Microsoft.Win32;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -178,10 +179,10 @@ namespace MusicalNoteLauncher.Pages
 			SaveManagerPage.SaveItem saveItem = this.lstSaves.SelectedItem as SaveManagerPage.SaveItem;
 			if (saveItem != null)
 			{
-				MessageBox.Show("准备启动存档: " + saveItem.SaveName, "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+				ModernMessageBox.ShowInfo("准备启动存档: " + saveItem.SaveName, "提示");
 				return;
 			}
-			MessageBox.Show("请先选择一个存档", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+			ModernMessageBox.ShowWarning("请先选择一个存档", "提示");
 		}
 
 		// Token: 0x0600035B RID: 859 RVA: 0x000125FC File Offset: 0x000107FC
@@ -199,16 +200,16 @@ namespace MusicalNoteLauncher.Pages
 					string path = string.Format("{0}_{1:yyyyMMdd_HHmmss}.zip", saveItem.SaveName, DateTime.Now);
 					string text = Path.Combine(this.BackupsPath, path);
 					ZipFile.CreateFromDirectory(saveItem.FolderPath, text);
-					MessageBox.Show("存档备份成功！\n备份位置: " + text, "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("存档备份成功！\n备份位置: " + text, "提示");
 					return;
 				}
 				catch (Exception ex)
 				{
-					MessageBox.Show("备份失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+					ModernMessageBox.ShowError("备份失败: " + ex.Message, "错误");
 					return;
 				}
 			}
-			MessageBox.Show("请先选择一个存档", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+			ModernMessageBox.ShowWarning("请先选择一个存档", "提示");
 		}
 
 		// Token: 0x0600035C RID: 860 RVA: 0x000126CC File Offset: 0x000108CC
@@ -226,16 +227,16 @@ namespace MusicalNoteLauncher.Pages
 					{
 						Directory.Move(saveItem.FolderPath, text);
 						this.LoadSaves();
-						MessageBox.Show("存档重命名成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+						ModernMessageBox.ShowInfo("存档重命名成功！", "提示");
 						return;
 					}
-					MessageBox.Show("存档名称已存在", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("存档名称已存在", "提示");
 					return;
 				}
 			}
 			else
 			{
-				MessageBox.Show("请先选择一个存档", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+				ModernMessageBox.ShowWarning("请先选择一个存档", "提示");
 			}
 		}
 
@@ -245,7 +246,7 @@ namespace MusicalNoteLauncher.Pages
 			SaveManagerPage.SaveItem saveItem = this.lstSaves.SelectedItem as SaveManagerPage.SaveItem;
 			if (saveItem != null)
 			{
-				if (MessageBox.Show("确定要删除存档 \"" + saveItem.SaveName + "\" 吗？此操作不可撤销！", "确认删除", MessageBoxButton.YesNo, MessageBoxImage.Exclamation) != MessageBoxResult.Yes)
+				if (!ModernMessageBox.ShowYesNo("确定要删除存档 \"" + saveItem.SaveName + "\" 吗？此操作不可撤销！", "确认删除"))
 				{
 					return;
 				}
@@ -253,23 +254,23 @@ namespace MusicalNoteLauncher.Pages
 				{
 					Directory.Delete(saveItem.FolderPath, true);
 					this.LoadSaves();
-					MessageBox.Show("存档删除成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("存档删除成功！", "提示");
 					return;
 				}
 				catch (Exception ex)
 				{
-					MessageBox.Show("删除失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+					ModernMessageBox.ShowError("删除失败: " + ex.Message, "错误");
 					return;
 				}
 			}
-			MessageBox.Show("请先选择一个存档", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+			ModernMessageBox.ShowWarning("请先选择一个存档", "提示");
 		}
 
 		// Token: 0x0600035E RID: 862 RVA: 0x00012848 File Offset: 0x00010A48
 		private void BtnRefreshSaves_Click(object sender, RoutedEventArgs e)
 		{
 			this.LoadSaves();
-			MessageBox.Show("存档列表已刷新", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+			ModernMessageBox.ShowInfo("存档列表已刷新", "提示");
 		}
 
 		// Token: 0x0600035F RID: 863 RVA: 0x00012863 File Offset: 0x00010A63
@@ -280,7 +281,7 @@ namespace MusicalNoteLauncher.Pages
 				this.BtnBackupSave_Click(sender, e);
 				return;
 			}
-			MessageBox.Show("备份管理\n\n已备份存档位置: " + this.BackupsPath, "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+			ModernMessageBox.ShowInfo("备份管理\n\n已备份存档位置: " + this.BackupsPath, "提示");
 		}
 
 		// Token: 0x06000360 RID: 864 RVA: 0x000128A0 File Offset: 0x00010AA0
@@ -300,10 +301,10 @@ namespace MusicalNoteLauncher.Pages
 				{
 					ZipFile.ExtractToDirectory(fileName, text);
 					this.LoadSaves();
-					MessageBox.Show("存档导入成功！", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("存档导入成功！", "提示");
 					return;
 				}
-				MessageBox.Show("存档名称已存在", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+				ModernMessageBox.ShowWarning("存档名称已存在", "提示");
 			}
 		}
 

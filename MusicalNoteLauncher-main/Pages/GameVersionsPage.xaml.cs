@@ -14,6 +14,7 @@ using System.Windows.Media;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
 using MusicalNoteLauncher.Windows;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -29,6 +30,12 @@ namespace MusicalNoteLauncher.Pages
         private ObservableCollection<VersionItem> _latestVersions = new ObservableCollection<VersionItem>();
         private ObservableCollection<VersionGroup> _versionGroups = new ObservableCollection<VersionGroup>();
         private ObservableCollection<VersionGroup> _installedVersionGroups = new ObservableCollection<VersionGroup>();
+
+        // 搜索相关 —— 保存完整数据备份以便搜索过滤
+        private List<VersionItem> _fullLatestVersionItems;
+        private List<VersionGroup> _fullVersionGroups;
+        private List<VersionGroup> _fullInstalledVersionGroups;
+        private List<BedrockVersionInfo> _fullBedrockVersions;
 
         // [增量新增] 基岩版相关
         private ObservableCollection<BedrockVersionGroup> _bedrockVersionGroups = new ObservableCollection<BedrockVersionGroup>();
@@ -275,6 +282,10 @@ namespace MusicalNoteLauncher.Pages
             Logger.Info($"[UI加载] 统计: 共 {releaseCount + snapshotCount + oldCount} 个版本");
             Logger.Info($"[UI加载] 统计: 正式版 {releaseCount} 个，快照版 {snapshotCount} 个，老旧版本 {oldCount} 个");
             Logger.Info($"[UI加载] 统计: 已下载 {downloadedCount} 个，可下载 {releaseCount + snapshotCount + oldCount - downloadedCount} 个");
+
+            // 备份完整数据以便搜索
+            _fullLatestVersionItems = _latestVersions.ToList();
+            _fullVersionGroups = _versionGroups.ToList();
         }
 
         private int GetGroupOrder(string groupName)
@@ -331,7 +342,7 @@ namespace MusicalNoteLauncher.Pages
             catch (Exception ex)
             {
                 Logger.Error("[下载] 跳转至加载器选择页失败: " + ex.Message);
-                MessageBox.Show("打开失败：" + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("打开失败：" + ex.Message, "错误");
             }
         }
 
@@ -382,7 +393,7 @@ namespace MusicalNoteLauncher.Pages
         private async Task<List<VersionItem>> CreateVersionItemsFromScanResult(VersionScanResult result)
         {
             List<VersionItem> items = new List<VersionItem>();
-            string versionsDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "versions");
+            string versionsDir = Path.Combine(AppContext.MinecraftPath, "versions");
 
             foreach (string versionId in result.JavaVersions)
             {
@@ -465,6 +476,9 @@ namespace MusicalNoteLauncher.Pages
             }
 
             Logger.Info($"[UI加载] 已安装版本分组完成: {_installedVersionGroups.Count} 个分组");
+
+            // 备份完整数据以便搜索
+            _fullInstalledVersionGroups = _installedVersionGroups.ToList();
         }
 
         private void BtnLaunchGame_Click(object sender, RoutedEventArgs e)
@@ -491,7 +505,7 @@ namespace MusicalNoteLauncher.Pages
                         Logger.Error("[游戏启动] 版本 " + item.VersionId + " 启动失败");
                         Dispatcher.Invoke(() =>
                         {
-                            MessageBox.Show("启动失败，请检查日志", "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+                            ModernMessageBox.ShowError("启动失败，请检查日志", "错误");
                         });
                     }
                 });
@@ -499,7 +513,7 @@ namespace MusicalNoteLauncher.Pages
             catch (Exception ex)
             {
                 Logger.Error("[游戏启动] 启动版本 " + item.VersionId + " 异常: " + ex.Message);
-                MessageBox.Show("启动失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+                ModernMessageBox.ShowError("启动失败: " + ex.Message, "错误");
             }
         }
 
@@ -511,7 +525,7 @@ namespace MusicalNoteLauncher.Pages
             VersionItem versionItem = button.DataContext as VersionItem;
             if (versionItem == null) return;
 
-            if (MessageBox.Show($"确定要删除版本 {versionItem.VersionId} 吗？\n此操作将删除该版本的所有文件，且无法撤销。", "确认删除", MessageBoxButton.OKCancel, MessageBoxImage.Exclamation) == MessageBoxResult.OK)
+            if (ModernMessageBox.ShowConfirm($"确定要删除版本 {versionItem.VersionId} 吗？\n此操作将删除该版本的所有文件，且无法撤销。", "确认删除"))
             {
                 await DeleteVersion(versionItem.VersionId);
             }
@@ -552,7 +566,7 @@ namespace MusicalNoteLauncher.Pages
             catch (Exception ex)
             {
                 Logger.Error("[版本删除] 删除版本失败: " + versionId + ", 错误: " + ex.Message);
-                MessageBox.Show("删除失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+                ModernMessageBox.ShowError("删除失败: " + ex.Message, "错误");
             }
         }
 
@@ -684,13 +698,16 @@ namespace MusicalNoteLauncher.Pages
 
             txtBedrockStatus.Text = $"就绪 ({versions.Count} 个版本)";
             loadingBedrock.Visibility = Visibility.Collapsed;
+
+            // 备份完整数据以便搜索
+            _fullBedrockVersions = versions.ToList();
         }
 
         private void ShowNetworkError(string title, string message)
         {
             try
             {
-                MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning(message, title);
             }
             catch { }
         }
@@ -804,6 +821,214 @@ namespace MusicalNoteLauncher.Pages
                     ? $"{FileSizeFormatter.FormatFileSize(info.DownloadedBytes)} / {FileSizeFormatter.FormatFileSize(info.TotalBytes)}"
                     : FileSizeFormatter.FormatFileSize(info.DownloadedBytes);
             });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 搜索功能
+        // ═══════════════════════════════════════════════════════════════
+
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            UpdateSearchHint();
+            ApplySearch();
+        }
+
+        private void TxtSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+                ApplySearch();
+        }
+
+        private void BtnSearchClear_Click(object sender, RoutedEventArgs e)
+        {
+            txtSearch.Text = "";
+            txtSearch.Focus();
+        }
+
+        private void Filter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ApplySearch();
+        }
+
+        private void BtnSearchRun_Click(object sender, RoutedEventArgs e)
+        {
+            ApplySearch();
+        }
+
+        private void BtnSearchReset_Click(object sender, RoutedEventArgs e)
+        {
+            txtSearch.Text = "";
+            ((ComboBoxItem)cmbVersionType.Items[0]).IsSelected = true;
+            ApplySearch();
+        }
+
+        private string GetSelectedTag(ComboBox combo)
+        {
+            if (combo.SelectedItem is ComboBoxItem item && item.Tag != null)
+                return item.Tag.ToString();
+            return "";
+        }
+
+        private void UpdateSearchHint()
+        {
+            bool isEmpty = string.IsNullOrEmpty(txtSearch.Text);
+            txtSearchHint.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
+            btnSearchClear.Opacity = isEmpty ? 0 : 1;
+            btnSearchClear.IsHitTestVisible = !isEmpty;
+        }
+
+        private void ApplySearch()
+        {
+            string query = txtSearch.Text?.Trim() ?? "";
+            string typeFilter = GetSelectedTag(cmbVersionType);
+
+            bool hasQuery = !string.IsNullOrEmpty(query);
+            bool hasType = !string.IsNullOrEmpty(typeFilter);
+
+            if (!hasQuery && !hasType)
+            {
+                RestoreLatestVersions();
+                RestoreAllVersionGroups();
+                RestoreInstalledVersionGroups();
+                RestoreBedrockVersions();
+                return;
+            }
+
+            // 过滤最新版本
+            if (_fullLatestVersionItems != null)
+            {
+                _latestVersions.Clear();
+                foreach (var v in _fullLatestVersionItems)
+                {
+                    if (MatchesFilters(v, query, typeFilter, hasQuery, hasType))
+                        _latestVersions.Add(v);
+                }
+            }
+
+            // 过滤所有版本分组
+            if (_fullVersionGroups != null)
+            {
+                _versionGroups.Clear();
+                foreach (var group in _fullVersionGroups)
+                {
+                    var filteredGroup = new VersionGroup { Name = group.Name, IsExpanded = true };
+                    foreach (var v in group.Versions)
+                    {
+                        if (MatchesFilters(v, query, typeFilter, hasQuery, hasType))
+                            filteredGroup.Versions.Add(v);
+                    }
+                    if (filteredGroup.Versions.Count > 0)
+                        _versionGroups.Add(filteredGroup);
+                }
+            }
+
+            // 过滤已安装版本分组
+            if (_fullInstalledVersionGroups != null)
+            {
+                _installedVersionGroups.Clear();
+                foreach (var group in _fullInstalledVersionGroups)
+                {
+                    var filteredGroup = new VersionGroup { Name = group.Name, IsExpanded = true };
+                    foreach (var v in group.Versions)
+                    {
+                        if (MatchesFilters(v, query, typeFilter, hasQuery, hasType))
+                            filteredGroup.Versions.Add(v);
+                    }
+                    if (filteredGroup.Versions.Count > 0)
+                        _installedVersionGroups.Add(filteredGroup);
+                }
+            }
+
+            // 过滤基岩版
+            if (_fullBedrockVersions != null)
+            {
+                _bedrockVersionGroups.Clear();
+                var grouped = _fullBedrockVersions
+                    .Where(v =>
+                    {
+                        bool match = true;
+                        if (hasQuery) match = match && SearchHelper.IsMatchSimple(query, v.Id, v.Type);
+                        if (hasType) match = match && string.Equals(v.Type, typeFilter, StringComparison.OrdinalIgnoreCase);
+                        return match;
+                    })
+                    .OrderByDescending(v => v.ReleaseTime)
+                    .GroupBy(v => v.GroupType)
+                    .OrderBy(g =>
+                    {
+                        var order = new Dictionary<string, int> { { "正式版", 0 }, { "预览版", 1 }, { "测试版", 2 }, { "其他", 3 } };
+                        return order.TryGetValue(g.Key, out var o) ? o : 99;
+                    });
+
+                foreach (var g in grouped)
+                {
+                    var bedrockGroup = new BedrockVersionGroup
+                    {
+                        Name = $"{g.Key} ({g.Count()})",
+                        IsExpanded = true
+                    };
+                    bedrockGroup.SetCachedVersions(g.ToList());
+                    foreach (var v in g)
+                        bedrockGroup.Versions.Add(v);
+                    _bedrockVersionGroups.Add(bedrockGroup);
+                }
+            }
+        }
+
+        private static bool MatchesFilters(VersionItem v, string query, string typeFilter, bool hasQuery, bool hasType)
+        {
+            if (hasQuery && !SearchHelper.IsMatchSimple(query, v.VersionId, v.VersionType))
+                return false;
+            if (hasType && !string.Equals(v.VersionType, typeFilter, StringComparison.OrdinalIgnoreCase))
+                return false;
+            return true;
+        }
+
+        private void RestoreLatestVersions()
+        {
+            if (_fullLatestVersionItems == null) return;
+            _latestVersions.Clear();
+            foreach (var v in _fullLatestVersionItems)
+                _latestVersions.Add(v);
+        }
+
+        private void RestoreAllVersionGroups()
+        {
+            if (_fullVersionGroups == null) return;
+            _versionGroups.Clear();
+            foreach (var g in _fullVersionGroups)
+                _versionGroups.Add(g);
+        }
+
+        private void RestoreInstalledVersionGroups()
+        {
+            if (_fullInstalledVersionGroups == null) return;
+            _installedVersionGroups.Clear();
+            foreach (var g in _fullInstalledVersionGroups)
+                _installedVersionGroups.Add(g);
+        }
+
+        private void RestoreBedrockVersions()
+        {
+            if (_fullBedrockVersions == null) return;
+            _bedrockVersionGroups.Clear();
+            var sorted = _fullBedrockVersions.OrderByDescending(v => v.ReleaseTime).ToList();
+            var groupOrder = new Dictionary<string, int>
+            {
+                { "正式版", 0 }, { "预览版", 1 }, { "测试版", 2 }, { "其他", 3 }
+            };
+            foreach (var grouping in sorted.GroupBy(v => v.GroupType)
+                         .OrderBy(g => groupOrder.TryGetValue(g.Key, out var order) ? order : 99))
+            {
+                var group = new BedrockVersionGroup
+                {
+                    Name = $"{grouping.Key} ({grouping.Count()})",
+                    IsExpanded = true
+                };
+                group.SetCachedVersions(grouping.ToList());
+                foreach (var v in grouping)
+                    group.Versions.Add(v);
+                _bedrockVersionGroups.Add(group);
+            }
         }
     }
 }

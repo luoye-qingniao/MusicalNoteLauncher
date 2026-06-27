@@ -224,7 +224,53 @@
 								</ControlTemplate>
 							</Control.Template>
 						</Button>
-					</StackPanel>
+						<Button
+							Name="btnCategoryBackground"
+							Content="背景设置"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource CardHoverBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+										<TextBlock
+											Name="txtMemOptStatus"
+											Visibility="Collapsed"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="11"
+											FontFamily="Microsoft YaHei"
+											Margin="4,4,0,0"
+											Text="准备中..." />
+									</StackPanel>
 				</Border>
 				<Border
 					Grid.Column="1"
@@ -1022,15 +1068,45 @@
 												Background="{DynamicResource CardBackgroundBrush}" />
 										</ComboBox>
 										<CheckBox
-											Name="chkFullscreen"
-											Content="全屏模式"
-											IsChecked="False"
-											Foreground="{DynamicResource TextPrimaryBrush}"
-											FontFamily="Microsoft YaHei"
-											Grid.Column="1"
-											Margin="16,0,0,0"
-											VerticalAlignment="Center" />
-									</Grid>
+										Name="chkFullscreen"
+										Content="全屏模式"
+										IsChecked="False"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Grid.Column="1"
+										Margin="16,0,0,0"
+										VerticalAlignment="Center" />
+								</Grid>
+									<!-- 皮肤资源包设置 -->
+									<TextBlock
+										Text="皮肤资源包"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<CheckBox
+										Name="chkEnableSkinResourcePack"
+										Content="启用离线皮肤资源包（将自定义皮肤注入游戏，无需安装 Mod）"
+										IsChecked="True"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										FontSize="13"
+										Margin="0,0,0,4"
+										ToolTip="启动游戏前，自动将您的自定义皮肤打包为 Minecraft 资源包并注入 options.txt。&#xa;关闭后游戏将使用默认的 Steve/Alex 皮肤。" />
+									<TextBlock
+										Text="由于技术问题，此功能只保证对 1.19.2 以前的版本有效！"
+										Foreground="#D4A017"
+										FontSize="11"
+										FontFamily="Microsoft YaHei"
+										Margin="20,2,0,4"
+										Opacity="0.9" />
+									<TextBlock
+										Text="提示：皮肤可在个人资料页面设置，此选项控制启动时是否自动加载。"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="11"
+										FontFamily="Microsoft YaHei"
+										Margin="20,0,0,0"
+										Opacity="0.7" />
 								</StackPanel>
 							</TabItem>
 							<TabItem
@@ -1847,6 +1923,277 @@
 															TargetName="border"
 															Property="Background"
 															Value="{DynamicResource PrimaryDarkBrush}" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Button.Template>
+									</Button>
+								</StackPanel>
+							</TabItem>
+							<!-- ═══════════════════════════════════════════════ -->
+							<!-- 背景设置 TabItem -->
+							<!-- ═══════════════════════════════════════════════ -->
+							<TabItem
+								Header="背景设置">
+								<StackPanel>
+									<TextBlock
+										Text="背景设置"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+
+									<!-- 背景模式选择 -->
+									<TextBlock
+										Text="背景模式"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,8" />
+									<Border
+										Background="{DynamicResource SurfaceBrush}"
+										CornerRadius="8"
+										Padding="16">
+										<StackPanel>
+											<RadioButton
+												Name="radioBgMica"
+												Content="默认 Mica 云母背景"
+												GroupName="BackgroundMode"
+												IsChecked="True"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4"
+												Checked="RadioBgMode_Checked" />
+											<RadioButton
+												Name="radioBgImage"
+												Content="本地图片背景"
+												GroupName="BackgroundMode"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4"
+												Checked="RadioBgMode_Checked" />
+											<RadioButton
+												Name="radioBgVideo"
+												Content="本地视频背景（MP4）"
+												GroupName="BackgroundMode"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4"
+												Checked="RadioBgMode_Checked" />
+										</StackPanel>
+									</Border>
+
+									<!-- 图片文件选择 -->
+									<StackPanel
+										Name="panBgImagePath"
+										Visibility="Collapsed"
+										Margin="0,16,0,0">
+										<TextBlock
+											Text="图片文件"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Margin="0,0,0,8" />
+										<Grid>
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*" />
+												<ColumnDefinition Width="Auto" />
+											</Grid.ColumnDefinitions>
+											<TextBox
+												Name="txtBgImagePath"
+												Grid.Column="0"
+												Text=""
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="10,8"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												IsReadOnly="True" />
+											<Button
+												Grid.Column="1"
+												Content="浏览..."
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="12,8"
+												FontSize="12"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												Margin="8,0,0,0"
+												Click="BtnBrowseBgImage_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</Grid>
+									</StackPanel>
+
+									<!-- 视频文件选择 -->
+									<StackPanel
+										Name="panBgVideoPath"
+										Visibility="Collapsed"
+										Margin="0,16,0,0">
+										<TextBlock
+											Text="视频文件"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Margin="0,0,0,8" />
+										<Grid>
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*" />
+												<ColumnDefinition Width="Auto" />
+											</Grid.ColumnDefinitions>
+											<TextBox
+												Name="txtBgVideoPath"
+												Grid.Column="0"
+												Text=""
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="10,8"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												IsReadOnly="True" />
+											<Button
+												Grid.Column="1"
+												Content="浏览..."
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="12,8"
+												FontSize="12"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												Margin="8,0,0,0"
+												Click="BtnBrowseBgVideo_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</Grid>
+									</StackPanel>
+
+									<!-- 透明度调节 -->
+									<TextBlock
+										Text="背景透明度"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<Slider
+											Name="sliderBgOpacity"
+											Grid.Column="0"
+											Minimum="0"
+											Maximum="1"
+											Value="0.6"
+											TickFrequency="0.05"
+											IsSnapToTickEnabled="True"
+											ValueChanged="SliderBgOpacity_ValueChanged"
+											VerticalAlignment="Center"
+											Margin="0,0,12,0" />
+										<TextBlock
+											Name="txtBgOpacityValue"
+											Grid.Column="1"
+											Text="60%"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											FontSize="14"
+											FontFamily="Microsoft YaHei"
+											MinWidth="40"
+											TextAlignment="Right"
+											VerticalAlignment="Center" />
+									</Grid>
+
+									<!-- 高斯模糊强度调节 -->
+									<TextBlock
+										Text="高斯模糊强度"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<Slider
+											Name="sliderBgBlur"
+											Grid.Column="0"
+											Minimum="0"
+											Maximum="20"
+											Value="0"
+											TickFrequency="1"
+											IsSnapToTickEnabled="True"
+											ValueChanged="SliderBgBlur_ValueChanged"
+											VerticalAlignment="Center"
+											Margin="0,0,12,0" />
+										<TextBlock
+											Name="txtBgBlurValue"
+											Grid.Column="1"
+											Text="0"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											FontSize="14"
+											FontFamily="Microsoft YaHei"
+											MinWidth="30"
+											TextAlignment="Right"
+											VerticalAlignment="Center" />
+									</Grid>
+
+									<!-- 重置按钮 -->
+									<Button
+										Name="btnResetBackground"
+										Content="重置默认背景"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										Padding="14,8"
+										FontSize="13"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand"
+										HorizontalAlignment="Left"
+										Margin="0,24,0,0"
+										Click="BtnResetBackground_Click">
+										<Button.Template>
+											<ControlTemplate TargetType="{x:Type Button}">
+												<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+													<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+												</Border>
+												<ControlTemplate.Triggers>
+													<Trigger Property="IsMouseOver" Value="True">
+														<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
 													</Trigger>
 												</ControlTemplate.Triggers>
 											</ControlTemplate>

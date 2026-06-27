@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Markup;
 using Microsoft.Win32;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -105,7 +106,7 @@ namespace MusicalNoteLauncher.Pages
 				this.javaList.ItemsSource = this._detectedJavaList;
 				if (this._detectedJavaList.Count == 0)
 				{
-					MessageBox.Show("未检测到系统中的Java环境，请手动配置或下载Java", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("未检测到系统中的Java环境，请手动配置或下载Java", "提示");
 				}
 				else
 				{
@@ -114,7 +115,7 @@ namespace MusicalNoteLauncher.Pages
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("检测Java失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("检测Java失败: " + ex.Message, "错误");
 			}
 		}
 
@@ -131,11 +132,11 @@ namespace MusicalNoteLauncher.Pages
 					{
 						this._javaConfig.SetAutoConfig(detectedJava);
 						this.UpdateCurrentConfig();
-						MessageBox.Show(string.Format("已使用 Java {0}\n路径: {1}", detectedJava.MajorVersion, detectedJava.Path), "配置成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+						ModernMessageBox.ShowInfo(string.Format("已使用 Java {0}\n路径: {1}", detectedJava.MajorVersion, detectedJava.Path), "配置成功");
 					}
 					catch (Exception ex)
 					{
-						MessageBox.Show("设置Java失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+						ModernMessageBox.ShowError("设置Java失败: " + ex.Message, "错误");
 					}
 				}
 			}
@@ -162,25 +163,25 @@ namespace MusicalNoteLauncher.Pages
 			string text = this.txtJavaPath.Text.Trim();
 			if (string.IsNullOrEmpty(text))
 			{
-				MessageBox.Show("请输入Java路径或浏览选择", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+				ModernMessageBox.ShowWarning("请输入Java路径或浏览选择", "提示");
 				return;
 			}
 			try
 			{
 				if (!this._javaConfig.ValidateJavaPath(text))
 				{
-					MessageBox.Show("无效的Java路径或Java版本无法识别", "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+					ModernMessageBox.ShowError("无效的Java路径或Java版本无法识别", "错误");
 				}
 				else
 				{
 					this._javaConfig.SetJavaPath(text);
 					this.UpdateCurrentConfig();
-					MessageBox.Show("已设置Java路径: " + text, "配置成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("已设置Java路径: " + text, "配置成功");
 				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("设置Java失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("设置Java失败: " + ex.Message, "错误");
 			}
 		}
 
@@ -194,17 +195,17 @@ namespace MusicalNoteLauncher.Pages
 				if (this._javaConfig.ValidateJavaPath(javaPath))
 				{
 					this.OnLogReceived("Java配置验证通过!");
-					MessageBox.Show("Java配置验证通过!", "验证成功", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo("Java配置验证通过!", "验证成功");
 				}
 				else
 				{
 					this.OnLogReceived("Java配置验证失败!");
-					MessageBox.Show("Java配置验证失败，请检查路径是否正确", "验证失败", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+					ModernMessageBox.ShowWarning("Java配置验证失败，请检查路径是否正确", "验证失败");
 				}
 			}
 			catch (Exception ex)
 			{
-				MessageBox.Show("验证失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("验证失败: " + ex.Message, "错误");
 			}
 		}
 
@@ -237,7 +238,7 @@ namespace MusicalNoteLauncher.Pages
 				if (this._javaDownloadService.IsJavaInstalled(javaVersion))
 				{
 					string installedJavaPath = this._javaDownloadService.GetInstalledJavaPath(javaVersion);
-					if (MessageBox.Show(string.Format("Java {0} 已安装!\n路径: {1}\n\n是否使用此版本?", javaVersion, installedJavaPath), "已安装", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+					if (ModernMessageBox.ShowYesNo(string.Format("Java {0} 已安装!\n路径: {1}\n\n是否使用此版本?", javaVersion, installedJavaPath), "已安装"))
 					{
 						this.txtJavaPath.Text = installedJavaPath;
 						this._javaConfig.SetJavaPath(installedJavaPath);
@@ -252,13 +253,13 @@ namespace MusicalNoteLauncher.Pages
 					{
 						javaDownloadRequested(javaVersion);
 					}
-					MessageBox.Show(string.Format("Java {0} 下载任务已添加到下载列表!\n\n请切换到「下载任务」页面查看下载进度。", javaVersion), "任务已添加", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+					ModernMessageBox.ShowInfo(string.Format("Java {0} 下载任务已添加到下载列表!\n\n请切换到「下载任务」页面查看下载进度。", javaVersion), "任务已添加");
 				}
 			}
 			catch (Exception ex)
 			{
 				this.OnLogReceived("添加下载任务失败: " + ex.Message);
-				MessageBox.Show("添加下载任务失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Hand);
+				ModernMessageBox.ShowError("添加下载任务失败: " + ex.Message, "错误");
 			}
 		}
 

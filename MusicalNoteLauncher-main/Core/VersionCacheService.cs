@@ -27,7 +27,7 @@ namespace MusicalNoteLauncher.Core
 
         private VersionCacheService()
         {
-            string gamePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\.minecraft";
+            string gamePath = AppContext.MinecraftPath;
             _downloadService = new VersionDownloadService(gamePath);
         }
 

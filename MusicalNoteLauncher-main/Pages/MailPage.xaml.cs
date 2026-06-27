@@ -1,9 +1,10 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Markup;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -18,13 +19,13 @@ namespace MusicalNoteLauncher.Pages
 		// Token: 0x060002B9 RID: 697 RVA: 0x0000DF8F File Offset: 0x0000C18F
 		private void BtnReply_Click(object sender, RoutedEventArgs e)
 		{
-			MessageBox.Show("回复邮件功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+			ModernMessageBox.ShowInfo("回复邮件功能开发中...", "提示");
 		}
 
 		// Token: 0x060002BA RID: 698 RVA: 0x0000DFA4 File Offset: 0x0000C1A4
 		private void BtnDelete_Click(object sender, RoutedEventArgs e)
 		{
-			MessageBox.Show("删除邮件功能开发中...", "提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+			ModernMessageBox.ShowInfo("删除邮件功能开发中...", "提示");
 		}
 	}
 }

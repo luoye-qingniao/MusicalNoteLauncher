@@ -86,15 +86,11 @@ namespace MusicalNoteLauncher.Pages
             IsLoading = true;
             try
             {
-                if (_cachedVersions != null)
+                if (_cachedVersions != null && _cachedVersions.Count > 0)
                 {
-                    await Task.Run(() =>
-                    {
-                        foreach (var v in _cachedVersions)
-                        {
-                            System.Windows.Application.Current.Dispatcher.Invoke(() => Versions.Add(v));
-                        }
-                    });
+                    // 整体替换集合，只触发一次 PropertyChanged 而非 N 次 CollectionChanged，
+                    // 避免预览版（数量多）展开时逐项 Add 导致的 ListView 反复布局造成 UI 卡顿
+                    Versions = new ObservableCollection<VersionItem>(_cachedVersions);
                 }
             }
             catch (Exception ex)

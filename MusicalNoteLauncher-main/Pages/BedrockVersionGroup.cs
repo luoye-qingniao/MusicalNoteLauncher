@@ -57,11 +57,9 @@ namespace MusicalNoteLauncher.Pages
 
         private void LoadVersions()
         {
-            if (_cachedVersions == null) return;
-            foreach (var v in _cachedVersions)
-            {
-                _versions.Add(v);
-            }
+            if (_cachedVersions == null || _cachedVersions.Count == 0) return;
+            // 整体替换集合，只触发一次 PropertyChanged，避免逐项 Add 导致的 UI 卡顿
+            Versions = new ObservableCollection<BedrockVersionInfo>(_cachedVersions);
         }
 
         public event PropertyChangedEventHandler PropertyChanged;

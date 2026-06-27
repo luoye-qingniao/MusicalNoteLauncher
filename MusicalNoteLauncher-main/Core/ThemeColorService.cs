@@ -9,6 +9,19 @@ using System.Windows.Media;
 namespace MusicalNoteLauncher.Core
 {
     /// <summary>
+    /// 背景模式枚举
+    /// </summary>
+    public enum BackgroundMode
+    {
+        /// <summary>默认Mica云母背景</summary>
+        Mica,
+        /// <summary>本地图片背景</summary>
+        Image,
+        /// <summary>本地视频背景</summary>
+        Video
+    }
+
+    /// <summary>
     /// 6套Minecraft风格主题配色预设枚举
     /// </summary>
     public enum ThemeColorPreset
@@ -64,6 +77,18 @@ namespace MusicalNoteLauncher.Core
     internal class ThemeConfig
     {
         public string ThemePreset { get; set; } = ThemeColorPreset.ClassicDark.ToString();
+
+        // ── 背景配置 ──
+        /// <summary>背景模式: Mica / Image / Video</summary>
+        public string BackgroundMode { get; set; } = "Mica";
+        /// <summary>本地图片背景文件路径</summary>
+        public string BackgroundImagePath { get; set; } = "";
+        /// <summary>本地视频背景文件路径</summary>
+        public string BackgroundVideoPath { get; set; } = "";
+        /// <summary>背景透明度 0~1</summary>
+        public double BackgroundOpacity { get; set; } = 0.6;
+        /// <summary>背景高斯模糊强度 0~20</summary>
+        public double BackgroundBlurRadius { get; set; } = 0;
     }
 
     /// <summary>
@@ -308,7 +333,25 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                var config = new ThemeConfig { ThemePreset = CurrentTheme.ToString() };
+                ThemeConfig config;
+                if (File.Exists(ConfigPath))
+                {
+                    try
+                    {
+                        string existingJson = File.ReadAllText(ConfigPath);
+                        config = JsonSerializer.Deserialize<ThemeConfig>(existingJson) ?? new ThemeConfig();
+                    }
+                    catch
+                    {
+                        config = new ThemeConfig();
+                    }
+                }
+                else
+                {
+                    config = new ThemeConfig();
+                }
+
+                config.ThemePreset = CurrentTheme.ToString();
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(config, options);
                 File.WriteAllText(ConfigPath, json);

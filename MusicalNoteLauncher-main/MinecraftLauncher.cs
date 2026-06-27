@@ -701,7 +701,8 @@ namespace MyMCLauncher
             Console.WriteLine();
 
             string minecraftPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                AppDomain.CurrentDomain.BaseDirectory,
+                "MNL",
                 ".minecraft"
             );
 

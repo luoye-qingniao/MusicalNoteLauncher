@@ -15,6 +15,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using Microsoft.Win32;
+using MusicalNoteLauncher.Controls;
 using MusicalNoteLauncher.Core;
 
 namespace MusicalNoteLauncher.Pages
@@ -80,6 +81,9 @@ namespace MusicalNoteLauncher.Pages
             UpdateCurrentJavaConfigDisplay();
             StartRamRefreshTimer();
 
+            // 加载背景设置到 UI
+            LoadBackgroundSettingsToUI();
+
             Unloaded += (s2, e2) => StopRamRefreshTimer();
         }
 
@@ -113,6 +117,7 @@ namespace MusicalNoteLauncher.Pages
             chkAutoInstallDependencies.IsChecked = s.AutoInstallDependencies;
             cmbVersionIsolation.SelectedIndex = Math.Clamp(s.VersionIsolationLevel, 0, 4);
             chkLaunchArgumentRam.IsChecked = s.LaunchArgumentRam;
+            chkEnableSkinResourcePack.IsChecked = s.EnableSkinResourcePack;
         }
 
         private void RefreshFolderList()
@@ -187,6 +192,8 @@ namespace MusicalNoteLauncher.Pages
                 ThemeColorService.ApplyTheme(info.Preset);
                 UpdateColorPreviews(info);
                 RefreshActiveCategoryButton();
+                BackgroundConfigService.Instance.InvalidateBrushCache();
+                BackgroundConfigService.Instance.RefreshPanelTransparency();
             }
         }
 
@@ -234,8 +241,9 @@ namespace MusicalNoteLauncher.Pages
             s.AutoInstallDependencies = chkAutoInstallDependencies.IsChecked == true;
             s.VersionIsolationLevel = cmbVersionIsolation.SelectedIndex;
             s.LaunchArgumentRam = chkLaunchArgumentRam.IsChecked == true;
+            s.EnableSkinResourcePack = chkEnableSkinResourcePack.IsChecked == true;
 
-            SettingsManager.SaveSettings();
+            bool saved = SettingsManager.SaveSettings();
 
             string selectedPath = s.GamePath;
             if (!string.IsNullOrWhiteSpace(selectedPath))
@@ -248,10 +256,16 @@ namespace MusicalNoteLauncher.Pages
             {
                 ThemeColorService.ApplyTheme(info.Preset);
                 UpdateColorPreviews(info);
+                BackgroundConfigService.Instance.InvalidateBrushCache();
+                BackgroundConfigService.Instance.RefreshPanelTransparency();
             }
 
-            MessageBox.Show("设置已保存", "保存成功",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            BackgroundConfigService.Instance.SaveConfig();
+
+            if (saved)
+                ModernMessageBox.ShowSuccess("设置已保存", "保存成功");
+            else
+                ModernMessageBox.ShowError("设置保存失败，请检查日志", "保存失败");
         }
 
         #region 内存设置 (PCL风格)
@@ -445,6 +459,7 @@ namespace MusicalNoteLauncher.Pages
             if (content == "Java设置") { tabSettings.SelectedIndex = 2; return; }
             if (content == "下载设置") { tabSettings.SelectedIndex = 3; return; }
             if (content == "关于") { tabSettings.SelectedIndex = 4; return; }
+            if (content == "背景设置") { tabSettings.SelectedIndex = 5; return; }
         }
 
         private void ResetCategoryButtons()
@@ -455,6 +470,7 @@ namespace MusicalNoteLauncher.Pages
             btnCategoryJava.Background = brush;
             btnCategoryDownload.Background = brush;
             btnCategoryAbout.Background = brush;
+            btnCategoryBackground.Background = brush;
         }
 
         private void RefreshActiveCategoryButton()
@@ -467,6 +483,7 @@ namespace MusicalNoteLauncher.Pages
                 case 2: btnCategoryJava.Background = brush; break;
                 case 3: btnCategoryDownload.Background = brush; break;
                 case 4: btnCategoryAbout.Background = brush; break;
+                case 5: btnCategoryBackground.Background = brush; break;
             }
         }
 
@@ -554,11 +571,11 @@ namespace MusicalNoteLauncher.Pages
                 if (string.IsNullOrWhiteSpace(folderName)) folderName = "启动器目录";
 
                 AddFolderToList(newFolder, folderName);
-                MessageBox.Show("新建 .minecraft 文件夹成功！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("新建 .minecraft 文件夹成功！", "成功");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("创建文件夹失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("创建文件夹失败: " + ex.Message, "错误");
             }
         }
 
@@ -590,10 +607,9 @@ namespace MusicalNoteLauncher.Pages
                         }
                         if (!foundSub && !Directory.Exists(versionsPath))
                         {
-                            var result = MessageBox.Show(
+                            if (!ModernMessageBox.ShowYesNo(
                                 "该文件夹似乎不是有效的 Minecraft 文件夹（未找到versions子文件夹）。\n是否仍要添加？",
-                                "提示", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                            if (result != MessageBoxResult.Yes) return;
+                                "提示")) return;
                         }
                     }
 
@@ -607,7 +623,7 @@ namespace MusicalNoteLauncher.Pages
                     if (string.IsNullOrWhiteSpace(inputName)) return;
 
                     AddFolderToList(targetPath, inputName);
-                    MessageBox.Show($"文件夹 {inputName} 已添加！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.ShowInfo($"文件夹 {inputName} 已添加！", "成功");
                 }
             }
         }
@@ -798,9 +814,8 @@ namespace MusicalNoteLauncher.Pages
                     string targetPath = Environment.ExpandEnvironmentVariables(SettingsManager.Settings.GamePath);
                     AppContext.MinecraftPath = targetPath;
 
-                    MessageBox.Show(
-                        $"整合包「{folderName}」导入成功！\n\n安装位置: {newFolderPath}\n\n已自动切换到该文件夹，可在主页下载对应游戏版本后启动。",
-                        "导入成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.ShowInfo(
+                        $"整合包「{folderName}」导入成功！\n\n安装位置: {newFolderPath}\n\n已自动切换到该文件夹，可在主页下载对应游戏版本后启动。", "导入成功");
                 }
                 else
                 {
@@ -808,14 +823,14 @@ namespace MusicalNoteLauncher.Pages
 
                     if (!string.IsNullOrEmpty(errorMsg))
                     {
-                        MessageBox.Show($"整合包导入失败！\n{errorMsg}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        ModernMessageBox.ShowError($"整合包导入失败！\n{errorMsg}", "错误");
                     }
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error($"[整合包导入] 异常: {ex.Message}");
-                MessageBox.Show($"导入整合包时发生错误:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"导入整合包时发生错误:\n{ex.Message}", "错误");
             }
         }
 
@@ -1174,12 +1189,12 @@ namespace MusicalNoteLauncher.Pages
                 }
                 else
                 {
-                    MessageBox.Show("文件夹不存在！", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ModernMessageBox.ShowError("文件夹不存在！", "错误");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("打开文件夹失败: " + ex.Message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("打开文件夹失败: " + ex.Message, "错误");
             }
         }
 
@@ -1190,14 +1205,13 @@ namespace MusicalNoteLauncher.Pages
             var s = SettingsManager.Settings;
             if (s.GameFolders.Count <= 1)
             {
-                MessageBox.Show("至少需要保留一个游戏文件夹！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("至少需要保留一个游戏文件夹！", "提示");
                 return;
             }
 
-            var result = MessageBox.Show(
+            if (!ModernMessageBox.ShowYesNo(
                 $"确定要从列表中移除 \"{_contextMenuFolder.Name}\" 吗？\n这不会删除实际的文件夹，只会从启动器列表中移除。",
-                "确认移除", MessageBoxButton.YesNo, MessageBoxImage.Question);
-            if (result != MessageBoxResult.Yes) return;
+                "确认移除")) return;
 
             int removedIndex = -1;
             for (int i = 0; i < s.GameFolders.Count; i++)
@@ -1227,21 +1241,19 @@ namespace MusicalNoteLauncher.Pages
             var s = SettingsManager.Settings;
             if (s.GameFolders.Count <= 1)
             {
-                MessageBox.Show("至少需要保留一个游戏文件夹！无法删除最后一个文件夹。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("至少需要保留一个游戏文件夹！无法删除最后一个文件夹。", "提示");
                 return;
             }
 
             string folderPath = Environment.ExpandEnvironmentVariables(_contextMenuFolder.Path);
 
-            var confirm1 = MessageBox.Show(
+            if (!ModernMessageBox.ShowYesNo(
                 $"确定要删除文件夹 \"{_contextMenuFolder.Name}\" 吗？\n\n路径: {folderPath}\n\n⚠️ 此操作将永久删除该文件夹及其所有内容（包括游戏版本、模组、存档、配置等），且无法恢复！",
-                "⚠️ 确认删除文件夹", MessageBoxButton.YesNo, MessageBoxImage.Warning);
-            if (confirm1 != MessageBoxResult.Yes) return;
+                "⚠️ 确认删除文件夹")) return;
 
-            var confirm2 = MessageBox.Show(
+            if (!ModernMessageBox.ShowYesNo(
                 $"最后确认！\n\n你真的要永久删除这个文件夹吗？\n所有数据将被彻底删除，无法撤销！",
-                "⚠️ 再次确认", MessageBoxButton.YesNo, MessageBoxImage.Stop);
-            if (confirm2 != MessageBoxResult.Yes) return;
+                "⚠️ 再次确认")) return;
 
             int removedIndex = -1;
             for (int i = 0; i < s.GameFolders.Count; i++)
@@ -1272,7 +1284,7 @@ namespace MusicalNoteLauncher.Pages
 
             if (!deleted)
             {
-                MessageBox.Show($"删除文件夹失败！\n{errorMsg}\n\n文件夹已从列表中移除，但磁盘上的文件可能被占用。", "删除失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"删除文件夹失败！\n{errorMsg}\n\n文件夹已从列表中移除，但磁盘上的文件可能被占用。", "删除失败");
             }
 
             if (removedIndex >= 0)
@@ -1293,7 +1305,7 @@ namespace MusicalNoteLauncher.Pages
 
                 if (deleted)
                 {
-                    MessageBox.Show($"文件夹 \"{_contextMenuFolder.Name}\" 已成功删除！", "删除成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.ShowInfo($"文件夹 \"{_contextMenuFolder.Name}\" 已成功删除！", "删除成功");
                 }
             }
         }
@@ -1353,14 +1365,12 @@ namespace MusicalNoteLauncher.Pages
 
                 if (_detectedJavaList.Count == 0)
                 {
-                    MessageBox.Show("未检测到系统中的Java环境，请手动配置或下载Java", "提示",
-                        MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("未检测到系统中的Java环境，请手动配置或下载Java", "提示");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("检测Java失败: " + ex.Message, "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Hand);
+                ModernMessageBox.ShowError("检测Java失败: " + ex.Message, "错误");
             }
         }
 
@@ -1370,21 +1380,61 @@ namespace MusicalNoteLauncher.Pages
         {
             btnMemoryOptimize.IsEnabled = false;
             btnMemoryOptimize.Content = "优化中...";
+            txtMemOptStatus.Visibility = Visibility.Visible;
+            txtMemOptStatus.Text = "正在请求管理员权限...";
+
+            var progress = new Progress<(double percent, string status)>(report =>
+            {
+                Dispatcher.Invoke(() =>
+                {
+                    btnMemoryOptimize.Content = report.status;
+                    txtMemOptStatus.Text = $"{report.percent * 100:F0}%";
+                    UpdateRamDisplay();
+                });
+            });
+
+            // 每 300ms 轮询刷新内存条（覆盖非管理员子进程路径中无进度回调的情况）
+            var cts = new CancellationTokenSource();
+            var pollTask = Task.Run(async () =>
+            {
+                while (!cts.Token.IsCancellationRequested)
+                {
+                    try { await Task.Delay(300, cts.Token); } catch (TaskCanceledException) { break; }
+                    Dispatcher.Invoke(() => UpdateRamDisplay());
+                }
+            }, cts.Token);
+
             try
             {
-                long freed = await MemoryOptimizer.OptimizeAsync(null);
-                MessageBox.Show($"内存优化完成！\n释放内存: {freed} MB", "内存优化",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                var result = await MemoryOptimizer.OptimizeAsync(progress);
+
+                cts.Cancel();
+                txtMemOptStatus.Text = "已完成";
+                UpdateRamDisplay(); // 优化完成后最终刷新内存条
+
+                string extra = "";
+                if (result.ProcessesTrimmed > 0)
+                    extra += $"\n修剪进程: {result.ProcessesTrimmed} 个";
+                if (result.SystemCacheCleared)
+                    extra += "\n系统文件缓存已清除";
+                if (result.MemReductUsed)
+                    extra += "\nMem Reduct 已调用";
+                if (result.IsElevated)
+                    extra += "\n(已使用管理员权限)";
+
+                ModernMessageBox.ShowInfo(
+                    $"内存优化完成！\n释放内存: {result.FreedMb} MB\n({result.MemBeforeMb} MB → {result.MemAfterMb} MB){extra}",
+                    "内存优化");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("内存优化失败: " + ex.Message, "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("内存优化失败: " + ex.Message, "错误");
             }
             finally
             {
                 btnMemoryOptimize.IsEnabled = true;
                 btnMemoryOptimize.Content = "立即优化内存";
+                txtMemOptStatus.Visibility = Visibility.Collapsed;
             }
         }
 
@@ -1398,13 +1448,11 @@ namespace MusicalNoteLauncher.Pages
                     _javaConfig.SetAutoConfig(detected);
                     txtJavaPath.Text = detected.Path;
                     UpdateCurrentJavaConfigDisplay();
-                    MessageBox.Show($"已使用 Java {detected.MajorVersion}\n路径: {detected.Path}", "配置成功",
-                        MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo($"已使用 Java {detected.MajorVersion}\n路径: {detected.Path}", "配置成功");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("设置Java失败: " + ex.Message, "错误",
-                        MessageBoxButton.OK, MessageBoxImage.Hand);
+                    ModernMessageBox.ShowError("设置Java失败: " + ex.Message, "错误");
                 }
             }
         }
@@ -1416,26 +1464,23 @@ namespace MusicalNoteLauncher.Pages
                 string javaPath = _javaConfig?.GetJavaPath() ?? txtJavaPath.Text.Trim();
                 if (string.IsNullOrEmpty(javaPath))
                 {
-                    MessageBox.Show("请先设置Java路径", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                    ModernMessageBox.ShowWarning("请先设置Java路径", "提示");
                     return;
                 }
 
                 bool valid = _javaConfig.ValidateJavaPath(javaPath);
                 if (valid)
                 {
-                    MessageBox.Show("Java配置验证通过!", "验证成功",
-                        MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo("Java配置验证通过!", "验证成功");
                 }
                 else
                 {
-                    MessageBox.Show("Java配置验证失败，请检查路径是否正确", "验证失败",
-                        MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                    ModernMessageBox.ShowWarning("Java配置验证失败，请检查路径是否正确", "验证失败");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("验证失败: " + ex.Message, "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Hand);
+                ModernMessageBox.ShowError("验证失败: " + ex.Message, "错误");
             }
         }
 
@@ -1444,8 +1489,7 @@ namespace MusicalNoteLauncher.Pages
             string path = txtJavaPath.Text.Trim();
             if (string.IsNullOrEmpty(path))
             {
-                MessageBox.Show("请输入Java路径或浏览选择", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                ModernMessageBox.ShowWarning("请输入Java路径或浏览选择", "提示");
                 return;
             }
 
@@ -1453,21 +1497,18 @@ namespace MusicalNoteLauncher.Pages
             {
                 if (!_javaConfig.ValidateJavaPath(path))
                 {
-                    MessageBox.Show("无效的Java路径或Java版本无法识别", "错误",
-                        MessageBoxButton.OK, MessageBoxImage.Hand);
+                    ModernMessageBox.ShowError("无效的Java路径或Java版本无法识别", "错误");
                     return;
                 }
 
                 _javaConfig.SetJavaPath(path);
                 txtJavaPath.Text = _javaConfig.GetJavaPath();
                 UpdateCurrentJavaConfigDisplay();
-                MessageBox.Show("已设置Java路径: " + txtJavaPath.Text, "配置成功",
-                    MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                ModernMessageBox.ShowInfo("已设置Java路径: " + txtJavaPath.Text, "配置成功");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("设置Java失败: " + ex.Message, "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Hand);
+                ModernMessageBox.ShowError("设置Java失败: " + ex.Message, "错误");
             }
         }
 
@@ -1497,10 +1538,9 @@ namespace MusicalNoteLauncher.Pages
                 if (_javaDownloadService.IsJavaInstalled(javaVersion))
                 {
                     string installedPath = _javaDownloadService.GetInstalledJavaPath(javaVersion);
-                    var result = MessageBox.Show(
+                    if (ModernMessageBox.ShowYesNo(
                         $"Java {javaVersion} 已安装!\n路径: {installedPath}\n\n是否使用此版本?",
-                        "已安装", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    if (result == MessageBoxResult.Yes)
+                        "已安装"))
                     {
                         txtJavaPath.Text = installedPath;
                         _javaConfig.SetJavaPath(installedPath);
@@ -1536,8 +1576,7 @@ namespace MusicalNoteLauncher.Pages
                     txtJavaPath.Text = javaExePath;
                     _javaConfig.SetJavaPath(javaExePath);
                     UpdateCurrentJavaConfigDisplay();
-                    MessageBox.Show($"Java {javaVersion} 下载安装完成!\n路径: {javaExePath}", "下载完成",
-                        MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                    ModernMessageBox.ShowInfo($"Java {javaVersion} 下载安装完成!\n路径: {javaExePath}", "下载完成");
                 });
             }
             catch (OperationCanceledException)
@@ -1545,7 +1584,7 @@ namespace MusicalNoteLauncher.Pages
                 Dispatcher.Invoke(() =>
                 {
                     pnlDownloadProgress.Visibility = Visibility.Collapsed;
-                    MessageBox.Show("下载已取消", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    ModernMessageBox.ShowInfo("下载已取消", "提示");
                 });
             }
             catch (Exception ex)
@@ -1553,16 +1592,96 @@ namespace MusicalNoteLauncher.Pages
                 Dispatcher.Invoke(() =>
                 {
                     pnlDownloadProgress.Visibility = Visibility.Collapsed;
-                    MessageBox.Show("下载Java失败: " + ex.Message, "错误",
-                        MessageBoxButton.OK, MessageBoxImage.Hand);
+                    ModernMessageBox.ShowError("下载Java失败: " + ex.Message, "错误");
                 });
             }
         }
 
-        private void BtnCheckUpdate_Click(object sender, RoutedEventArgs e)
+        private async void BtnCheckUpdate_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("当前版本: 1.0.0\n\n暂无可用更新。", "检查更新",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            var btn = sender as Button;
+            if (btn != null)
+            {
+                btn.IsEnabled = false;
+                btn.Content = "正在检查...";
+            }
+
+            try
+            {
+                var versionInfo = await Core.UpdateService.FetchLatestVersionAsync();
+
+                if (versionInfo == null)
+                {
+                    ModernMessageBox.ShowWarning("无法连接到更新服务器，请检查网络后重试。", "检查更新");
+                }
+                else if (!versionInfo.NeedUpdate)
+                {
+                    ModernMessageBox.ShowInfo(
+                        $"当前版本: {Core.UpdateService.CurrentVersion}\n\n已是最新版本，无需更新。",
+                        "检查更新");
+                }
+                else
+                {
+                    string message = $"发现新版本 {versionInfo.Version}\n\n" +
+                                     $"更新内容:\n{versionInfo.ReleaseNotes}\n\n" +
+                                     $"是否立即更新？";
+
+                    if (versionInfo.IsForced)
+                    {
+                        message = $"【强制更新】发现新版本 {versionInfo.Version}\n\n" +
+                                  $"更新内容:\n{versionInfo.ReleaseNotes}\n\n" +
+                                  $"此版本为强制更新，将自动下载安装。";
+                        ModernMessageBox.ShowInfo(message, "版本更新（强制）");
+
+                        _ = System.Threading.Tasks.Task.Run(async () =>
+                        {
+                            bool success = await Core.UpdateService.DownloadAndInstallAsync(versionInfo);
+                            if (success)
+                            {
+                                Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown(0));
+                            }
+                            else
+                            {
+                                Application.Current.Dispatcher.Invoke(() =>
+                                    ModernMessageBox.ShowError("更新安装失败，请稍后重试", "更新失败"));
+                            }
+                        });
+                    }
+                    else
+                    {
+                        bool userWantsUpdate = ModernMessageBox.ShowConfirm(message, "版本更新");
+                        if (userWantsUpdate)
+                        {
+                            _ = System.Threading.Tasks.Task.Run(async () =>
+                            {
+                                bool success = await Core.UpdateService.DownloadAndInstallAsync(versionInfo);
+                                if (success)
+                                {
+                                    Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown(0));
+                                }
+                                else
+                                {
+                                    Application.Current.Dispatcher.Invoke(() =>
+                                        ModernMessageBox.ShowError("更新安装失败，请稍后重试", "更新失败"));
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ModernMessageBox.ShowError($"检查更新时发生错误: {ex.Message}", "检查更新");
+                Core.Logger.Error("[检查更新] 手动检查异常", ex);
+            }
+            finally
+            {
+                if (btn != null)
+                {
+                    btn.IsEnabled = true;
+                    btn.Content = "检查更新";
+                }
+            }
         }
 
         private void UpdateCurrentJavaConfigDisplay()
@@ -1585,6 +1704,215 @@ namespace MusicalNoteLauncher.Pages
                 bdrJavaStatus.Background = hasJava
                     ? new SolidColorBrush((Color)ColorConverter.ConvertFromString("#4CAF50"))
                     : new SolidColorBrush((Color)ColorConverter.ConvertFromString("#FF9800"));
+        }
+
+        // ═══════════════════════════════════════════════════════
+        // 背景设置面板逻辑
+        // ═══════════════════════════════════════════════════════
+
+        /// <summary>防重入标志：LoadBackgroundSettingsToUI 中修改 RadioButton 时不触发 Checked 事件</summary>
+        private bool _isLoadingBackground;
+
+        /// <summary>
+        /// 从 BackgroundConfigService 加载当前背景配置到 UI 控件。
+        /// </summary>
+        private void LoadBackgroundSettingsToUI()
+        {
+            _isLoadingBackground = true;
+            try
+            {
+                var cfg = BackgroundConfigService.Instance;
+
+                // 模式单选
+                switch (cfg.Mode)
+                {
+                    case BackgroundMode.Mica:
+                        radioBgMica.IsChecked = true;
+                        break;
+                    case BackgroundMode.Image:
+                        radioBgImage.IsChecked = true;
+                        break;
+                    case BackgroundMode.Video:
+                        radioBgVideo.IsChecked = true;
+                        break;
+                }
+
+                // 路径
+                txtBgImagePath.Text = cfg.ImagePath ?? "";
+                txtBgVideoPath.Text = cfg.VideoPath ?? "";
+
+                // 透明度
+                sliderBgOpacity.Value = cfg.Opacity;
+                txtBgOpacityValue.Text = $"{(int)(cfg.Opacity * 100)}%";
+
+                // 模糊
+                sliderBgBlur.Value = cfg.BlurRadius;
+                txtBgBlurValue.Text = $"{cfg.BlurRadius:F0}";
+
+                // 文件选择面板可见性
+                UpdateBgPathPanelVisibility();
+            }
+            finally
+            {
+                _isLoadingBackground = false;
+            }
+        }
+
+        /// <summary>
+        /// 根据当前选中的模式，显示/隐藏对应的文件选择面板。
+        /// </summary>
+        private void UpdateBgPathPanelVisibility()
+        {
+            if (panBgImagePath == null || panBgVideoPath == null) return;
+            panBgImagePath.Visibility = radioBgImage.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+            panBgVideoPath.Visibility = radioBgVideo.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        /// <summary>
+        /// 背景模式 RadioButton 选中变更。
+        /// 切换逻辑：
+        /// - Mica：立即应用
+        /// - 图片/视频：仅切换面板显示，等用户通过"浏览..."选文件后才生效
+        /// </summary>
+        private void RadioBgMode_Checked(object sender, RoutedEventArgs e)
+        {
+            if (!IsLoaded || _isLoadingBackground) return;
+
+            UpdateBgPathPanelVisibility();
+
+            var cfg = BackgroundConfigService.Instance;
+
+            if (radioBgMica.IsChecked == true)
+            {
+                // Mica 无需文件，直接应用
+                cfg.SetMode(BackgroundMode.Mica);
+                LoadBackgroundSettingsToUI();
+            }
+            else if (radioBgImage.IsChecked == true)
+            {
+                if (!string.IsNullOrWhiteSpace(cfg.ImagePath))
+                {
+                    // 已有图片路径，直接切换
+                    cfg.SetMode(BackgroundMode.Image);
+                    LoadBackgroundSettingsToUI();
+                }
+                // 无文件：仅保持面板可见，不切换实际背景，等用户点"浏览..."
+            }
+            else if (radioBgVideo.IsChecked == true)
+            {
+                if (!string.IsNullOrWhiteSpace(cfg.VideoPath))
+                {
+                    // 已有视频路径，直接切换
+                    cfg.SetMode(BackgroundMode.Video);
+                    LoadBackgroundSettingsToUI();
+                }
+                // 无文件：仅保持面板可见，不切换实际背景，等用户点"浏览..."
+            }
+        }
+
+        /// <summary>
+        /// 浏览选择图片背景文件（内部调用）。
+        /// </summary>
+        private void BtnBrowseBgImage_Click_Internal()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择背景图片",
+                Filter = "图片文件 (*.jpg;*.jpeg;*.png;*.webp)|*.jpg;*.jpeg;*.png;*.webp|所有文件 (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var cfg = BackgroundConfigService.Instance;
+                if (cfg.SetImagePath(dialog.FileName))
+                {
+                    txtBgImagePath.Text = dialog.FileName;
+                    cfg.SetMode(BackgroundMode.Image);
+                    LoadBackgroundSettingsToUI();
+                }
+                else
+                {
+                    Controls.ModernMessageBox.ShowWarning("不支持的图片格式，仅支持 JPG、PNG、WEBP", "格式错误");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 浏览选择视频背景文件（内部调用）。
+        /// </summary>
+        private void BtnBrowseBgVideo_Click_Internal()
+        {
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "选择背景视频",
+                Filter = "MP4 视频文件 (*.mp4)|*.mp4|所有文件 (*.*)|*.*",
+                CheckFileExists = true
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                var cfg = BackgroundConfigService.Instance;
+                if (cfg.SetVideoPath(dialog.FileName))
+                {
+                    txtBgVideoPath.Text = dialog.FileName;
+                    cfg.SetMode(BackgroundMode.Video);
+                    LoadBackgroundSettingsToUI();
+                }
+                else
+                {
+                    Controls.ModernMessageBox.ShowWarning("不支持的视频格式，仅支持 MP4", "格式错误");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 浏览选择图片背景文件（按钮点击）。
+        /// </summary>
+        private void BtnBrowseBgImage_Click(object sender, RoutedEventArgs e)
+        {
+            BtnBrowseBgImage_Click_Internal();
+        }
+
+        /// <summary>
+        /// 浏览选择视频背景文件（按钮点击）。
+        /// </summary>
+        private void BtnBrowseBgVideo_Click(object sender, RoutedEventArgs e)
+        {
+            BtnBrowseBgVideo_Click_Internal();
+        }
+
+        /// <summary>
+        /// 透明度滑块值变更：实时预览生效。
+        /// </summary>
+        private void SliderBgOpacity_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (txtBgOpacityValue == null) return;
+            double val = e.NewValue;
+            txtBgOpacityValue.Text = $"{(int)(val * 100)}%";
+            BackgroundConfigService.Instance.Opacity = val;
+        }
+
+        /// <summary>
+        /// 模糊强度滑块值变更：实时预览生效。
+        /// </summary>
+        private void SliderBgBlur_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (txtBgBlurValue == null) return;
+            double val = Math.Round(e.NewValue, 0);
+            txtBgBlurValue.Text = $"{val:F0}";
+            BackgroundConfigService.Instance.BlurRadius = val;
+        }
+
+        /// <summary>
+        /// 重置默认背景按钮：一键清空自定义素材，恢复 Mica 云母背景。
+        /// </summary>
+        private void BtnResetBackground_Click(object sender, RoutedEventArgs e)
+        {
+            var cfg = BackgroundConfigService.Instance;
+            cfg.ResetToDefault();
+            LoadBackgroundSettingsToUI();
+            Controls.ModernMessageBox.ShowInfo("背景已恢复为默认 Mica 云母背景", "重置成功");
         }
     }
 }

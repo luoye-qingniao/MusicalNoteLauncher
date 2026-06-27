@@ -194,6 +194,23 @@ namespace MusicalNoteLauncher.Core
                 DetectJavaInDirectory(prioritizedPaths, @"C:\Program Files\Amazon Corretto", "Amazon Corretto");
                 DetectJavaInDirectory(prioritizedPaths, @"C:\Program Files\Java", "Java");
 
+                // 优先检查 MNL 游戏目录下的运行时，再检查官方启动器目录
+                string mnlRuntimeDir = Path.Combine(AppContext.MinecraftPath, "runtime");
+                if (Directory.Exists(mnlRuntimeDir))
+                {
+                    try
+                    {
+                        foreach (string subDir in Directory.GetDirectories(mnlRuntimeDir))
+                        {
+                            AddJavaPath(prioritizedPaths, Path.Combine(subDir, "bin"), "MNL/runtime");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Warning($"扫描 MNL 运行时失败: {ex.Message}");
+                    }
+                }
+
                 string userDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "runtime");
                 if (Directory.Exists(userDir))
                 {
@@ -654,8 +671,8 @@ namespace MusicalNoteLauncher.Core
                         await PostStatusAsync("正在进行内存优化...");
                         try
                         {
-                            long freed = await MemoryOptimizer.OptimizeAsync(null);
-                            Log($"[内存优化] 完成，释放内存: {freed} MB");
+                            var memResult = await MemoryOptimizer.OptimizeAsync(null);
+                            Log($"[内存优化] 完成，释放内存: {memResult.FreedMb} MB, 修剪进程: {memResult.ProcessesTrimmed}");
                         }
                         catch (Exception memEx)
                         {
@@ -884,7 +901,7 @@ namespace MusicalNoteLauncher.Core
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         RedirectStandardError = true,
-                        CreateNoWindow = false,
+                        CreateNoWindow = true,
                         StandardOutputEncoding = Encoding.UTF8,
                         StandardErrorEncoding = Encoding.UTF8
                     };
@@ -1683,6 +1700,46 @@ namespace MusicalNoteLauncher.Core
                 {
                     Log($"[版本] 警告: 父版本 {inheritsFrom} 的 json 文件不存在: {parentJson}");
                 }
+
+                // 检查加载器库文件是否存在（至少检查前 3 个）
+                int missingLibs = 0;
+                try
+                {
+                    string jsonContent = File.ReadAllText(jsonFile);
+                    using (JsonDocument doc = JsonDocument.Parse(jsonContent))
+                    {
+                        if (doc.RootElement.TryGetProperty("libraries", out var libraries))
+                        {
+                            int checkedCount = 0;
+                            foreach (var lib in libraries.EnumerateArray())
+                            {
+                                if (checkedCount >= 3) break;
+                                string libPath = GetLibraryPath(lib);
+                                if (!string.IsNullOrEmpty(libPath))
+                                {
+                                    string fullPath = Path.Combine(_minecraftPath, "libraries", libPath);
+                                    if (!File.Exists(fullPath))
+                                    {
+                                        Log($"[版本] 警告: 加载器库文件不存在: {fullPath}");
+                                        missingLibs++;
+                                    }
+                                }
+                                checkedCount++;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log($"[版本] 检查库文件时出错: {ex.Message}");
+                }
+
+                if (missingLibs > 0)
+                {
+                    Log($"[版本] 错误: {versionId} 缺少 {missingLibs} 个加载器库文件，请重新安装 Fabric/Forge/NeoForge");
+                    return false;
+                }
+
                 Log($"版本 {versionId} 继承校验通过（使用主 JAR: {parentJar}）");
                 return true;
             }
@@ -2947,6 +3004,17 @@ namespace MusicalNoteLauncher.Core
                     }
                 }
                 Log($"[CP] 从JSON添加 {libCount} 个库（过滤 {filteredCount} 个非Windows库，缺失 {missingCount} 个库）");
+
+                // 对于 Fabric/Forge/NeoForge 等有 inheritsFrom 的版本，缺失库文件是致命错误
+                if (missingCount > 0 && versionInfo.TryGetProperty("inheritsFrom", out _))
+                {
+                    Log($"[CP] 错误: Fabric/Forge/NeoForge 版本缺少 {missingCount} 个库文件，请重新安装加载器");
+                    throw new InvalidOperationException(
+                        $"检测到 Fabric/Forge/NeoForge 版本缺少 {missingCount} 个库文件。\n" +
+                        $"请确保已通过启动器正确安装了加载器。如果使用的是已存在的 .minecraft 目录，请尝试以下方法之一：\n" +
+                        $"  1. 在启动器中选择原版版本启动一次，然后再安装 Fabric/Forge\n" +
+                        $"  2. 或从官方启动器中安装必要组件后再使用本启动器");
+                }
             }
 
             if (classpathList.Count == 0)
@@ -3212,6 +3280,23 @@ namespace MusicalNoteLauncher.Core
             DetectJavaInDirectory(prioritizedPaths, @"C:\Program Files\Microsoft\jdk", "Microsoft JDK");
             DetectJavaInDirectory(prioritizedPaths, @"C:\Program Files\Amazon Corretto", "Amazon Corretto");
             DetectJavaInDirectory(prioritizedPaths, @"C:\Program Files\Java", "Java");
+
+            // 优先检查 MNL 游戏目录下的运行时，再检查官方启动器目录
+            string mnlRuntimeDir = Path.Combine(AppContext.MinecraftPath, "runtime");
+            if (Directory.Exists(mnlRuntimeDir))
+            {
+                try
+                {
+                    foreach (string subDir in Directory.GetDirectories(mnlRuntimeDir))
+                    {
+                        AddJavaPath(prioritizedPaths, Path.Combine(subDir, "bin"), "MNL/runtime");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.Warning($"扫描 MNL 运行时失败: {ex.Message}");
+                }
+            }
 
             string userDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft", "runtime");
             if (Directory.Exists(userDir))

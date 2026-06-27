@@ -6,11 +6,10 @@ namespace MusicalNoteLauncher.Core
 {
     public class ConfigManager
     {
-        private static readonly string ConfigFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "MusicalNoteLauncher");
+        private static string ConfigFile => MNLEnvironment.ConfigFilePath;
 
-        private static readonly string ConfigFile = Path.Combine(ConfigFolder, "config.ini");
+        private static readonly string ConfigFolder = Path.Combine(
+            AppDomain.CurrentDomain.BaseDirectory, "MNL");
 
         public string Username { get; set; }
         public bool RememberAccount { get; set; }
@@ -39,8 +38,7 @@ namespace MusicalNoteLauncher.Core
 
         private string GetDefaultMinecraftPath()
         {
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appData, ".minecraft");
+            return MNLEnvironment.MinecraftPath;
         }
 
         public void EnsureGameDirectoryExists()
@@ -195,8 +193,7 @@ namespace MusicalNoteLauncher.Core
                     return GameDirectory;
                 }
 
-                string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-                string defaultPath = Path.Combine(appData, ".minecraft");
+                string defaultPath = MNLEnvironment.MinecraftPath;
 
                 Logger.Info($"Using default Minecraft path: {defaultPath}");
                 return defaultPath;
@@ -204,7 +201,7 @@ namespace MusicalNoteLauncher.Core
             catch (Exception ex)
             {
                 Logger.Error($"Error getting Minecraft path: {ex.Message}", ex);
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+                return MNLEnvironment.MinecraftPath;
             }
         }
     }

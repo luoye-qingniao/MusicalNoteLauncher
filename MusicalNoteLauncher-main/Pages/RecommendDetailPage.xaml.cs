@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.IO;
 using MusicalNoteLauncher.ViewModels;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -19,13 +20,15 @@ namespace MusicalNoteLauncher.Pages
         public RecommendDetailPage()
         {
             InitializeComponent();
-            Loaded += OnLoaded;
+            IsVisibleChanged += OnIsVisibleChanged;
         }
 
-        private void OnLoaded(object sender, RoutedEventArgs e)
+        private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            Loaded -= OnLoaded;
-            LoadDetailData();
+            if ((bool)e.NewValue)
+            {
+                LoadDetailData();
+            }
         }
 
         private async void LoadDetailData()
@@ -117,12 +120,12 @@ namespace MusicalNoteLauncher.Pages
                     }
                     else
                     {
-                        MessageBox.Show("无法获取下载链接", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                        ModernMessageBox.ShowError("无法获取下载链接", "错误");
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"下载失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ModernMessageBox.ShowError($"下载失败: {ex.Message}", "错误");
                 }
             }
         }

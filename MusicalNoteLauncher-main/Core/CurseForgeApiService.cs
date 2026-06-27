@@ -22,11 +22,11 @@ namespace MusicalNoteLauncher.Core
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "MusicalNoteLauncher/1.0");
         }
 
-        public async Task<List<CurseForgeMod>> SearchMods(string query, int limit = 10)
+        public async Task<List<CurseForgeMod>> SearchMods(string query, int limit = 10, int offset = 0)
         {
             try
             {
-                string url = $"{BaseUrl}/mods/search?gameId=432&searchFilter={Uri.EscapeDataString(query)}&pageSize={limit}";
+                string url = $"{BaseUrl}/mods/search?gameId=432&searchFilter={Uri.EscapeDataString(query)}&pageSize={limit}&index={offset}";
                 var response = await _httpClient.GetAsync(url);
                 
                 if (!response.IsSuccessStatusCode)

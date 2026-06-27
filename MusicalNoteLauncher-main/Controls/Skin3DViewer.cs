@@ -116,6 +116,11 @@ namespace MusicalNoteLauncher.Controls
             _camera.Position = new Point3D(_camera.Position.X, _camera.Position.Y, 80.0 * _zoomScale);
         }
 
+        public void SetBackground(Color color)
+        {
+            Background = new SolidColorBrush(color);
+        }
+
         public void UpdateSkin(BitmapSource skinImage, bool isSlim)
         {
             _isSlim = isSlim;

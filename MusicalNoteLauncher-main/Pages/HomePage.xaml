@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
 	x:Class="MusicalNoteLauncher.Pages.HomePage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
 	Background="{DynamicResource BackgroundBrush}" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<ScrollViewer

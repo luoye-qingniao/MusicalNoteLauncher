@@ -7,6 +7,35 @@
         Background="{DynamicResource BackgroundBrush}">
 
     <Grid>
+        <!-- Layer 0: 背景装饰层（图片 + 视频 + 模糊效果） -->
+        <Grid x:Name="BackgroundLayer" Panel.ZIndex="0">
+            <Image x:Name="BackgroundImage"
+                   Stretch="UniformToFill" Source="{x:Null}"
+                   Opacity="0.6" Visibility="Collapsed"
+                   RenderOptions.BitmapScalingMode="LowQuality"
+                   CacheMode="BitmapCache">
+                <Image.Effect>
+                    <BlurEffect x:Name="BackgroundImageBlur" Radius="0"
+                                RenderingBias="Quality" />
+                </Image.Effect>
+            </Image>
+            <MediaElement x:Name="BackgroundVideo"
+                          LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                          Stretch="UniformToFill" Volume="0"
+                          Opacity="0.6" Visibility="Collapsed"
+                          ScrubbingEnabled="False"
+                          MediaOpened="BackgroundVideo_MediaOpened"
+                          MediaFailed="BackgroundVideo_MediaFailed"
+                          MediaEnded="BackgroundVideo_MediaEnded">
+                <MediaElement.Effect>
+                    <BlurEffect x:Name="BackgroundVideoBlur" Radius="0"
+                                RenderingBias="Quality" />
+                </MediaElement.Effect>
+            </MediaElement>
+        </Grid>
+
+        <!-- Layer 1: 原有全部 UI 内容 -->
+        <Grid x:Name="ContentLayer" Panel.ZIndex="1">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200"/>
             <ColumnDefinition Width="*"/>
@@ -332,6 +361,7 @@
         <Grid Grid.Column="1" Margin="20" ClipToBounds="True">
             <ContentControl x:Name="pageContainerA" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0" Visibility="Collapsed"/>
             <ContentControl x:Name="pageContainerB" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0" Visibility="Collapsed"/>
+        </Grid>
         </Grid>
     </Grid>
 </Window>

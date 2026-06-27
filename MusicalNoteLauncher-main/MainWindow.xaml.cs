@@ -22,6 +22,9 @@ namespace MusicalNoteLauncher
         private bool _isAnimating;
         public event Action OnLogout;
 
+        // 背景性能：跟踪上次模式+路径，避免滑块拖动时重复加载文件
+        private string _lastBgState = "";
+
         public MainWindow() : this("Player", true) { }
 
         public MainWindow(string username, bool isOfflineMode)
@@ -47,6 +50,7 @@ namespace MusicalNoteLauncher
             ProfilePage.OnAvatarChanged += () => Dispatcher.Invoke(() => UpdateCurrentUserInfo(AppContext.Username, AppContext.IsOfflineMode));
             Loaded += (s, e) =>
             {
+                InitializeBackground();
                 UpdateCurrentUserInfo(username, isOfflineMode);
                 ShowPage("Home");
             };
@@ -393,6 +397,143 @@ namespace MusicalNoteLauncher
         {
             OnLogout?.Invoke();
             Close();
+        }
+
+        // ── 背景装饰层管理 ──
+
+        private void InitializeBackground()
+        {
+            var bg = BackgroundConfigService.Instance;
+            bg.BackgroundChanged += ApplyBackground;
+            bg.ModeChanged += _ => ApplyBackground();
+            StateChanged += OnWindowStateChangedForBackground;
+            
+            // 延迟到 ContentRendered 后执行，确保 WPF 资源树完全就绪
+            ContentRendered += (s2, e2) =>
+            {
+                bg.RefreshPanelTransparency();
+                ApplyBackground();
+            };
+        }
+
+        private void ApplyBackground()
+        {
+            var bg = BackgroundConfigService.Instance;
+            bool isImage = bg.Mode == BackgroundMode.Image;
+            bool isVideo = bg.Mode == BackgroundMode.Video;
+
+            // 快速路径：仅透明度/模糊变化（模式+路径未变），跳过文件操作
+            string currentState = $"{bg.Mode}|{bg.ImagePath}|{bg.VideoPath}";
+            bool stateChanged = currentState != _lastBgState;
+            _lastBgState = currentState;
+
+            // 始终同步 Opacity 和 BlurRadius（实时）
+            BackgroundImage.Opacity = bg.Opacity;
+            BackgroundImageBlur.Radius = bg.BlurRadius;
+            BackgroundVideo.Opacity = bg.Opacity;
+            BackgroundVideoBlur.Radius = bg.BlurRadius;
+
+            if (!stateChanged)
+                return; // 仅参数变化，已在上面同步完毕
+
+            // 图片
+            BackgroundImage.Visibility = isImage ? Visibility.Visible : Visibility.Collapsed;
+            if (isImage && !string.IsNullOrWhiteSpace(bg.ImagePath) && File.Exists(bg.ImagePath))
+            {
+                try
+                {
+                    var bmp = new BitmapImage();
+                    bmp.BeginInit();
+                    bmp.CacheOption = BitmapCacheOption.OnLoad;
+                    bmp.UriSource = new Uri(bg.ImagePath);
+                    bmp.EndInit();
+                    bmp.Freeze();
+                    BackgroundImage.Source = bmp;
+                }
+                catch { FallbackToMicaWithNotification("图片文件损坏或格式不支持，已切回默认背景"); return; }
+            }
+
+            // 视频
+            if (isVideo && !string.IsNullOrWhiteSpace(bg.VideoPath) && File.Exists(bg.VideoPath))
+            {
+                try
+                {
+                    BackgroundVideo.Visibility = Visibility.Visible;
+                    BackgroundVideo.Source = new Uri(bg.VideoPath);
+                    BackgroundVideo.Play();
+                }
+                catch { FallbackToMicaWithNotification("视频文件加载失败，已切回默认背景"); return; }
+            }
+            else
+            {
+                BackgroundVideo.Visibility = Visibility.Collapsed;
+                BackgroundVideo.Stop();
+                BackgroundVideo.Source = null;
+            }
+
+            // Mica 模式下完全隐藏背景控件
+            if (!isImage && !isVideo)
+            {
+                BackgroundImage.Visibility = Visibility.Collapsed;
+                BackgroundImage.Source = null;
+                BackgroundVideo.Visibility = Visibility.Collapsed;
+                BackgroundVideo.Stop();
+                BackgroundVideo.Source = null;
+            }
+        }
+
+        private void OnWindowStateChangedForBackground(object sender, EventArgs e)
+        {
+            if (BackgroundConfigService.Instance.Mode != BackgroundMode.Video)
+                return;
+
+            if (WindowState == WindowState.Minimized)
+            {
+                try { BackgroundVideo.Pause(); } catch { }
+            }
+            else
+            {
+                try
+                {
+                    if (BackgroundVideo.Source != null)
+                        BackgroundVideo.Play();
+                }
+                catch { }
+            }
+        }
+
+        private void BackgroundVideo_MediaOpened(object sender, RoutedEventArgs e)
+        {
+            BackgroundVideo.Volume = 0;
+            BackgroundVideo.Position = TimeSpan.Zero;
+        }
+
+        private void BackgroundVideo_MediaEnded(object sender, RoutedEventArgs e)
+        {
+            BackgroundVideo.Position = TimeSpan.Zero;
+            BackgroundVideo.Play();
+        }
+
+        private void BackgroundVideo_MediaFailed(object sender, ExceptionRoutedEventArgs e)
+        {
+            FallbackToMicaWithNotification("视频文件解码失败，已切回默认背景");
+        }
+
+        private void FallbackToMicaWithNotification(string message)
+        {
+            var bg = BackgroundConfigService.Instance;
+            bg.SetMode(BackgroundMode.Mica);
+            try
+            {
+                BackgroundVideo.Stop();
+                BackgroundVideo.Source = null;
+            }
+            catch { }
+            BackgroundVideo.Visibility = Visibility.Collapsed;
+            BackgroundImage.Source = null;
+            BackgroundImage.Visibility = Visibility.Collapsed;
+            Dispatcher.InvokeAsync(() =>
+                MessageBox.Show(message, "背景", MessageBoxButton.OK, MessageBoxImage.Information));
         }
     }
 }

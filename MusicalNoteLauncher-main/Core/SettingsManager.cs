@@ -96,21 +96,31 @@ namespace MusicalNoteLauncher.Core
 
         internal void InitializeDefaultFolders(string gamePath = null)
         {
-            string defaultPath = gamePath ?? "%appdata%\\.minecraft";
-            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            string defaultVanillaPath = Path.Combine(appData, ".minecraft");
+            string defaultPath = gamePath ?? MNLEnvironment.MinecraftPath;
 
             GameFolders = new List<GameFolderEntry>();
 
             string exeDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            // 1. 优先检查 MNL 游戏目录
+            string mnlMc = MNLEnvironment.MinecraftPath;
+            if (Directory.Exists(mnlMc))
+            {
+                GameFolders.Add(new GameFolderEntry("MNL 游戏目录", mnlMc));
+            }
+
+            // 2. 检查 exe 同级 .minecraft（旧版兼容）
             string localMc = Path.Combine(exeDir, ".minecraft");
-            if (Directory.Exists(localMc))
+            if (Directory.Exists(localMc) && !string.Equals(localMc.TrimEnd('\\'), mnlMc.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             {
                 string folderName = Path.GetFileName(exeDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                 if (string.IsNullOrWhiteSpace(folderName)) folderName = "启动器目录";
                 GameFolders.Add(new GameFolderEntry(folderName, localMc));
             }
 
+            // 3. 官方启动器目录
+            string appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            string defaultVanillaPath = Path.Combine(appData, ".minecraft");
             if (Directory.Exists(defaultVanillaPath))
             {
                 bool alreadyHas = GameFolders.Any(f => string.Equals(f.NormalizedPath, defaultVanillaPath + "\\", StringComparison.OrdinalIgnoreCase));
@@ -120,7 +130,7 @@ namespace MusicalNoteLauncher.Core
 
             if (GameFolders.Count == 0)
             {
-                GameFolders.Add(new GameFolderEntry("官方启动器文件夹", defaultPath));
+                GameFolders.Add(new GameFolderEntry("MNL 游戏目录", defaultPath));
             }
 
             if (!string.IsNullOrWhiteSpace(gamePath))
@@ -313,6 +323,12 @@ namespace MusicalNoteLauncher.Core
         // 内存优化设置 (PCL风格)
         public bool LaunchArgumentRam { get; set; } = false;
 
+        // 皮肤资源包设置 (PCL风格)
+        /// <summary>
+        /// 是否启用离线皮肤资源包注入（将自定义皮肤打包为资源包并自动在游戏中启用）
+        /// </summary>
+        public bool EnableSkinResourcePack { get; set; } = true;
+
         /// <summary>
         /// 判断指定版本是否应启用版本隔离（PCL风格核心逻辑）
         /// </summary>
@@ -385,7 +401,7 @@ namespace MusicalNoteLauncher.Core
 
     public static class SettingsManager
     {
-        private static readonly string SettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "settings.json");
+        private static string SettingsPath => MNLEnvironment.SettingsFilePath;
         private static LauncherSettings _settings;
 
         public static LauncherSettings Settings
@@ -432,17 +448,24 @@ namespace MusicalNoteLauncher.Core
             }
         }
 
-        public static void SaveSettings()
+        public static bool SaveSettings()
         {
             try
             {
+                string path = SettingsPath;
+                string dir = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(_settings, options);
-                File.WriteAllText(SettingsPath, json);
+                File.WriteAllText(path, json);
+                return true;
             }
-            catch
+            catch (Exception ex)
             {
-                // 忽略保存错误
+                Logger.Error($"[SettingsManager] 保存设置失败: {ex.Message}", ex);
+                return false;
             }
         }
 

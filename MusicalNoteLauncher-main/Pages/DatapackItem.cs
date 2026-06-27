@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -12,6 +12,7 @@ namespace MusicalNoteLauncher.Pages
         public string Compatible { get; set; }
         public string Source { get; set; }
         public string ProjectId { get; set; }
+        public string Type { get; set; }
     }
 }
 

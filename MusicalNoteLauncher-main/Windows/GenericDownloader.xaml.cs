@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Windows
 {
@@ -71,7 +72,7 @@ namespace MusicalNoteLauncher.Windows
                     }
                 }
 
-                MessageBox.Show($"下载完成！\n文件已保存到: {_savePath}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"下载完成！\n文件已保存到: {_savePath}", "成功");
                 Close();
             }
             catch (OperationCanceledException)
@@ -80,7 +81,7 @@ namespace MusicalNoteLauncher.Windows
                 {
                     File.Delete(_savePath);
                 }
-                MessageBox.Show("下载已取消", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("下载已取消", "提示");
                 Close();
             }
             catch (Exception ex)
@@ -89,7 +90,7 @@ namespace MusicalNoteLauncher.Windows
                 {
                     File.Delete(_savePath);
                 }
-                MessageBox.Show($"下载失败:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"下载失败:\n{ex.Message}", "错误");
                 Close();
             }
             finally

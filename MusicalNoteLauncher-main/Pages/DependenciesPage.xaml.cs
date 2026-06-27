@@ -8,6 +8,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -16,6 +17,9 @@ namespace MusicalNoteLauncher.Pages
         private readonly ModrinthApiService _modrinthApi;
         private readonly CurseForgeApiService _curseForgeApi;
         private readonly ConfigManager _config;
+
+        // 搜索相关
+        private List<DependencyItem> _allDependencyItems = new List<DependencyItem>();
 
         // 版本选择相关
         private List<DownloadVersionInfo> _pendingVersions;
@@ -34,8 +38,8 @@ namespace MusicalNoteLauncher.Pages
 
         private void LoadDependencies()
         {
-            lbDependencies.Items.Clear();
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Clear();
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "Forge",
                 IconUrl = "https://files.minecraftforge.net/images/logo.png",
@@ -45,7 +49,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x",
                 SourceUrl = "https://files.minecraftforge.net/net/minecraftforge/forge/"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "Fabric",
                 IconUrl = "https://fabricmc.net/assets/logo.png",
@@ -55,7 +59,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x",
                 SourceUrl = "https://fabricmc.net/use/"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "Quilt",
                 IconUrl = "https://quiltmc.org/assets/brand/logo.svg",
@@ -65,7 +69,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x",
                 SourceUrl = "https://quiltmc.org/install/"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "NeoForge",
                 IconUrl = "https://neoforged.net/images/logo.png",
@@ -75,7 +79,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x",
                 SourceUrl = "https://neoforged.net/downloads/"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "OptiFine",
                 IconUrl = "https://optifine.net/logo.png",
@@ -85,7 +89,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x",
                 SourceUrl = "https://optifine.net/downloads"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "Sodium",
                 IconUrl = "https://cdn.modrinth.com/data/AANobbMI/icon.png",
@@ -95,7 +99,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x (Fabric)",
                 SourceUrl = "https://modrinth.com/mod/sodium"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "Lithium",
                 IconUrl = "https://cdn.modrinth.com/data/gvQqBUqZ/icon.png",
@@ -105,7 +109,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x (Fabric)",
                 SourceUrl = "https://modrinth.com/mod/lithium"
             });
-            lbDependencies.Items.Add(new DependencyItem
+            _allDependencyItems.Add(new DependencyItem
             {
                 Name = "Iris",
                 IconUrl = "https://cdn.modrinth.com/data/YL57xq9U/icon.png",
@@ -115,6 +119,7 @@ namespace MusicalNoteLauncher.Pages
                 Compatible = "1.20.x (Fabric)",
                 SourceUrl = "https://modrinth.com/mod/iris"
             });
+            ApplySearch();
         }
 
         private void BtnBack_Click(object sender, RoutedEventArgs e)
@@ -153,7 +158,7 @@ namespace MusicalNoteLauncher.Pages
                     if (versions == null || versions.Count == 0)
                     {
                         HideVersionPanel();
-                        MessageBox.Show($"[{_pendingResourceName}] 未找到可用的下载版本！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                        ModernMessageBox.ShowInfo($"[{_pendingResourceName}] 未找到可用的下载版本！", "提示");
                         return;
                     }
 
@@ -162,7 +167,7 @@ namespace MusicalNoteLauncher.Pages
                         HideVersionPanel();
                         bool success = DownloadManager.AddDownloadTask(_pendingResourceName, _pendingTargetDir, versions[0]);
                         if (success)
-                            MessageBox.Show($"[{_pendingResourceName}] 已添加到下载任务！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                            ModernMessageBox.ShowInfo($"[{_pendingResourceName}] 已添加到下载任务！", "提示");
                         return;
                     }
 
@@ -174,7 +179,7 @@ namespace MusicalNoteLauncher.Pages
                     button.IsEnabled = true;
                     HideVersionPanel();
                     Logger.Error($"[下载] 获取版本失败: {ex.Message}");
-                    MessageBox.Show($"获取版本列表失败:\n{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    ModernMessageBox.ShowError($"获取版本列表失败:\n{ex.Message}", "错误");
                     return;
                 }
             }
@@ -185,11 +190,11 @@ namespace MusicalNoteLauncher.Pages
                 {
                     UseShellExecute = true
                 });
-                MessageBox.Show("已在浏览器中打开下载页面:\n" + item.Name, "下载提示", MessageBoxButton.OK, MessageBoxImage.Asterisk);
+                ModernMessageBox.ShowInfo("已在浏览器中打开下载页面:\n" + item.Name, "下载提示");
             }
             else
             {
-                MessageBox.Show("未找到下载链接", "提示", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                ModernMessageBox.ShowWarning("未找到下载链接", "提示");
             }
         }
 
@@ -260,7 +265,7 @@ namespace MusicalNoteLauncher.Pages
             if (success)
             {
                 HideVersionPanel();
-                MessageBox.Show($"[{_pendingResourceName}] 已添加到下载任务！（版本: {version.VersionName}）", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"[{_pendingResourceName}] 已添加到下载任务！（版本: {version.VersionName}）", "提示");
             }
         }
 
@@ -375,6 +380,86 @@ namespace MusicalNoteLauncher.Pages
                 "Iris" => "YL57xq9U",
                 _ => null
             };
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 搜索功能
+        // ═══════════════════════════════════════════════════════════════
+
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            UpdateSearchHint();
+            ApplySearch();
+        }
+
+        private void TxtSearch_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)
+                ApplySearch();
+        }
+
+        private void BtnSearchClear_Click(object sender, RoutedEventArgs e)
+        {
+            txtSearch.Text = "";
+            txtSearch.Focus();
+        }
+
+        private void UpdateSearchHint()
+        {
+            bool isEmpty = string.IsNullOrEmpty(txtSearch.Text);
+            txtSearchHint.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
+            btnSearchClear.Opacity = isEmpty ? 0 : 1;
+            btnSearchClear.IsHitTestVisible = !isEmpty;
+        }
+
+        private void Filter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ApplySearch();
+        }
+
+        private void BtnSearchRun_Click(object sender, RoutedEventArgs e)
+        {
+            ApplySearch();
+        }
+
+        private void BtnSearchReset_Click(object sender, RoutedEventArgs e)
+        {
+            txtSearch.Text = "";
+            ((ComboBoxItem)cmbType.Items[0]).IsSelected = true;
+            ApplySearch();
+        }
+
+        private string GetSelectedTag(ComboBox combo)
+        {
+            if (combo.SelectedItem is ComboBoxItem item && item.Tag != null)
+                return item.Tag.ToString();
+            return "";
+        }
+
+        private void ApplySearch()
+        {
+            if (lbDependencies == null) return;
+            lbDependencies.Items.Clear();
+
+            string query = txtSearch.Text?.Trim() ?? "";
+            string typeFilter = GetSelectedTag(cmbType);
+
+            IEnumerable<DependencyItem> filtered = _allDependencyItems;
+
+            if (!string.IsNullOrEmpty(typeFilter))
+            {
+                filtered = filtered.Where(m =>
+                    string.Equals(m.Type, typeFilter, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrEmpty(query))
+            {
+                filtered = filtered.Where(m =>
+                    SearchHelper.IsMatch(query, m.Name, m.Description, m.Type, m.Version));
+            }
+
+            foreach (var item in filtered)
+                lbDependencies.Items.Add(item);
         }
     }
 }

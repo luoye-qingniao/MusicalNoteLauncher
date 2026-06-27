@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows;
 using MusicalNoteLauncher.ViewModels;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Core
 {
@@ -114,7 +115,7 @@ namespace MusicalNoteLauncher.Core
             {
                 if (version == null || string.IsNullOrEmpty(version.DownloadUrl))
                 {
-                    MessageBox.Show($"[{resourceName}] 无法获取下载链接！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    ModernMessageBox.ShowWarning($"[{resourceName}] 无法获取下载链接！", "提示");
                     return false;
                 }
 
@@ -145,7 +146,7 @@ namespace MusicalNoteLauncher.Core
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"AddDownloadTask Exception: {ex.Message}");
-                MessageBox.Show($"添加下载任务失败: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError($"添加下载任务失败: {ex.Message}", "错误");
                 return false;
             }
         }
@@ -169,14 +170,14 @@ namespace MusicalNoteLauncher.Core
 
             if (versions == null || versions.Count == 0)
             {
-                MessageBox.Show($"[{resourceName}] 未找到可用的下载版本！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"[{resourceName}] 未找到可用的下载版本！", "提示");
                 return false;
             }
 
             var recommended = GetRecommendedVersion(versions);
             if (recommended == null)
             {
-                MessageBox.Show($"[{resourceName}] 未找到可用的下载版本！", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"[{resourceName}] 未找到可用的下载版本！", "提示");
                 return false;
             }
 
@@ -184,7 +185,7 @@ namespace MusicalNoteLauncher.Core
             if (success)
             {
                 string versionInfo = !string.IsNullOrEmpty(recommended.VersionName) ? $"（版本: {recommended.VersionName}）" : "";
-                MessageBox.Show($"已将 {resourceName}{versionInfo} 添加到下载任务", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"已将 {resourceName}{versionInfo} 添加到下载任务", "提示");
             }
 
             return success;

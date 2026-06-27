@@ -22,11 +22,11 @@ namespace MusicalNoteLauncher.Core
             _httpClient.DefaultRequestHeaders.Add("User-Agent", "MusicalNoteLauncher/1.0");
         }
 
-        public async Task<List<ModrinthMod>> SearchMods(string query, string gameVersion = "", int limit = 10)
+        public async Task<List<ModrinthMod>> SearchMods(string query, string gameVersion = "", int limit = 10, int offset = 0)
         {
             try
             {
-                string url = $"{BaseUrl}/search?query={Uri.EscapeDataString(query)}&limit={limit}";
+                string url = $"{BaseUrl}/search?query={Uri.EscapeDataString(query)}&limit={limit}&offset={offset}";
                 if (!string.IsNullOrEmpty(gameVersion))
                 {
                     url += $"&version={Uri.EscapeDataString(gameVersion)}";

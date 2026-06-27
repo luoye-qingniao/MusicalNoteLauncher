@@ -359,7 +359,9 @@
                             Background="{TemplateBinding Background}"
                             CornerRadius="{StaticResource LargeCornerRadius}"
                             Padding="{TemplateBinding Padding}"
-                            Effect="{TemplateBinding Effect}">
+                            Effect="{TemplateBinding Effect}"
+                            SnapsToDevicePixels="True"
+                            UseLayoutRounding="True">
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
@@ -516,12 +518,12 @@
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*"/>
-                                                <ColumnDefinition Width="32"/>
+                                                <ColumnDefinition Width="26"/>
                                             </Grid.ColumnDefinitions>
                                             <ContentPresenter Grid.Column="0"
                                                               HorizontalAlignment="Left"
                                                               VerticalAlignment="Center"
-                                                              Margin="12,0,0,0"/>
+                                                              Margin="8,0,0,0"/>
                                             <Path Grid.Column="1"
                                                   x:Name="Arrow"
                                                   Data="M 0 0 L 5 5 L 10 0 Z"
@@ -553,9 +555,22 @@
                             Content="{TemplateBinding SelectionBoxItem}"
                             ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                             ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                            Margin="14,10,32,10"
+                            Margin="8,2,26,2"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"/>
+                        <TextBox
+                            x:Name="PART_EditableTextBox"
+                            Visibility="Hidden"
+                            HorizontalContentAlignment="Left"
+                            VerticalContentAlignment="Center"
+                            Margin="8,2,26,2"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{TemplateBinding Foreground}"
+                            FontSize="{TemplateBinding FontSize}"
+                            FontFamily="{TemplateBinding FontFamily}"
+                            Text="{Binding Path=Text, RelativeSource={RelativeSource TemplatedParent}, UpdateSourceTrigger=PropertyChanged}"/>
                         <Popup
                             x:Name="Popup"
                             Placement="Bottom"
@@ -598,13 +613,17 @@
                             <Setter TargetName="ToggleButton" Property="Background" Value="{StaticResource ComboBoxHoverBrush}"/>
                             <Setter TargetName="ToggleButton" Property="BorderBrush" Value="{StaticResource ComboBoxBorderHoverBrush}"/>
                         </Trigger>
+                        <DataTrigger Binding="{Binding IsEditable, RelativeSource={RelativeSource Self}}" Value="True">
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
     </Style>
 
-    <!-- 默认ComboBox样式（深色主题） -->
+    <!-- 默认 ComboBox 样式（深色主题） -->
     <Style TargetType="ComboBox">
         <Setter Property="Background" Value="{StaticResource ComboBoxBackgroundBrush}"/>
         <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
@@ -676,9 +695,22 @@
                             Content="{TemplateBinding SelectionBoxItem}"
                             ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                             ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
-                            Margin="14,10,32,10"
+                            Margin="8,2,26,2"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"/>
+                        <TextBox
+                            x:Name="PART_EditableTextBox"
+                            Visibility="Hidden"
+                            HorizontalContentAlignment="Left"
+                            VerticalContentAlignment="Center"
+                            Margin="8,2,26,2"
+                            Padding="0"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Foreground="{TemplateBinding Foreground}"
+                            FontSize="{TemplateBinding FontSize}"
+                            FontFamily="{TemplateBinding FontFamily}"
+                            Text="{Binding Path=Text, RelativeSource={RelativeSource TemplatedParent}, UpdateSourceTrigger=PropertyChanged}"/>
                         <Popup
                             x:Name="Popup"
                             Placement="Bottom"
@@ -721,6 +753,10 @@
                             <Setter TargetName="ToggleButton" Property="Background" Value="{StaticResource ComboBoxHoverBrush}"/>
                             <Setter TargetName="ToggleButton" Property="BorderBrush" Value="{StaticResource ComboBoxBorderHoverBrush}"/>
                         </Trigger>
+                        <DataTrigger Binding="{Binding IsEditable, RelativeSource={RelativeSource Self}}" Value="True">
+                            <Setter TargetName="ContentSite" Property="Visibility" Value="Collapsed"/>
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>
@@ -810,6 +846,8 @@
         <Setter Property="CornerRadius" Value="{StaticResource LargeCornerRadius}"/>
         <Setter Property="Padding" Value="20"/>
         <Setter Property="Effect" Value="{StaticResource CardShadow}"/>
+        <Setter Property="SnapsToDevicePixels" Value="True"/>
+        <Setter Property="UseLayoutRounding" Value="True"/>
     </Style>
 
     <!-- 导航栏按钮样式 -->

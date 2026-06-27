@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Windows
 {
@@ -26,7 +27,7 @@ namespace MusicalNoteLauncher.Windows
         {
             if (_tasks.Exists(t => t.VersionId == versionInfo.Id && !t.IsCompleted && !t.IsFailed && !t.IsCancelled))
             {
-                MessageBox.Show($"版本 {versionInfo.Id} 正在下载中", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo($"版本 {versionInfo.Id} 正在下载中", "提示");
                 return;
             }
 

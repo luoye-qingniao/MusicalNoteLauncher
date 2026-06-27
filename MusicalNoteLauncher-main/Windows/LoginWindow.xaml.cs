@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.Windows;
 using MusicalNoteLauncher.Pages;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Windows
 {
@@ -20,7 +21,7 @@ namespace MusicalNoteLauncher.Windows
 
             if (string.IsNullOrEmpty(username))
             {
-                MessageBox.Show("请输入用户名！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请输入用户名！", "提示");
                 return;
             }
 

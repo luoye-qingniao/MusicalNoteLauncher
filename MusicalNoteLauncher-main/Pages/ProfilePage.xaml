@@ -1,4 +1,4 @@
-﻿<UserControl
+<UserControl
 	x:Class="MusicalNoteLauncher.Pages.ProfilePage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:core="clr-namespace:MusicalNoteLauncher.Core"
 	Background="{DynamicResource BackgroundBrush}" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<UserControl.Resources>
@@ -207,8 +207,24 @@
 								</Image>
 							</Border>
 						</Border>
-							<TextBlock Name="txtUsername" Text="Player" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="22" FontWeight="SemiBold" FontFamily="Microsoft YaHei" HorizontalAlignment="Center" Margin="0,12,0,0" />
-							<TextBlock Name="txtLoginMode" Text="离线模式" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="14" FontFamily="Microsoft YaHei" HorizontalAlignment="Center" Margin="0,4,0,20" />
+							<!-- 青鸟显示名称（可修改） -->
+							<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,12,0,4">
+								<TextBlock Name="txtQingniaoName" Text="Player" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="22" FontWeight="SemiBold" FontFamily="Microsoft YaHei" VerticalAlignment="Center" />
+								<Button Name="btnEditQingniaoName" Content="✎" Width="28" Height="28" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" FontSize="14" Cursor="Hand" Margin="8,0,0,0" Click="BtnEditQingniaoName_Click" VerticalAlignment="Center" />
+							</StackPanel>
+							<!-- 游戏账号 -->
+							<StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,2">
+								<TextBlock Text="游戏账号：" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" FontFamily="Microsoft YaHei" />
+								<TextBlock Name="txtUsername" Text="Player" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" FontFamily="Microsoft YaHei" />
+							</StackPanel>
+							<TextBlock Name="txtLoginMode" Text="离线模式" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" FontFamily="Microsoft YaHei" HorizontalAlignment="Center" Margin="0,0,0,16" />
+							<!-- 青鸟账号唯一ID -->
+							<Border Background="{DynamicResource CardHoverBrush}" CornerRadius="8" Padding="14,10" Margin="0,0,0,20" HorizontalAlignment="Center">
+								<StackPanel HorizontalAlignment="Center">
+									<TextBlock Text="青鸟ID" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="11" FontFamily="Microsoft YaHei" HorizontalAlignment="Center" Margin="0,0,0,2" />
+									<TextBlock Name="txtQingniaoId" Text="--" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="15" FontWeight="SemiBold" FontFamily="Consolas" HorizontalAlignment="Center" />
+								</StackPanel>
+							</Border>
 							<Border Background="{DynamicResource CardBackgroundBrush}" CornerRadius="12" Padding="20" Margin="0,0,0,20">
 								<Grid>
 									<Grid.ColumnDefinitions>

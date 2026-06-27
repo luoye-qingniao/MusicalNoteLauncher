@@ -14,7 +14,8 @@ namespace MusicalNoteLauncher.Core
         private static VersionScanService _instance;
         public static VersionScanService Instance => _instance ??= new VersionScanService();
 
-        private readonly string _minecraftPath;
+        private string _minecraftPath => AppContext.MinecraftPath;
+
         private readonly ConcurrentDictionary<string, InstalledVersionInfo> _installedVersions = new ConcurrentDictionary<string, InstalledVersionInfo>();
         private readonly ConcurrentDictionary<string, InstalledVersionInfo> _installedBedrockVersions = new ConcurrentDictionary<string, InstalledVersionInfo>();
 
@@ -32,7 +33,6 @@ namespace MusicalNoteLauncher.Core
 
         private VersionScanService()
         {
-            _minecraftPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
         }
 
         public async Task<VersionScanResult> ScanAsync(string triggerSource = "manual")

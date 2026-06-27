@@ -11,6 +11,7 @@ using System.Windows.Media.Imaging;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
 using MusicalNoteLauncher.Windows;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -478,8 +479,7 @@ namespace MusicalNoteLauncher.Pages
             string mcVersion = AppContext.SelectedGameVersion;
             if (string.IsNullOrEmpty(mcVersion))
             {
-                MessageBox.Show("未选择游戏版本", "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("未选择游戏版本", "错误");
                 return;
             }
 
@@ -489,8 +489,7 @@ namespace MusicalNoteLauncher.Pages
 
             if (!_hasAvailableVersions.TryGetValue(loaderType, out var has) || !has)
             {
-                MessageBox.Show("当前游戏版本下暂无可用的 " + loaderType + " 加载器版本", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("当前游戏版本下暂无可用的 " + loaderType + " 加载器版本", "提示");
                 return;
             }
 
@@ -547,8 +546,7 @@ namespace MusicalNoteLauncher.Pages
             string mcVersion = AppContext.SelectedGameVersion;
             if (string.IsNullOrEmpty(mcVersion))
             {
-                MessageBox.Show("未选择游戏版本", "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("未选择游戏版本", "错误");
                 return;
             }
 
@@ -681,8 +679,7 @@ namespace MusicalNoteLauncher.Pages
                 txtDownloadSummary.Text = "下载失败: " + ex.Message;
                 dotStatus.Fill = (SolidColorBrush)new BrushConverter().ConvertFrom("#F44336");
                 pbDownload.Visibility = Visibility.Collapsed;
-                MessageBox.Show("下载失败: " + ex.Message,
-                    "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                ModernMessageBox.ShowError("下载失败: " + ex.Message, "错误");
             }
             finally
             {

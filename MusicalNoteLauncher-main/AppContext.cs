@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using MusicalNoteLauncher.Core;
 using MusicalNoteLauncher.ViewModels;
+using PCL.Account;
 
 namespace MusicalNoteLauncher
 {
@@ -10,12 +11,19 @@ namespace MusicalNoteLauncher
     {
         public static string Username { get; set; } = "Player";
         public static bool IsOfflineMode { get; set; } = true;
-        public static string MinecraftPath { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
+        public static string MinecraftPath { get; set; } = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
         public static ConfigManager Config { get; set; } = new ConfigManager();
         public static RecommendItemViewModel CurrentRecommendItem { get; set; }
 
         /// <summary>当前选中账号的 UUID（用于皮肤加载）</summary>
         public static string CurrentAccountUuid { get; set; }
+
+        /// <summary>青鸟账号唯一数字ID（持久化，首次生成后固定不变）</summary>
+        public static string QingniaoId { get; private set; }
+
+        /// <summary>青鸟账号显示名称（可修改）</summary>
+        public static string QingniaoName { get; private set; }
 
         public static event Action<string, string, bool> AccountChanged;
 
@@ -50,8 +58,45 @@ namespace MusicalNoteLauncher
         {
             Username = username;
             IsOfflineMode = isOfflineMode;
+
+            // 青鸟ID：从持久化存储读取，不存在则生成并保存
+            QingniaoId = Settings.Get<string>("QingniaoId");
+            if (string.IsNullOrEmpty(QingniaoId))
+            {
+                QingniaoId = GenerateQingniaoId(username);
+                Settings.Set("QingniaoId", QingniaoId);
+            }
+
+            // 青鸟显示名称：优先使用已保存的名字，否则用游戏用户名
+            QingniaoName = Settings.Get<string>("QingniaoName");
+            if (string.IsNullOrEmpty(QingniaoName))
+            {
+                QingniaoName = username;
+                Settings.Set("QingniaoName", QingniaoName);
+            }
+
             if (minecraftPath != null) MinecraftPath = minecraftPath;
             if (config != null) Config = config;
+        }
+
+        /// <summary>修改青鸟账号显示名称并持久化</summary>
+        public static void SetQingniaoName(string newName)
+        {
+            if (!string.IsNullOrWhiteSpace(newName))
+            {
+                QingniaoName = newName.Trim();
+                Settings.Set("QingniaoName", QingniaoName);
+            }
+        }
+
+        /// <summary>根据用户名确定性生成10位数字青鸟ID（仅首次创建时使用）</summary>
+        private static string GenerateQingniaoId(string seed)
+        {
+            if (string.IsNullOrEmpty(seed)) seed = "Player";
+            long hash = 0;
+            foreach (char c in seed)
+                hash = (hash * 31 + c) & 0x7FFFFFFFFFFFFFFFL;
+            return (Math.Abs(hash) % 9000000000L + 1000000000L).ToString();
         }
     }
 }

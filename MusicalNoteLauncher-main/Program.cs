@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
 using MyMCLauncher;
 
@@ -10,7 +11,7 @@ namespace MusicalNoteLauncher
         {
             Console.WriteLine("=== Minecraft Launcher ===");
 
-            var downloadManager = new DownloadManager(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\.minecraft");
+            var downloadManager = new DownloadManager(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MNL", ".minecraft"));
 
             try
             {

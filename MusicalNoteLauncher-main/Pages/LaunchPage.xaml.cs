@@ -1,9 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -196,25 +197,25 @@ namespace MusicalNoteLauncher.Pages
             string username = txtUsername.Text.Trim();
             if (string.IsNullOrEmpty(username))
             {
-                MessageBox.Show("请输入用户名", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请输入用户名", "提示");
                 return;
             }
 
             if (!int.TryParse(txtMinMemory.Text, out int minMemory))
             {
-                MessageBox.Show("请输入有效的最小内存值", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请输入有效的最小内存值", "提示");
                 return;
             }
 
             if (!int.TryParse(txtMaxMemory.Text, out int maxMemory))
             {
-                MessageBox.Show("请输入有效的最大内存值", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请输入有效的最大内存值", "提示");
                 return;
             }
 
             if (minMemory > maxMemory)
             {
-                MessageBox.Show("最小内存不能大于最大内存", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("最小内存不能大于最大内存", "提示");
                 return;
             }
 

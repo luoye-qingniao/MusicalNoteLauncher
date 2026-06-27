@@ -22,7 +22,6 @@ namespace MusicalNoteLauncher.Pages
         // 基岩版服务
         private BedrockEnhancedDownloadService _bedrockDownloadService;
         private BedrockOfflineLauncher _bedrockOfflineLauncher;
-        private List<BedrockVersionInfo> _bedrockVersionList = new List<BedrockVersionInfo>();
         private bool _isBedrockMode;
         private bool _isSwitching;
         private bool _isInitialized;
@@ -209,13 +208,11 @@ namespace MusicalNoteLauncher.Pages
 
         private void LoadVersionsFromScanResult(VersionScanResult result)
         {
-            if (_isBedrockMode) return; // 基岩版使用独立的远程版本列表
-
             cmbGameVersion.ItemsSource = null;
             cmbGameVersion.DisplayMemberPath = null;
             cmbGameVersion.Items.Clear();
 
-            var versions = result.JavaVersions;
+            var versions = _isBedrockMode ? result.BedrockVersions : result.JavaVersions;
 
             if (versions.Count == 0)
             {
@@ -302,15 +299,13 @@ namespace MusicalNoteLauncher.Pages
             string versionId = cmbGameVersion.SelectedItem as string;
             if (string.IsNullOrEmpty(versionId) || versionId == "无已安装版本")
             {
-                MessageBox.Show("请先选择或下载一个 Java 版游戏版本", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请先选择或下载一个 Java 版游戏版本", "提示");
                 return;
             }
 
             if (!_versionManager.IsJavaVersionValid(versionId))
             {
-                MessageBox.Show($"版本 {versionId} 无效或已损坏，请重新下载", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning($"版本 {versionId} 无效或已损坏，请重新下载", "提示");
                 VersionScanService.Instance.ClearCache();
                 _ = VersionScanService.Instance.ScanAsync($"校验失败后刷新:{versionId}");
                 return;
@@ -558,10 +553,7 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnLogout_Click(object sender, RoutedEventArgs e)
         {
-            var result = MessageBox.Show("确定要退出登录吗？\n将返回登录界面。", "退出确认",
-                MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
+            if (ModernMessageBox.ShowYesNo("确定要退出登录吗？\n将返回登录界面。", "退出确认"))
             {
                 AppContext.NavigateTo("Login");
             }
@@ -578,24 +570,32 @@ namespace MusicalNoteLauncher.Pages
                 cmbGameVersion.ItemsSource = null;
                 cmbGameVersion.DisplayMemberPath = null;
                 cmbGameVersion.Items.Clear();
-                cmbGameVersion.DisplayMemberPath = "Id";
 
-                txtVersionStatus.Text = "正在获取基岩版版本列表...";
+                txtVersionStatus.Text = "正在扫描本地基岩版...";
 
-                _bedrockVersionList = await _bedrockDownloadService.GetRemoteVersionsAsync();
-                cmbGameVersion.ItemsSource = _bedrockVersionList;
+                // 扫描本地已安装的基岩版版本，而非从网络获取
+                var result = await VersionScanService.Instance.ScanAsync("切换到基岩版");
 
-                var installed = _bedrockVersionList.FirstOrDefault(v => v.IsDownloaded);
-                if (installed != null)
-                    cmbGameVersion.SelectedItem = installed;
-                else if (_bedrockVersionList.Count > 0)
+                var versions = result.BedrockVersions;
+
+                if (versions.Count == 0)
+                {
+                    cmbGameVersion.Items.Add("无已安装基岩版版本");
                     cmbGameVersion.SelectedIndex = 0;
+                    txtVersionStatus.Text = "未找到已安装的基岩版版本";
+                }
+                else
+                {
+                    foreach (string v in versions)
+                        cmbGameVersion.Items.Add(v);
 
-                txtVersionStatus.Text = $"{_bedrockVersionList.Count} 个基岩版版本可用";
+                    cmbGameVersion.SelectedIndex = 0;
+                    txtVersionStatus.Text = $"{versions.Count} 个已安装基岩版版本";
+                }
             }
             catch (Exception ex)
             {
-                txtVersionStatus.Text = "获取基岩版版本失败";
+                txtVersionStatus.Text = "扫描基岩版版本失败";
                 Logger.Error("MainPage加载基岩版版本失败: " + ex.Message);
             }
         }
@@ -606,17 +606,16 @@ namespace MusicalNoteLauncher.Pages
 
         private async Task LaunchBedrockAsync()
         {
-            var selected = cmbGameVersion.SelectedItem as BedrockVersionInfo;
-            if (selected == null)
+            var selected = cmbGameVersion.SelectedItem as string;
+            if (string.IsNullOrEmpty(selected) || selected == "无已安装基岩版版本")
             {
-                MessageBox.Show("请先选择基岩版版本", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("请先选择基岩版版本", "提示");
                 return;
             }
 
-            if (!selected.IsDownloaded)
+            if (!VersionScanService.Instance.IsBedrockVersionInstalled(selected))
             {
-                MessageBox.Show("该基岩版版本尚未下载，请先前往 游戏版本 → 基岩版 下载", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                ModernMessageBox.ShowWarning("该基岩版版本尚未下载，请先前往 游戏版本 → 基岩版 下载", "提示");
                 return;
             }
 
@@ -631,7 +630,7 @@ namespace MusicalNoteLauncher.Pages
                 _bedrockOfflineLauncher.LaunchStatusChanged += OnBedrockLaunchStatus;
                 _bedrockOfflineLauncher.LaunchCompleted += OnBedrockLaunchCompleted;
 
-                await _bedrockOfflineLauncher.LaunchOfflineAsync(selected.Id, username);
+                await _bedrockOfflineLauncher.LaunchOfflineAsync(selected, username);
             }
             catch (Exception ex)
             {

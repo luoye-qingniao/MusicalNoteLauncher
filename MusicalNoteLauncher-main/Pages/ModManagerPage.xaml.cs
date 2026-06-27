@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using Microsoft.Win32;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Controls;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -360,8 +361,7 @@ namespace MusicalNoteLauncher.Pages
                     try { Directory.CreateDirectory(modsDirectory); }
                     catch (Exception ex)
                     {
-                        MessageBox.Show("无法创建 mods 目录：" + ex.Message, "错误",
-                            MessageBoxButton.OK, MessageBoxImage.Error);
+                        ModernMessageBox.ShowError("无法创建 mods 目录：" + ex.Message, "错误");
                         return;
                     }
                 }
@@ -394,7 +394,7 @@ namespace MusicalNoteLauncher.Pages
 
                 string msg = "已添加 " + added + " 个模组。";
                 if (skipped > 0) msg += " 跳过 " + skipped + " 个已存在的模组。";
-                MessageBox.Show(msg, "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo(msg, "提示");
             }
         }
 
@@ -409,8 +409,7 @@ namespace MusicalNoteLauncher.Pages
             List<ModItem> selectedItems = GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("请先在列表中选择要启用的模组（可使用 Ctrl / Shift 多选）。",
-                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("请先在列表中选择要启用的模组（可使用 Ctrl / Shift 多选）。", "提示");
                 return;
             }
 
@@ -437,8 +436,7 @@ namespace MusicalNoteLauncher.Pages
             }
 
             LoadMods();
-            MessageBox.Show("已启用 " + done + " 个模组。", "提示",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            ModernMessageBox.ShowInfo("已启用 " + done + " 个模组。", "提示");
         }
 
         private void BtnDisableMods_Click(object sender, RoutedEventArgs e)
@@ -446,8 +444,7 @@ namespace MusicalNoteLauncher.Pages
             List<ModItem> selectedItems = GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("请先在列表中选择要禁用的模组（可使用 Ctrl / Shift 多选）。",
-                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("请先在列表中选择要禁用的模组（可使用 Ctrl / Shift 多选）。", "提示");
                 return;
             }
 
@@ -474,8 +471,7 @@ namespace MusicalNoteLauncher.Pages
             }
 
             LoadMods();
-            MessageBox.Show("已禁用 " + done + " 个模组。", "提示",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            ModernMessageBox.ShowInfo("已禁用 " + done + " 个模组。", "提示");
         }
 
         private void BtnUninstallMod_Click(object sender, RoutedEventArgs e)
@@ -483,16 +479,13 @@ namespace MusicalNoteLauncher.Pages
             List<ModItem> selectedItems = GetSelectedItems();
             if (selectedItems.Count == 0)
             {
-                MessageBox.Show("请先在列表中选择要卸载的模组。",
-                    "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                ModernMessageBox.ShowInfo("请先在列表中选择要卸载的模组。", "提示");
                 return;
             }
 
-            if (MessageBox.Show(
+            if (!ModernMessageBox.ShowYesNo(
                     "确定要卸载 " + selectedItems.Count + " 个模组吗？此操作不可撤销。",
-                    "确认卸载",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                    "确认卸载"))
             {
                 return;
             }
@@ -515,8 +508,7 @@ namespace MusicalNoteLauncher.Pages
             }
 
             LoadMods();
-            MessageBox.Show("已卸载 " + done + " 个模组。", "提示",
-                MessageBoxButton.OK, MessageBoxImage.Information);
+            ModernMessageBox.ShowInfo("已卸载 " + done + " 个模组。", "提示");
         }
 
         private void BtnRefresh_Click(object sender, RoutedEventArgs e)
@@ -557,11 +549,9 @@ namespace MusicalNoteLauncher.Pages
             string gameVersion = _selectedVersion ?? _config.GameVersion;
             if (string.IsNullOrEmpty(gameVersion))
             {
-                if (MessageBox.Show(
-                        "当前未设置游戏版本，无法继续安装模组加载器。\n是否前往 “游戏版本” 页面选择一个版本？",
-                        "未选择游戏版本",
-                        MessageBoxButton.YesNo,
-                        MessageBoxImage.Information) == MessageBoxResult.Yes)
+                if (ModernMessageBox.ShowYesNo(
+                        "当前未设置游戏版本，无法继续安装模组加载器。\n是否前往「游戏版本」页面选择一个版本？",
+                        "未选择游戏版本"))
                 {
                     AppContext.NavigateTo("GameVersions");
                 }
