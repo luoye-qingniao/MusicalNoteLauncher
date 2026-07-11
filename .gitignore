@@ -1,3 +1,8 @@
 # deploy_tool 构建产物
-deploy_tool/DeployTool/bin/
-deploy_tool/DeployTool/obj/
+deploy_tool/
+SkinAnalyzer/
+MojibakeFixer/
+网站/
+fix_mojibake.csx
+MusicalNoteLauncher-main.code-workspace
+.trae/
