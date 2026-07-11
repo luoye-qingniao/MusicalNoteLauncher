@@ -1,0 +1,418 @@
+<Window x:Class="MusicalNoteLauncher.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MNL" Height="700" Width="1100"
+        MinHeight="700" MinWidth="1100"
+        WindowStartupLocation="CenterScreen"
+        Background="Transparent"
+        Icon="pack://application:,,,/Assets/图标.png">
+
+    <Grid>
+        <!-- Layer 0: 背景装饰层（图片 + 视频 + 模糊效果） -->
+        <Grid x:Name="BackgroundLayer" Panel.ZIndex="0">
+            <Image x:Name="BackgroundImage"
+                   Stretch="UniformToFill" Source="{x:Null}"
+                   Opacity="0.6" Visibility="Collapsed"
+                   RenderOptions.BitmapScalingMode="LowQuality"
+                   CacheMode="BitmapCache">
+                <Image.Effect>
+                    <BlurEffect x:Name="BackgroundImageBlur" Radius="0"
+                                RenderingBias="Quality" />
+                </Image.Effect>
+            </Image>
+            <MediaElement x:Name="BackgroundVideo"
+                          LoadedBehavior="Manual" UnloadedBehavior="Stop"
+                          Stretch="UniformToFill" Volume="0"
+                          Opacity="0.6" Visibility="Collapsed"
+                          ScrubbingEnabled="False"
+                          MediaOpened="BackgroundVideo_MediaOpened"
+                          MediaFailed="BackgroundVideo_MediaFailed"
+                          MediaEnded="BackgroundVideo_MediaEnded">
+                <MediaElement.Effect>
+                    <BlurEffect x:Name="BackgroundVideoBlur" Radius="0"
+                                RenderingBias="Quality" />
+                </MediaElement.Effect>
+            </MediaElement>
+        </Grid>
+
+        <!-- Layer 1: 原有全部 UI 内容 -->
+        <Grid x:Name="ContentLayer" Panel.ZIndex="1">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- 左侧导航栏 -->
+        <Border x:Name="SidebarBorder" Grid.Column="0" Background="{DynamicResource SurfaceBrush}" CornerRadius="12,0,0,12" ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- 顶部 Logo -->
+                <StackPanel Grid.Row="0" Margin="0,20,0,20">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Image Source="pack://application:,,,/Assets/图标.png" Width="40" Height="40" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+                            <StackPanel Margin="10,0,0,0">
+                                <TextBlock Text="MNL" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei"/>
+                                <TextBlock Text="启动器" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" FontFamily="Microsoft YaHei"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+
+                <!-- 导航菜单 -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <Button x:Name="btnHome" Tag="Home" Click="BtnNav_Click" Background="{DynamicResource PrimaryBrush}" Foreground="White" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="#1976D2"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#127968;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="主界面" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnDownload" Tag="Download" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#11015;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="下载" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnMods" Tag="Mods" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="16" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128295;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="模组管理" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnSaves" Tag="SaveManager" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128190;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="存档管理" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnMultiplayer" Tag="MultiplayerSocial" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#127760;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="联机社交" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnDownloadTask" Tag="DownloadTask" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128229;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="下载任务" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnMusicBox" Tag="MusicBox" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#127926;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="音乐盒" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnCommunity" Tag="Community" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128172;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="交流社区" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnComponentStore" Tag="ComponentStore" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128722;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="组件商店" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnProfile" Tag="Profile" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128100;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="个人主页" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnFriends" Tag="FriendsList" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128101;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="好友列表" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnAIAssistant" Tag="AIAssistant" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#129302;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="AI 助手" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="btnSettings" Tag="Settings" Click="BtnNav_Click" Background="Transparent" Foreground="{DynamicResource TextSecondaryBrush}" BorderThickness="0" Padding="15,12" FontSize="14" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="10,5" Height="40">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="btnBorder" CornerRadius="6" Background="{TemplateBinding Background}">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Button.Style>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#9881;" FontSize="16" VerticalAlignment="Center" Width="24"/>
+                                <TextBlock Text="设置中心" FontSize="14" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- 底部用户信息 -->
+                <Border Grid.Row="2" Background="{DynamicResource CardBackgroundBrush}" Padding="12" Margin="10,0,10,10" CornerRadius="8">
+                    <StackPanel>
+                        <Border Width="48" Height="48" CornerRadius="24" Margin="0,0,0,6"
+                                Background="{DynamicResource CardHoverBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Border Width="46" Height="46" CornerRadius="23" ClipToBounds="True">
+                                <Image x:Name="imgCurrentUserHead" Stretch="UniformToFill" Width="46" Height="46">
+                                    <Image.Clip>
+                                        <EllipseGeometry RadiusX="23" RadiusY="23" Center="23,23" />
+                                    </Image.Clip>
+                                </Image>
+                            </Border>
+                        </Border>
+                        <TextBlock x:Name="txtCurrentUserName" Text="Player" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="txtCurrentUserMode" Text="离线模式" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,2,0,6"/>
+                        <Button Background="Transparent" Foreground="#FF6B6B" BorderThickness="0" Padding="6,3" FontSize="12" Cursor="Hand" Click="BtnLogout_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="&#128682;" FontSize="12" VerticalAlignment="Center"/>
+                                <TextBlock Text=" 退出登录" FontSize="12" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- 右侧内容区域 -->
+        <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" CornerRadius="12" Margin="20" ClipToBounds="True">
+            <Grid ClipToBounds="True">
+                <ContentControl x:Name="pageContainerA" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0" Visibility="Collapsed"/>
+                <ContentControl x:Name="pageContainerB" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0" Visibility="Collapsed"/>
+            </Grid>
+        </Border>
+        </Grid>
+    </Grid>
+</Window>

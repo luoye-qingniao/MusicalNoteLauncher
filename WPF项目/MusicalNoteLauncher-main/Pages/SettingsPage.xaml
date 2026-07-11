@@ -1,0 +1,2453 @@
+<UserControl
+	x:Class="MusicalNoteLauncher.Pages.SettingsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Background="{DynamicResource BackgroundBrush}" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	<ScrollViewer
+		VerticalScrollBarVisibility="Auto">
+		<Grid
+			Margin="20">
+			<Grid.RowDefinitions>
+				<RowDefinition
+					Height="Auto" />
+				<RowDefinition
+					Height="*" />
+			</Grid.RowDefinitions>
+			<TextBlock
+				Grid.Row="0"
+				Text="设置中心"
+				Foreground="{DynamicResource TextPrimaryBrush}"
+				FontSize="24"
+				FontWeight="SemiBold"
+				FontFamily="Microsoft YaHei"
+				Margin="0,0,0,20" />
+			<Grid
+				Row="1">
+				<Grid.ColumnDefinitions>
+					<ColumnDefinition
+						Width="200" />
+					<ColumnDefinition
+						Width="*" />
+				</Grid.ColumnDefinitions>
+				<Border
+					Grid.Column="0"
+					Background="{DynamicResource CardBackgroundBrush}"
+					CornerRadius="8"
+					Padding="10"
+					Margin="0,0,16,0">
+					<StackPanel>
+						<Button
+							Name="btnCategoryGeneral"
+							Content="常规设置"
+							Background="{DynamicResource PrimaryBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource PrimaryDarkBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnCategoryGame"
+							Content="游戏设置"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource CardHoverBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnCategoryJava"
+							Content="Java设置"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource CardHoverBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnCategoryDownload"
+							Content="下载设置"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource CardHoverBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnCategoryAbout"
+							Content="关于"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource CardHoverBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+						<Button
+							Name="btnCategoryBackground"
+							Content="背景设置"
+							Background="{DynamicResource SurfaceBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="12,10"
+							FontSize="13"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							HorizontalContentAlignment="Left"
+							Margin="0,4"
+							Click="BtnCategory_Click">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+											VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource CardHoverBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Control.Template>
+						</Button>
+										<TextBlock
+											Name="txtMemOptStatus"
+											Visibility="Collapsed"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="11"
+											FontFamily="Microsoft YaHei"
+											Margin="4,4,0,0"
+											Text="准备中..." />
+									</StackPanel>
+				</Border>
+				<Border
+					Grid.Column="1"
+					Background="{DynamicResource CardBackgroundBrush}"
+					CornerRadius="8"
+					Padding="20">
+					<StackPanel>
+						<TabControl
+							Name="tabSettings"
+							Background="#00FFFFFF"
+							BorderThickness="0"
+							SelectedIndex="0">
+							<Control.Template>
+								<ControlTemplate
+									TargetType="{x:Type TabControl}">
+									<Border
+										Background="#00FFFFFF">
+										<ContentPresenter
+											ContentSource="SelectedContent" />
+									</Border>
+								</ControlTemplate>
+							</Control.Template>
+							<TabItem
+								Header="常规设置"
+								IsSelected="True">
+								<StackPanel>
+									<TextBlock
+										Text="常规设置"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+									<TextBlock
+										Text="启动设置"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,8" />
+									<CheckBox
+										Name="chkAutoLogin"
+										Content="启动时自动登录上次账号"
+										IsChecked="False"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Margin="0,8,0,0" />
+									<CheckBox
+										Name="chkMinimizeToTray"
+										Content="最小化到系统托盘"
+										IsChecked="False"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Margin="0,8,0,0" />
+									<CheckBox
+										Name="chkCheckUpdate"
+										Content="自动检查更新"
+										IsChecked="True"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Margin="0,8,0,0" />
+									<TextBlock
+										Text="界面设置"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<CheckBox
+										Name="chkShowSplash"
+										Content="显示启动画面"
+										IsChecked="True"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Margin="0,8,0,0" />
+									<CheckBox
+									Name="chkHardwareAcceleration"
+									Content="启用硬件加速"
+									IsChecked="True"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									FontFamily="Microsoft YaHei"
+									Margin="0,8,0,0" />
+								<TextBlock
+									Text="配色主题"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									FontSize="12"
+									FontFamily="Microsoft YaHei"
+									Margin="0,24,0,8" />
+								<Grid>
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition Width="*" />
+										<ColumnDefinition Width="Auto" />
+									</Grid.ColumnDefinitions>
+									<ComboBox
+										Name="cbThemeColor"
+										Grid.Column="0"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										Padding="10,6"
+										FontSize="13"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand"
+										SelectionChanged="CbThemeColor_SelectionChanged">
+										<ComboBox.ItemTemplate>
+											<DataTemplate>
+												<TextBlock Text="{Binding Name}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="13"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+											</DataTemplate>
+										</ComboBox.ItemTemplate>
+										<Control.Template>
+											<ControlTemplate TargetType="{x:Type ComboBox}">
+												<Grid>
+													<Border Background="{TemplateBinding Background}"
+															BorderBrush="{TemplateBinding BorderBrush}"
+															BorderThickness="{TemplateBinding BorderThickness}"
+															CornerRadius="4">
+														<Grid>
+															<Grid.ColumnDefinitions>
+																<ColumnDefinition Width="*" />
+																<ColumnDefinition Width="Auto" />
+															</Grid.ColumnDefinitions>
+															<ContentPresenter Grid.Column="0"
+																Content="{TemplateBinding SelectionBoxItem}"
+																ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+																Margin="{TemplateBinding Padding}"
+																VerticalAlignment="Center" />
+															<ToggleButton Grid.Column="1"
+																Background="{DynamicResource SurfaceBrush}" BorderThickness="0" Padding="8"
+																IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+																<Path Data="M0,0 L8,0 L4,4"
+																	Fill="{DynamicResource TextPrimaryBrush}"
+																	Width="8" Height="8" Stretch="Fill" />
+															</ToggleButton>
+														</Grid>
+													</Border>
+													<Popup IsOpen="{TemplateBinding IsDropDownOpen}"
+														Placement="Bottom" AllowsTransparency="True">
+														<Border Background="{DynamicResource CardBackgroundBrush}"
+															BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4"
+															MinWidth="{TemplateBinding ActualWidth}">
+															<ScrollViewer MaxHeight="200">
+																<ItemsPresenter />
+															</ScrollViewer>
+														</Border>
+													</Popup>
+												</Grid>
+											</ControlTemplate>
+										</Control.Template>
+									</ComboBox>
+									<StackPanel Grid.Column="1" Orientation="Horizontal" Margin="12,0,0,0" VerticalAlignment="Center">
+										<Border Name="previewPrimaryColor"
+											Width="28" Height="28" CornerRadius="4"
+											Background="{DynamicResource PrimaryBrush}"
+											Margin="0,0,8,0" />
+										<Border Name="previewSecondaryColor"
+											Width="28" Height="28" CornerRadius="4"
+											Background="{DynamicResource PrimaryDarkBrush}" />
+									</StackPanel>
+								</Grid>
+								<TextBlock
+									Text="游戏目录"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									FontSize="12"
+									FontFamily="Microsoft YaHei"
+									Margin="0,24,0,8" />
+								<Border
+									Background="{DynamicResource SurfaceBrush}"
+									CornerRadius="6"
+									Padding="4"
+									Margin="0,0,0,0">
+									<StackPanel x:Name="panelGameFolders">
+										<TextBlock
+											Text="文件夹列表"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Margin="9,10,5,4"
+											Opacity="0.7" />
+										<ItemsControl x:Name="listGameFolders">
+											<ItemsControl.ItemTemplate>
+												<DataTemplate>
+													<Border
+														x:Name="itemBorder"
+														Background="Transparent"
+														CornerRadius="4"
+														Padding="8,6"
+														Margin="4,2"
+														Cursor="Hand">
+														<Grid>
+															<Grid.ColumnDefinitions>
+																<ColumnDefinition Width="Auto" />
+																<ColumnDefinition Width="*" />
+																<ColumnDefinition Width="Auto" />
+															</Grid.ColumnDefinitions>
+															<RadioButton
+																Grid.Column="0"
+																IsChecked="{Binding IsSelected}"
+																GroupName="GameFolderGroup"
+																VerticalAlignment="Center"
+																Margin="0,0,8,0"
+																Tag="{Binding}"
+																Checked="FolderRadio_Checked">
+																<RadioButton.Template>
+																	<ControlTemplate TargetType="{x:Type RadioButton}">
+																		<Border x:Name="radioBorder"
+																			Width="16" Height="16"
+																			CornerRadius="8"
+																			BorderThickness="2"
+																			BorderBrush="{DynamicResource TextSecondaryBrush}"
+																			Background="Transparent"
+																			VerticalAlignment="Center">
+																			<Ellipse x:Name="checkDot"
+																				Width="8" Height="8"
+																				Fill="{DynamicResource PrimaryBrush}"
+																				Visibility="Collapsed" />
+																		</Border>
+																		<ControlTemplate.Triggers>
+																			<Trigger Property="IsChecked" Value="True">
+																				<Setter TargetName="checkDot" Property="Visibility" Value="Visible" />
+																				<Setter TargetName="radioBorder" Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
+																			</Trigger>
+																		</ControlTemplate.Triggers>
+																	</ControlTemplate>
+																</RadioButton.Template>
+															</RadioButton>
+															<StackPanel Grid.Column="1" VerticalAlignment="Center">
+																<TextBlock
+																	Text="{Binding Name}"
+																	Foreground="{DynamicResource PrimaryBrush}"
+																	FontSize="15"
+																	FontFamily="Microsoft YaHei"
+																	FontWeight="SemiBold"
+																	TextTrimming="CharacterEllipsis" />
+																<TextBlock
+																	Text="{Binding DisplayPath}"
+																	Foreground="{DynamicResource TextSecondaryBrush}"
+																	FontSize="11"
+																	FontFamily="Microsoft YaHei"
+																	Margin="0,2,0,0"
+																	TextTrimming="CharacterEllipsis" />
+															</StackPanel>
+															<Button
+																Grid.Column="2"
+																Tag="{Binding}"
+																Background="Transparent"
+																BorderThickness="0"
+																Padding="6"
+																VerticalAlignment="Center"
+																Cursor="Hand"
+																Click="FolderSettings_Click">
+																<Path
+																	Width="16" Height="16"
+																	Data="M12 15.5A1.5 1.5 0 1 1 12 18.5A1.5 1.5 0 0 1 12 15.5M12 10.5A1.5 1.5 0 1 1 12 13.5A1.5 1.5 0 0 1 12 10.5M12 5.5A1.5 1.5 0 1 1 12 8.5A1.5 1.5 0 0 1 12 5.5"
+																	Fill="{DynamicResource TextSecondaryBrush}"
+																	Stretch="Uniform" />
+																<Button.Template>
+																	<ControlTemplate TargetType="{x:Type Button}">
+																		<Border x:Name="btnBorder"
+																			Background="{TemplateBinding Background}"
+																			CornerRadius="4"
+																			Padding="{TemplateBinding Padding}">
+																			<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+																		</Border>
+																		<ControlTemplate.Triggers>
+																			<Trigger Property="IsMouseOver" Value="True">
+																				<Setter TargetName="btnBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+																			</Trigger>
+																		</ControlTemplate.Triggers>
+																	</ControlTemplate>
+																</Button.Template>
+															</Button>
+														</Grid>
+													</Border>
+													<DataTemplate.Triggers>
+														<DataTrigger Binding="{Binding IsSelected}" Value="True">
+															<Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource CardBackgroundBrush}" />
+														</DataTrigger>
+														<Trigger SourceName="itemBorder" Property="IsMouseOver" Value="True">
+															<Setter TargetName="itemBorder" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+														</Trigger>
+													</DataTemplate.Triggers>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
+										<TextBlock
+											Text="添加或导入"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Margin="9,12,5,4"
+											Opacity="0.7" />
+										<Border
+											x:Name="btnCreateFolder"
+											Background="Transparent"
+											CornerRadius="4"
+											Padding="8,8"
+											Margin="4,2"
+											Cursor="Hand"
+											MouseLeftButtonUp="BtnCreateFolder_Click">
+											<Grid>
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="Auto" />
+													<ColumnDefinition Width="*" />
+												</Grid.ColumnDefinitions>
+												<Path Grid.Column="0"
+													Width="22" Height="22"
+													Margin="0,0,10,0"
+													Data="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"
+													Fill="{DynamicResource TextPrimaryBrush}"
+													Stretch="Uniform"
+													VerticalAlignment="Center" />
+												<TextBlock Grid.Column="1"
+													Text="新建 .minecraft 文件夹"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="14"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+											</Grid>
+											<Border.Style>
+												<Style TargetType="{x:Type Border}">
+													<Style.Triggers>
+														<Trigger Property="IsMouseOver" Value="True">
+															<Setter Property="Background" Value="{DynamicResource CardHoverBrush}" />
+														</Trigger>
+													</Style.Triggers>
+												</Style>
+											</Border.Style>
+										</Border>
+										<Border
+											x:Name="btnAddFolder"
+											Background="Transparent"
+											CornerRadius="4"
+											Padding="8,8"
+											Margin="4,2"
+											Cursor="Hand"
+											MouseLeftButtonUp="BtnAddFolder_Click">
+											<Grid>
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="Auto" />
+													<ColumnDefinition Width="*" />
+												</Grid.ColumnDefinitions>
+												<Path Grid.Column="0"
+													Width="22" Height="22"
+													Margin="0,0,10,0"
+													Data="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"
+													Fill="{DynamicResource TextPrimaryBrush}"
+													Stretch="Uniform"
+													VerticalAlignment="Center" />
+												<TextBlock Grid.Column="1"
+													Text="添加已有文件夹"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="14"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+											</Grid>
+											<Border.Style>
+												<Style TargetType="{x:Type Border}">
+													<Style.Triggers>
+														<Trigger Property="IsMouseOver" Value="True">
+															<Setter Property="Background" Value="{DynamicResource CardHoverBrush}" />
+														</Trigger>
+													</Style.Triggers>
+												</Style>
+											</Border.Style>
+										</Border>
+										<Border
+											x:Name="btnImportModpack"
+											Background="Transparent"
+											CornerRadius="4"
+											Padding="8,8"
+											Margin="4,2,4,8"
+											Cursor="Hand"
+											MouseLeftButtonUp="BtnImportModpack_Click">
+											<Grid>
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="Auto" />
+													<ColumnDefinition Width="*" />
+												</Grid.ColumnDefinitions>
+												<Path Grid.Column="0"
+													Width="22" Height="22"
+													Margin="0,0,10,0"
+													Data="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"
+													Fill="{DynamicResource TextPrimaryBrush}"
+													Stretch="Uniform"
+													VerticalAlignment="Center" />
+												<TextBlock Grid.Column="1"
+													Text="导入整合包"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="14"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+											</Grid>
+											<Border.Style>
+												<Style TargetType="{x:Type Border}">
+													<Style.Triggers>
+														<Trigger Property="IsMouseOver" Value="True">
+															<Setter Property="Background" Value="{DynamicResource CardHoverBrush}" />
+														</Trigger>
+													</Style.Triggers>
+												</Style>
+											</Border.Style>
+										</Border>
+									</StackPanel>
+								</Border>
+							</StackPanel>
+						</TabItem>
+							<TabItem
+								Header="游戏设置">
+								<StackPanel>
+									<TextBlock
+										Text="游戏设置"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+									<!-- 内存分配 -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16">
+										<StackPanel>
+											<TextBlock
+												Text="内存分配"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="14"
+												FontWeight="SemiBold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,12" />
+											<!-- 32位Java警告 -->
+											<Border
+												Name="bdrJava32Warning"
+												Background="#FFF3CD"
+												BorderBrush="#FFC107"
+												BorderThickness="1"
+												CornerRadius="4"
+												Padding="10,8"
+												Margin="0,0,0,12"
+												Visibility="Collapsed">
+												<TextBlock
+													Text="32 位 Java 只能分配最多 1 GB 的内存。强烈建议换用 64 位的 Java！"
+													Foreground="#856404"
+													FontSize="12"
+													FontFamily="Microsoft YaHei"
+													TextWrapping="Wrap" />
+											</Border>
+											<!-- 自动/自定义 选择 -->
+											<StackPanel
+												Orientation="Horizontal"
+												Margin="0,0,0,12">
+												<RadioButton
+													Name="radioRamAuto"
+													Content="自动配置"
+													IsChecked="True"
+													GroupName="RamMode"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="13"
+													FontFamily="Microsoft YaHei"
+													Margin="0,0,20,0"
+													ToolTip="根据系统内存与模组数量自动调整游戏内存分配"
+													Checked="RadioRamMode_Changed"
+													Unchecked="RadioRamMode_Changed" />
+												<RadioButton
+													Name="radioRamCustom"
+													Content="自定义"
+													GroupName="RamMode"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="13"
+													FontFamily="Microsoft YaHei"
+													Checked="RadioRamMode_Changed"
+													Unchecked="RadioRamMode_Changed" />
+											</StackPanel>
+											<!-- 自定义滑块 -->
+											<StackPanel
+												Name="panRamCustom"
+												Visibility="Collapsed"
+												Margin="0,0,0,12">
+												<Grid>
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="*" />
+														<ColumnDefinition Width="Auto" />
+													</Grid.ColumnDefinitions>
+													<Slider
+														Name="sliderRamCustom"
+														Grid.Column="0"
+														Minimum="0.5"
+														Maximum="32"
+														Value="4"
+														TickFrequency="0.5"
+														IsSnapToTickEnabled="True"
+														VerticalAlignment="Center"
+														Margin="0,0,12,0"
+														ValueChanged="SliderRamCustom_ValueChanged" />
+													<TextBlock
+														Name="txtRamCustomValue"
+														Grid.Column="1"
+														Text="4 GB"
+														Foreground="{DynamicResource TextPrimaryBrush}"
+														FontSize="16"
+														FontWeight="Bold"
+														FontFamily="Microsoft YaHei"
+														MinWidth="60"
+														TextAlignment="Right"
+														VerticalAlignment="Center" />
+												</Grid>
+											</StackPanel>
+											<!-- 自动模式下的内存信息 -->
+											<StackPanel
+												Name="panRamAuto"
+												Margin="0,0,0,12">
+												<Grid>
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="Auto" />
+														<ColumnDefinition Width="*" />
+													</Grid.ColumnDefinitions>
+													<TextBlock
+														Text="自动分配:"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="12"
+														FontFamily="Microsoft YaHei"
+														VerticalAlignment="Center"
+														Margin="0,0,8,0" />
+													<TextBlock
+														Name="txtRamAutoValue"
+														Grid.Column="1"
+														Text=""
+														Foreground="{DynamicResource PrimaryBrush}"
+														FontSize="16"
+														FontWeight="Bold"
+														FontFamily="Microsoft YaHei"
+														VerticalAlignment="Center" />
+												</Grid>
+											</StackPanel>
+										</StackPanel>
+									</Border>
+									<!-- 内存占用条 -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16"
+										Margin="0,16,0,0">
+										<StackPanel>
+											<TextBlock
+												Text="内存占用"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="14"
+												FontWeight="SemiBold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,12" />
+											<!-- 内存条 -->
+											<Border
+												Name="bdrRamBar"
+												Height="12"
+												CornerRadius="3"
+												ClipToBounds="True"
+												Margin="0,0,0,10">
+												<Grid>
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Name="colRamUsed">
+															<ColumnDefinition.Width>40*</ColumnDefinition.Width>
+														</ColumnDefinition>
+														<ColumnDefinition Name="colRamGame">
+															<ColumnDefinition.Width>20*</ColumnDefinition.Width>
+														</ColumnDefinition>
+														<ColumnDefinition Name="colRamFree">
+															<ColumnDefinition.Width>40*</ColumnDefinition.Width>
+														</ColumnDefinition>
+													</Grid.ColumnDefinitions>
+													<Rectangle
+														Grid.Column="0"
+														Fill="#4A90D9"
+														Opacity="0.8" />
+													<Rectangle
+														Grid.Column="1"
+														Fill="#9B59B6"
+														Opacity="0.7" />
+													<Rectangle
+														Grid.Column="2"
+														Fill="#5DADE2"
+														Opacity="0.4" />
+												</Grid>
+											</Border>
+											<!-- 内存图例 -->
+											<Grid>
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="Auto" />
+													<ColumnDefinition Width="*" />
+													<ColumnDefinition Width="Auto" />
+												</Grid.ColumnDefinitions>
+												<StackPanel
+													Grid.Column="0"
+													Orientation="Horizontal">
+													<Border
+														Width="10"
+														Height="10"
+														CornerRadius="2"
+														Background="#4A90D9"
+														Opacity="0.8"
+														Margin="0,0,4,0"
+														VerticalAlignment="Center" />
+													<TextBlock
+														Name="txtRamUsedLabel"
+														Text="已使用 0 GB / 0 GB"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="11"
+														FontFamily="Microsoft YaHei"
+														VerticalAlignment="Center" />
+												</StackPanel>
+												<StackPanel
+													Grid.Column="1"
+													Orientation="Horizontal"
+													HorizontalAlignment="Center">
+													<Border
+														Width="10"
+														Height="10"
+														CornerRadius="2"
+														Background="#9B59B6"
+														Opacity="0.7"
+														Margin="0,0,4,0"
+														VerticalAlignment="Center" />
+													<TextBlock
+														Name="txtRamGameLabel"
+														Text="游戏分配 0 GB"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="11"
+														FontFamily="Microsoft YaHei"
+														VerticalAlignment="Center" />
+												</StackPanel>
+												<StackPanel
+													Grid.Column="2"
+													Orientation="Horizontal">
+													<Border
+														Width="10"
+														Height="10"
+														CornerRadius="2"
+														Background="#5DADE2"
+														Opacity="0.4"
+														Margin="0,0,4,0"
+														VerticalAlignment="Center" />
+													<TextBlock
+														Name="txtRamFreeLabel"
+														Text="空闲 0 GB"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="11"
+														FontFamily="Microsoft YaHei"
+														VerticalAlignment="Center" />
+												</StackPanel>
+											</Grid>
+											<!-- 内存优化 -->
+											<CheckBox
+												Name="chkLaunchArgumentRam"
+												Content="启动游戏前进行内存优化"
+												IsChecked="False"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontFamily="Microsoft YaHei"
+												FontSize="13"
+												Margin="0,12,0,0"
+												ToolTip="通过修剪进程工作集和 .NET GC 释放物理内存。&#xa;修剪全部进程需要管理员权限，否则仅优化启动器自身。&#xa;部分内存数据会被换出到页面文件，机械硬盘可能短暂卡顿。&#xa;若已安装 Mem Reduct，会自动调用其进行深度清理。" />
+											<Button
+												Name="btnMemoryOptimize"
+												Content="立即优化内存"
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="12,6"
+												FontSize="12"
+												ToolTip="手动执行一次完整的内存清理（工作集修剪 + GC + Mem Reduct）"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												HorizontalAlignment="Left"
+												Margin="0,8,0,0"
+												Click="BtnMemoryOptimize_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</StackPanel>
+									</Border>
+									<TextBlock
+										Text="分辨率设置"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition
+												Width="*" />
+											<ColumnDefinition
+												Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<ComboBox
+											Name="cbResolution"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											BorderBrush="{DynamicResource BorderBrush}"
+											BorderThickness="1"
+											Padding="10,6"
+											FontSize="13"
+											FontFamily="Microsoft YaHei"
+											Grid.Column="0">
+											<Control.Template>
+												<ControlTemplate
+													TargetType="{x:Type ComboBox}">
+													<Grid>
+														<Border
+															Background="{TemplateBinding Background}"
+															BorderBrush="{TemplateBinding BorderBrush}"
+															BorderThickness="{TemplateBinding BorderThickness}"
+															CornerRadius="4">
+															<Grid>
+																<Grid.ColumnDefinitions>
+																	<ColumnDefinition
+																		Width="*" />
+																	<ColumnDefinition
+																		Width="Auto" />
+																</Grid.ColumnDefinitions>
+																<ContentPresenter
+																	Grid.Column="0"
+																	Content="{TemplateBinding SelectionBoxItem}"
+													ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+													Margin="{TemplateBinding Padding}"
+													VerticalAlignment="Center" />
+													<ToggleButton
+														Grid.Column="1"
+														Background="{DynamicResource SurfaceBrush}"
+														BorderThickness="0"
+														Padding="8"
+														IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+														<Path
+															Data="M0,0 L8,0 L4,4"
+															Fill="{DynamicResource TextPrimaryBrush}"
+															Width="8"
+															Height="8"
+															Stretch="Fill" />
+																</ToggleButton>
+															</Grid>
+														</Border>
+														<Popup
+															IsOpen="{TemplateBinding IsDropDownOpen}"
+															Placement="Bottom"
+															AllowsTransparency="True">
+															<Border
+																Background="{DynamicResource CardBackgroundBrush}"
+																BorderBrush="{DynamicResource BorderBrush}"
+																BorderThickness="1"
+																CornerRadius="4"
+																MinWidth="{TemplateBinding ActualWidth}">
+																<ScrollViewer
+																	MaxHeight="200">
+																	<ItemsPresenter />
+																</ScrollViewer>
+															</Border>
+														</Popup>
+													</Grid>
+												</ControlTemplate>
+											</Control.Template>
+											<ComboBoxItem
+												Content="800×600"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
+											<ComboBoxItem
+												Content="1024×768"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
+											<ComboBoxItem
+												Content="1280×720"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
+											<ComboBoxItem
+												Content="1280×1024"
+												IsSelected="True"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
+											<ComboBoxItem
+												Content="1920×1080"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												Background="{DynamicResource CardBackgroundBrush}" />
+										</ComboBox>
+										<CheckBox
+										Name="chkFullscreen"
+										Content="全屏模式"
+										IsChecked="False"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Grid.Column="1"
+										Margin="16,0,0,0"
+										VerticalAlignment="Center" />
+								</Grid>
+									<!-- 皮肤资源包设置 -->
+									<TextBlock
+										Text="皮肤资源包"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<CheckBox
+										Name="chkEnableSkinResourcePack"
+										Content="启用离线皮肤资源包（将自定义皮肤注入游戏，无需安装 Mod）"
+										IsChecked="True"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										FontSize="13"
+										Margin="0,0,0,4"
+										ToolTip="启动游戏前，自动将您的自定义皮肤打包为 Minecraft 资源包并注入 options.txt。&#xa;关闭后游戏将使用默认的 Steve/Alex 皮肤。" />
+									<TextBlock
+										Text="由于技术问题，此功能只保证对 1.19.2 以前的版本有效！"
+										Foreground="#D4A017"
+										FontSize="11"
+										FontFamily="Microsoft YaHei"
+										Margin="20,2,0,4"
+										Opacity="0.9" />
+									<TextBlock
+										Text="提示：皮肤可在个人资料页面设置，此选项控制启动时是否自动加载。"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="11"
+										FontFamily="Microsoft YaHei"
+										Margin="20,0,0,0"
+										Opacity="0.7" />
+									<!-- ★ 重置游戏配置 -->
+									<Button
+										Name="btnResetGameConfig"
+										Content="重置游戏配置"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										Padding="14,8"
+										FontSize="13"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand"
+										HorizontalAlignment="Left"
+										Margin="0,24,0,0"
+										Click="BtnResetGameConfig_Click"
+										ToolTip="备份当前 options.txt 并生成全新默认配置文件，一键消除 Skipping bad option 警告">
+										<Button.Template>
+											<ControlTemplate TargetType="{x:Type Button}">
+												<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+													<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+												</Border>
+												<ControlTemplate.Triggers>
+													<Trigger Property="IsMouseOver" Value="True">
+														<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Button.Template>
+									</Button>
+								</StackPanel>
+							</TabItem>
+							<TabItem
+								Header="Java设置">
+								<StackPanel>
+									<TextBlock
+										Text="Java设置"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+									<!-- 当前 Java 状态 -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16"
+										Margin="0,0,0,16">
+										<StackPanel>
+											<TextBlock
+												Text="当前 Java"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="14"
+												FontWeight="SemiBold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,10" />
+											<Grid>
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="Auto" />
+													<ColumnDefinition Width="*" />
+												</Grid.ColumnDefinitions>
+												<Border
+													Name="bdrJavaStatus"
+													Grid.Column="0"
+													Width="8"
+													Height="8"
+													CornerRadius="4"
+													Background="#FF9800"
+													Margin="0,0,12,0"
+													VerticalAlignment="Center" />
+												<StackPanel Grid.Column="1">
+													<TextBlock
+														Name="txtCurrentJavaVersionBold"
+														Text="未配置"
+														Foreground="{DynamicResource TextPrimaryBrush}"
+														FontSize="15"
+														FontWeight="SemiBold"
+														FontFamily="Microsoft YaHei" />
+													<TextBlock
+														Name="txtCurrentJavaPathSmall"
+														Text="请在下方检测或设置 Java 路径"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="11"
+														FontFamily="Microsoft YaHei"
+														Margin="0,2,0,0"
+														TextTrimming="CharacterEllipsis" />
+													<TextBlock
+														Name="txtCurrentJavaMem"
+														Text=""
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="11"
+														FontFamily="Microsoft YaHei"
+														Margin="0,1,0,0" />
+												</StackPanel>
+											</Grid>
+										</StackPanel>
+									</Border>
+									<!-- 检测到的 Java -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16"
+										Margin="0,0,0,16">
+										<StackPanel>
+											<Grid Margin="0,0,0,10">
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="*" />
+													<ColumnDefinition Width="Auto" />
+												</Grid.ColumnDefinitions>
+												<TextBlock
+													Text="检测到的 Java"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="14"
+													FontWeight="SemiBold"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+												<Button
+													Name="btnDetectJava"
+													Grid.Column="1"
+													Content="重新检测"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													BorderBrush="{DynamicResource BorderBrush}"
+													BorderThickness="1"
+													Padding="10,6"
+													FontSize="12"
+													FontFamily="Microsoft YaHei"
+													Cursor="Hand"
+													Click="BtnDetectJava_Click">
+													<Button.Template>
+														<ControlTemplate TargetType="{x:Type Button}">
+															<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+																<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+															</Border>
+															<ControlTemplate.Triggers>
+																<Trigger Property="IsMouseOver" Value="True">
+																	<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+																</Trigger>
+															</ControlTemplate.Triggers>
+														</ControlTemplate>
+													</Button.Template>
+												</Button>
+											</Grid>
+											<TextBlock
+												Name="txtNoJavaFound"
+												Text="未检测到 Java，请点击 [重新检测] 或手动设置"
+												Foreground="{DynamicResource TextSecondaryBrush}"
+												FontSize="12"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4,0,0"
+												Visibility="Visible" />
+											<ItemsControl
+											Name="javaList"
+											Margin="0,0,0,8">
+											<ItemsControl.ItemTemplate>
+												<DataTemplate>
+													<Border
+														Background="{DynamicResource SurfaceBrush}"
+														BorderBrush="{DynamicResource BorderBrush}"
+														BorderThickness="1"
+														CornerRadius="6"
+														Padding="12,10"
+														Margin="0,0,0,6">
+														<Grid>
+															<Grid.ColumnDefinitions>
+																<ColumnDefinition Width="*" />
+																<ColumnDefinition Width="Auto" />
+															</Grid.ColumnDefinitions>
+															<StackPanel Grid.Column="0">
+																<TextBlock
+																	FontSize="12"
+																	FontWeight="SemiBold"
+																	Foreground="{DynamicResource TextPrimaryBrush}"
+																	Text="{Binding Path}" />
+																<StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+																	<Border
+																		Background="{DynamicResource PrimaryBrush}"
+																		CornerRadius="3"
+																		Padding="4,2"
+																		Margin="0,0,6,0">
+																		<TextBlock
+																			FontSize="10"
+																			Foreground="White"
+																			FontWeight="SemiBold">
+																			<Run Text="Java " />
+																			<Run Text="{Binding MajorVersion}" />
+																		</TextBlock>
+																	</Border>
+																	<TextBlock
+																		FontSize="11"
+																		Foreground="{DynamicResource TextSecondaryBrush}"
+																		VerticalAlignment="Center">
+																		<Run Text="{Binding MaxMemoryMb}" />
+																		<Run Text=" MB 可用" />
+																	</TextBlock>
+																</StackPanel>
+															</StackPanel>
+															<Button
+																Grid.Column="1"
+																Content="使用"
+																Background="#4CAF50"
+																Foreground="White"
+																BorderThickness="0"
+																Padding="12,6"
+																FontSize="12"
+																FontWeight="SemiBold"
+																FontFamily="Microsoft YaHei"
+																Cursor="Hand"
+																Tag="{Binding}"
+																Click="BtnUseDetectedJava_Click">
+																<Button.Template>
+																	<ControlTemplate TargetType="{x:Type Button}">
+																		<Border Name="border" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+																			<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+																		</Border>
+																		<ControlTemplate.Triggers>
+																			<Trigger Property="IsMouseOver" Value="True">
+																				<Setter TargetName="border" Property="Background" Value="#43A047" />
+																			</Trigger>
+																		</ControlTemplate.Triggers>
+																	</ControlTemplate>
+																</Button.Template>
+															</Button>
+														</Grid>
+													</Border>
+												</DataTemplate>
+											</ItemsControl.ItemTemplate>
+										</ItemsControl>
+									</StackPanel>
+								</Border>
+									<!-- 下载 Java -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16"
+										Margin="0,0,0,16">
+										<StackPanel>
+											<Grid Margin="0,0,0,10">
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="*" />
+													<ColumnDefinition Width="Auto" />
+												</Grid.ColumnDefinitions>
+												<TextBlock
+													Text="下载 Java"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													FontSize="14"
+													FontWeight="SemiBold"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+												<TextBlock
+													Name="txtRecommendedJava"
+													Grid.Column="1"
+													Text="推荐: Java 17"
+													Foreground="#4CAF50"
+													FontSize="12"
+													FontWeight="SemiBold"
+													FontFamily="Microsoft YaHei"
+													VerticalAlignment="Center" />
+											</Grid>
+											<WrapPanel Margin="0,0,0,10">
+											<Button Name="btnDownloadJava8"  Content="Java 8"  Tag="8"
+											        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+											        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+											        Padding="12,6" FontSize="12" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="0,0,8,6"
+											        Click="BtnDownloadJava_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+											<Button Name="btnDownloadJava11" Content="Java 11" Tag="11"
+											        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+											        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+											        Padding="12,6" FontSize="12" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="0,0,8,6"
+											        Click="BtnDownloadJava_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+											<Button Name="btnDownloadJava17" Content="Java 17" Tag="17"
+											        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+											        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+											        Padding="12,6" FontSize="12" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="0,0,8,6"
+											        Click="BtnDownloadJava_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+											<Button Name="btnDownloadJava21" Content="Java 21" Tag="21"
+											        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+											        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+											        Padding="12,6" FontSize="12" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="0,0,8,6"
+											        Click="BtnDownloadJava_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+											<Button Name="btnDownloadJava25" Content="Java 25" Tag="25"
+											        Background="{DynamicResource SurfaceBrush}" Foreground="{DynamicResource TextPrimaryBrush}"
+											        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+											        Padding="12,6" FontSize="12" FontFamily="Microsoft YaHei" Cursor="Hand" Margin="0,0,0,6"
+											        Click="BtnDownloadJava_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</WrapPanel>
+											<Button
+											Name="btnDownloadRecommended"
+											Content="一键下载推荐版本"
+											Background="#4CAF50"
+											Foreground="White"
+											BorderThickness="0"
+											Padding="14,8"
+											FontSize="13"
+											FontWeight="SemiBold"
+											FontFamily="Microsoft YaHei"
+											Cursor="Hand"
+											HorizontalAlignment="Left"
+											Click="BtnDownloadRecommended_Click">
+											<Button.Template>
+												<ControlTemplate TargetType="{x:Type Button}">
+													<Border Name="border" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+														<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+													</Border>
+													<ControlTemplate.Triggers>
+														<Trigger Property="IsMouseOver" Value="True">
+															<Setter TargetName="border" Property="Background" Value="#43A047" />
+														</Trigger>
+													</ControlTemplate.Triggers>
+												</ControlTemplate>
+											</Button.Template>
+										</Button>
+											<Border
+												Name="pnlDownloadProgress"
+												Background="{DynamicResource SurfaceBrush}"
+												CornerRadius="6"
+												Padding="12"
+												Margin="0,12,0,0"
+												Visibility="Collapsed">
+												<StackPanel>
+													<TextBlock
+														Name="txtDownloadStatus"
+														Text="正在下载..."
+														FontSize="12"
+														Foreground="{DynamicResource TextPrimaryBrush}"
+														Margin="0,0,0,8" />
+													<ProgressBar
+														Name="progressDownload"
+														Height="6"
+														Minimum="0"
+														Maximum="100"
+														Value="0"
+														Background="{DynamicResource BorderBrush}"
+														Foreground="#4CAF50" />
+													<TextBlock
+														Name="txtDownloadProgress"
+														Text="0%"
+														FontSize="11"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														Margin="0,4,0,0"
+														HorizontalAlignment="Center" />
+												</StackPanel>
+											</Border>
+										</StackPanel>
+									</Border>
+									<!-- 手动配置 Java -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16"
+										Margin="0,0,0,16">
+										<StackPanel>
+											<TextBlock
+												Text="手动配置 Java 路径"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="14"
+												FontWeight="SemiBold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,12" />
+											<Grid>
+												<Grid.ColumnDefinitions>
+													<ColumnDefinition Width="*" />
+													<ColumnDefinition Width="Auto" />
+												</Grid.ColumnDefinitions>
+												<TextBox
+													Name="txtJavaPath"
+													Grid.Column="0"
+													Text=""
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													BorderBrush="{DynamicResource BorderBrush}"
+													BorderThickness="1"
+													Padding="10,8"
+													FontSize="13"
+													FontFamily="Microsoft YaHei" />
+												<Button
+												Grid.Column="1"
+												Content="浏览..."
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="12,8"
+												FontSize="12"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												Margin="8,0,0,0"
+												Click="BtnBrowseJavaPath_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+											</Grid>
+											<StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+												<Button
+													Name="btnSetJavaPath"
+													Content="设为当前 Java"
+													Background="#4CAF50"
+													Foreground="White"
+													BorderThickness="0"
+													Padding="14,8"
+													FontSize="13"
+													FontWeight="SemiBold"
+													FontFamily="Microsoft YaHei"
+													Cursor="Hand"
+													Click="BtnSetJavaPath_Click">
+													<Button.Template>
+														<ControlTemplate TargetType="{x:Type Button}">
+															<Border Name="border" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+																<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+															</Border>
+															<ControlTemplate.Triggers>
+																<Trigger Property="IsMouseOver" Value="True">
+																	<Setter TargetName="border" Property="Background" Value="#43A047" />
+																</Trigger>
+															</ControlTemplate.Triggers>
+														</ControlTemplate>
+													</Button.Template>
+												</Button>
+												<Button
+													Name="btnValidateJava"
+													Content="验证 Java"
+													Background="{DynamicResource SurfaceBrush}"
+													Foreground="{DynamicResource TextPrimaryBrush}"
+													BorderBrush="{DynamicResource BorderBrush}"
+													BorderThickness="1"
+													Padding="14,8"
+													FontSize="13"
+													FontFamily="Microsoft YaHei"
+													Cursor="Hand"
+													Margin="8,0,0,0"
+													Click="BtnValidateJava_Click">
+													<Button.Template>
+														<ControlTemplate TargetType="{x:Type Button}">
+															<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+																<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+															</Border>
+															<ControlTemplate.Triggers>
+																<Trigger Property="IsMouseOver" Value="True">
+																	<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+																</Trigger>
+															</ControlTemplate.Triggers>
+														</ControlTemplate>
+													</Button.Template>
+												</Button>
+											</StackPanel>
+										</StackPanel>
+									</Border>
+									<!-- JVM 参数 -->
+									<Border
+										Background="{DynamicResource CardBackgroundBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										CornerRadius="8"
+										Padding="20,16"
+										Margin="0,0,0,16">
+										<StackPanel>
+											<TextBlock
+												Text="JVM 参数"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="14"
+												FontWeight="SemiBold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,10" />
+											<TextBox
+												Name="txtJavaArgs"
+												Text="-XX:+UnlockExperimentalVMOptions -XX:+UseG1GC -XX:G1NewSizePercent=20 -XX:G1ReservePercent=20 -XX:MaxGCPauseMillis=50 -XX:G1HeapRegionSize=32M"
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="10,8"
+												FontSize="12"
+												FontFamily="Consolas"
+												Height="72"
+												TextWrapping="Wrap"
+												AcceptsReturn="True"
+												VerticalScrollBarVisibility="Auto" />
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</TabItem>
+							<TabItem
+								Header="下载设置">
+								<StackPanel>
+									<TextBlock
+										Text="下载设置"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+									<TextBlock
+										Text="下载线程数"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition
+												Width="*" />
+											<ColumnDefinition
+												Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<Slider
+											Name="sliderDownloadThreads"
+											Grid.Column="0"
+											Minimum="1"
+											Maximum="200"
+											Value="64"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource PrimaryBrush}"
+											TickFrequency="1"
+											IsSnapToTickEnabled="True"
+											Height="20"
+											VerticalAlignment="Center"
+											ValueChanged="SliderDownloadThreads_ValueChanged" />
+										<TextBlock
+											Name="txtDownloadThreadsValue"
+											Grid.Column="1"
+											Text="64"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											FontSize="13"
+											FontFamily="Microsoft YaHei"
+											Margin="12,0,0,0"
+											VerticalAlignment="Center"
+											MinWidth="30" />
+									</Grid>
+									<TextBlock
+										Text="下载目录"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition
+												Width="*" />
+											<ColumnDefinition
+												Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<TextBox
+											Name="txtDownloadPath"
+											Grid.Column="0"
+											Text=""
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											BorderBrush="{DynamicResource BorderBrush}"
+											BorderThickness="1"
+											Padding="10,8"
+											FontSize="13"
+											FontFamily="Microsoft YaHei"
+											IsReadOnly="True" />
+										<Button
+											Grid.Column="1"
+											Content="浏览"
+											Background="{DynamicResource SurfaceBrush}"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											BorderThickness="1"
+											BorderBrush="{DynamicResource BorderBrush}"
+											Padding="12,8"
+											FontSize="13"
+											FontFamily="Microsoft YaHei"
+											Cursor="Hand"
+											Margin="8,0,0,0"
+											Click="BtnBrowseDownloadPath_Click">
+											<Control.Template>
+												<ControlTemplate
+													TargetType="{x:Type Button}">
+													<Border
+														Name="border"
+														Background="{TemplateBinding Background}"
+														BorderBrush="{TemplateBinding BorderBrush}"
+														BorderThickness="{TemplateBinding BorderThickness}"
+														CornerRadius="4"
+														Padding="{TemplateBinding Padding}">
+														<ContentPresenter
+															HorizontalAlignment="Center"
+															VerticalAlignment="Center" />
+													</Border>
+													<ControlTemplate.Triggers>
+														<Trigger
+															Property="UIElement.IsMouseOver"
+															Value="True">
+															<Setter
+																TargetName="border"
+																Property="Background"
+																Value="{DynamicResource CardHoverBrush}" />
+														</Trigger>
+													</ControlTemplate.Triggers>
+												</ControlTemplate>
+											</Control.Template>
+										</Button>
+									</Grid>
+									<CheckBox
+										Name="chkAutoInstallDependencies"
+										Content="自动安装依赖库"
+										IsChecked="True"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,0" />
+									<TextBlock
+										Text="默认版本隔离"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<ComboBox
+										Name="cmbVersionIsolation"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										Padding="10,6"
+										FontSize="13"
+										FontFamily="Microsoft YaHei"
+										HorizontalAlignment="Left"
+										MinWidth="280">
+										<Control.Template>
+											<ControlTemplate TargetType="{x:Type ComboBox}">
+												<Grid>
+													<Border Background="{TemplateBinding Background}"
+															BorderBrush="{TemplateBinding BorderBrush}"
+															BorderThickness="{TemplateBinding BorderThickness}"
+															CornerRadius="4">
+														<Grid>
+															<Grid.ColumnDefinitions>
+																<ColumnDefinition Width="*" />
+																<ColumnDefinition Width="Auto" />
+															</Grid.ColumnDefinitions>
+															<ContentPresenter Grid.Column="0"
+																Content="{TemplateBinding SelectionBoxItem}"
+																ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+																Margin="{TemplateBinding Padding}"
+																VerticalAlignment="Center" />
+															<ToggleButton Grid.Column="1"
+																Background="{DynamicResource SurfaceBrush}" BorderThickness="0" Padding="8"
+																IsChecked="{Binding Path=IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+																<Path Data="M0,0 L8,0 L4,4"
+																	Fill="{DynamicResource TextPrimaryBrush}"
+																	Width="8" Height="8" Stretch="Fill" />
+															</ToggleButton>
+														</Grid>
+													</Border>
+													<Popup IsOpen="{TemplateBinding IsDropDownOpen}"
+														Placement="Bottom" AllowsTransparency="True">
+														<Border Background="{DynamicResource CardBackgroundBrush}"
+															BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="4"
+															MinWidth="{TemplateBinding ActualWidth}">
+															<ScrollViewer MaxHeight="200">
+																<ItemsPresenter />
+															</ScrollViewer>
+														</Border>
+													</Popup>
+												</Grid>
+											</ControlTemplate>
+										</Control.Template>
+										<ComboBoxItem Content="关闭" ToolTip="所有版本均使用同一档案，存档、Mod、资源包等均为公用。" Foreground="{DynamicResource TextPrimaryBrush}" Background="{DynamicResource CardBackgroundBrush}" />
+										<ComboBoxItem Content="隔离可安装 Mod 的版本" ToolTip="可安装 Mod 的版本（例如 Forge、Fabric）均互相独立以避免 Mod 冲突，其他版本（例如原版）则不会被隔离。" Foreground="{DynamicResource TextPrimaryBrush}" Background="{DynamicResource CardBackgroundBrush}" />
+										<ComboBoxItem Content="隔离非正式版" ToolTip="将 Minecraft 快照、预发布版、远古版本、愚人节版本与其他版本进行隔离。" Foreground="{DynamicResource TextPrimaryBrush}" Background="{DynamicResource CardBackgroundBrush}" />
+										<ComboBoxItem Content="隔离可安装 Mod 的版本与非正式版" Foreground="{DynamicResource TextPrimaryBrush}" Background="{DynamicResource CardBackgroundBrush}" />
+										<ComboBoxItem Content="隔离所有版本" ToolTip="不同版本之间的存档、Mod、资源包等均不互通。&#xa;这会导致不同原版版本间的存档不能共用，所以一般不推荐。" Foreground="{DynamicResource TextPrimaryBrush}" Background="{DynamicResource CardBackgroundBrush}" />
+									</ComboBox>
+								</StackPanel>
+							</TabItem>
+							<TabItem
+								Header="关于">
+								<StackPanel>
+									<TextBlock
+										Text="关于"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+									<!-- 关于 MNL -->
+									<Border
+										Background="{DynamicResource SurfaceBrush}"
+										CornerRadius="8"
+										Padding="25,30,25,25"
+										Margin="0,0,0,12">
+										<StackPanel>
+											<TextBlock
+												Text="🎵 MNL"
+												FontSize="20"
+												FontWeight="Bold"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,4" />
+											<TextBlock
+												Text="一款功能强大的Minecraft启动器"
+												FontSize="13"
+												Foreground="{DynamicResource TextSecondaryBrush}"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,10" />
+											<TextBlock
+												Text="当前版本：1.0.0"
+												FontSize="12"
+												Foreground="{DynamicResource TextSecondaryBrush}"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,16" />
+											<Button
+												Content="检查更新"
+												Background="{DynamicResource PrimaryBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderThickness="0"
+												Padding="16,8"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												HorizontalAlignment="Left"
+												Click="BtnCheckUpdate_Click">
+												<Button.Template>
+													<ControlTemplate
+														TargetType="{x:Type Button}">
+														<Border
+															Name="border"
+															Background="{TemplateBinding Background}"
+															CornerRadius="4"
+															Padding="{TemplateBinding Padding}">
+															<ContentPresenter
+																HorizontalAlignment="Center"
+																VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger
+																Property="UIElement.IsMouseOver"
+																Value="True">
+																<Setter
+																	TargetName="border"
+																	Property="Background"
+																	Value="{DynamicResource PrimaryDarkBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</StackPanel>
+									</Border>
+									<!-- 制作人员 -->
+									<Border
+										Background="{DynamicResource SurfaceBrush}"
+										CornerRadius="8"
+										Padding="25,30,25,20"
+										Margin="0,0,0,12">
+										<StackPanel>
+											<TextBlock
+												Text="制作人员"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="15"
+												FontWeight="Bold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,16" />
+											<Grid Margin="0,0,0,10">
+												<Grid.RowDefinitions>
+													<RowDefinition Height="Auto" />
+													<RowDefinition Height="Auto" />
+												</Grid.RowDefinitions>
+												<Grid Grid.Row="0" Margin="0,0,0,10">
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="Auto" />
+														<ColumnDefinition />
+													</Grid.ColumnDefinitions>
+													<Image Source="/Assets/FallenLeaves.jpg" Width="34" Height="34" Margin="0,0,12,0" VerticalAlignment="Top">
+														<Image.Clip>
+															<EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+														</Image.Clip>
+													</Image>
+													<StackPanel Grid.Column="1">
+														<TextBlock
+															Text="FallenLeaves"
+															Foreground="{DynamicResource TextPrimaryBrush}"
+															FontSize="13"
+															FontWeight="SemiBold"
+															FontFamily="Microsoft YaHei" />
+														<TextBlock
+															Text="MNL 的开发者"
+															Foreground="{DynamicResource TextSecondaryBrush}"
+															FontSize="12"
+															FontFamily="Microsoft YaHei"
+															Margin="0,2,0,0" />
+													</StackPanel>
+												</Grid>
+												<Grid Grid.Row="1">
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="Auto" />
+														<ColumnDefinition />
+													</Grid.ColumnDefinitions>
+													<Image Source="/Assets/Heads/alex.png" Width="34" Height="34" Margin="0,0,12,0" VerticalAlignment="Top">
+														<Image.Clip>
+															<EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+														</Image.Clip>
+													</Image>
+													<StackPanel Grid.Column="1">
+														<TextBlock
+															Text="ccy"
+															Foreground="{DynamicResource TextPrimaryBrush}"
+															FontSize="13"
+															FontWeight="SemiBold"
+															FontFamily="Microsoft YaHei" />
+														<TextBlock
+															Text="MNL 的开发者"
+															Foreground="{DynamicResource TextSecondaryBrush}"
+															FontSize="12"
+															FontFamily="Microsoft YaHei"
+															Margin="0,2,0,0" />
+													</StackPanel>
+												</Grid>
+											</Grid>
+										</StackPanel>
+									</Border>
+									<!-- 特别鸣谢 -->
+									<Border
+										Background="{DynamicResource SurfaceBrush}"
+										CornerRadius="8"
+										Padding="25,30,25,20">
+										<StackPanel>
+											<TextBlock
+												Text="特别鸣谢"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="15"
+												FontWeight="Bold"
+												FontFamily="Microsoft YaHei"
+												Margin="0,0,0,16" />
+											<StackPanel>
+												<Grid Margin="0,0,0,10">
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="Auto" />
+														<ColumnDefinition />
+													</Grid.ColumnDefinitions>
+													<Image Source="/Assets/Heads/PCL2.png" Width="34" Height="34" Margin="0,0,12,0" VerticalAlignment="Top">
+														<Image.Clip>
+															<EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+														</Image.Clip>
+													</Image>
+													<StackPanel Grid.Column="1">
+														<TextBlock
+															Text="PCL (Plain Craft Launcher)"
+															Foreground="{DynamicResource TextPrimaryBrush}"
+															FontSize="13"
+															FontWeight="SemiBold"
+															FontFamily="Microsoft YaHei" />
+														<TextBlock
+															Text="设计灵感与架构参考"
+															Foreground="{DynamicResource TextSecondaryBrush}"
+															FontSize="12"
+															FontFamily="Microsoft YaHei"
+															Margin="0,2,0,0" />
+													</StackPanel>
+												</Grid>
+												<StackPanel Margin="0,0,0,10">
+													<TextBlock
+														Text="HMCL (Hello Minecraft! Launcher)"
+														Foreground="{DynamicResource TextPrimaryBrush}"
+														FontSize="13"
+														FontWeight="SemiBold"
+														FontFamily="Microsoft YaHei" />
+													<TextBlock
+														Text="项目参考与技术方案"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="12"
+														FontFamily="Microsoft YaHei"
+														Margin="0,2,0,0" />
+												</StackPanel>
+												<Grid Margin="0,0,0,10">
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="Auto" />
+														<ColumnDefinition />
+													</Grid.ColumnDefinitions>
+													<Image Source="/Assets/Heads/bangbang93.png" Width="34" Height="34" Margin="0,0,12,0" VerticalAlignment="Top">
+														<Image.Clip>
+															<EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+														</Image.Clip>
+													</Image>
+													<StackPanel Grid.Column="1">
+														<TextBlock
+															Text="BMCLAPI (bangbang93)"
+															Foreground="{DynamicResource TextPrimaryBrush}"
+															FontSize="13"
+															FontWeight="SemiBold"
+															FontFamily="Microsoft YaHei" />
+														<TextBlock
+															Text="Minecraft 下载镜像加速"
+															Foreground="{DynamicResource TextSecondaryBrush}"
+															FontSize="12"
+															FontFamily="Microsoft YaHei"
+															Margin="0,2,0,0" />
+													</StackPanel>
+												</Grid>
+												<StackPanel Margin="0,0,0,10">
+													<TextBlock
+														Text="CurseForge"
+														Foreground="{DynamicResource TextPrimaryBrush}"
+														FontSize="13"
+														FontWeight="SemiBold"
+														FontFamily="Microsoft YaHei" />
+													<TextBlock
+														Text="Mod 与整合包资源平台"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="12"
+														FontFamily="Microsoft YaHei"
+														Margin="0,2,0,0" />
+												</StackPanel>
+												<StackPanel Margin="0,0,0,10">
+													<TextBlock
+														Text="Modrinth"
+														Foreground="{DynamicResource TextPrimaryBrush}"
+														FontSize="13"
+														FontWeight="SemiBold"
+														FontFamily="Microsoft YaHei" />
+													<TextBlock
+														Text="Mod 与整合包资源平台"
+														Foreground="{DynamicResource TextSecondaryBrush}"
+														FontSize="12"
+														FontFamily="Microsoft YaHei"
+														Margin="0,2,0,0" />
+												</StackPanel>
+												<Grid>
+													<Grid.ColumnDefinitions>
+														<ColumnDefinition Width="Auto" />
+														<ColumnDefinition />
+													</Grid.ColumnDefinitions>
+													<Image Source="/Assets/Heads/EasyTier.png" Width="34" Height="34" Margin="0,0,12,0" VerticalAlignment="Top">
+														<Image.Clip>
+															<EllipseGeometry Center="17,17" RadiusX="17" RadiusY="17" />
+														</Image.Clip>
+													</Image>
+													<StackPanel Grid.Column="1">
+														<TextBlock
+															Text="EasyTier"
+															Foreground="{DynamicResource TextPrimaryBrush}"
+															FontSize="13"
+															FontWeight="SemiBold"
+															FontFamily="Microsoft YaHei" />
+														<TextBlock
+															Text="P2P 虚拟组网联机"
+															Foreground="{DynamicResource TextSecondaryBrush}"
+															FontSize="12"
+															FontFamily="Microsoft YaHei"
+															Margin="0,2,0,0" />
+													</StackPanel>
+												</Grid>
+											</StackPanel>
+										</StackPanel>
+									</Border>
+								</StackPanel>
+							</TabItem>
+							<!-- ═══════════════════════════════════════════════ -->
+							<!-- 背景设置 TabItem -->
+							<!-- ═══════════════════════════════════════════════ -->
+							<TabItem
+								Header="背景设置">
+								<StackPanel>
+									<TextBlock
+										Text="背景设置"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontSize="18"
+										FontWeight="SemiBold"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,16" />
+
+									<!-- 背景模式选择 -->
+									<TextBlock
+										Text="背景模式"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,0,0,8" />
+									<Border
+										Background="{DynamicResource SurfaceBrush}"
+										CornerRadius="8"
+										Padding="16">
+										<StackPanel>
+											<RadioButton
+												Name="radioBgMica"
+												Content="默认 Mica 云母背景"
+												GroupName="BackgroundMode"
+												IsChecked="True"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4"
+												Checked="RadioBgMode_Checked" />
+											<RadioButton
+												Name="radioBgImage"
+												Content="本地图片背景"
+												GroupName="BackgroundMode"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4"
+												Checked="RadioBgMode_Checked" />
+											<RadioButton
+												Name="radioBgVideo"
+												Content="本地视频背景（MP4）"
+												GroupName="BackgroundMode"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												Margin="0,4"
+												Checked="RadioBgMode_Checked" />
+										</StackPanel>
+									</Border>
+
+									<!-- 图片文件选择 -->
+									<StackPanel
+										Name="panBgImagePath"
+										Visibility="Collapsed"
+										Margin="0,16,0,0">
+										<TextBlock
+											Text="图片文件"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Margin="0,0,0,8" />
+										<Grid>
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*" />
+												<ColumnDefinition Width="Auto" />
+											</Grid.ColumnDefinitions>
+											<TextBox
+												Name="txtBgImagePath"
+												Grid.Column="0"
+												Text=""
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="10,8"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												IsReadOnly="True" />
+											<Button
+												Grid.Column="1"
+												Content="浏览..."
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="12,8"
+												FontSize="12"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												Margin="8,0,0,0"
+												Click="BtnBrowseBgImage_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</Grid>
+									</StackPanel>
+
+									<!-- 视频文件选择 -->
+									<StackPanel
+										Name="panBgVideoPath"
+										Visibility="Collapsed"
+										Margin="0,16,0,0">
+										<TextBlock
+											Text="视频文件"
+											Foreground="{DynamicResource TextSecondaryBrush}"
+											FontSize="12"
+											FontFamily="Microsoft YaHei"
+											Margin="0,0,0,8" />
+										<Grid>
+											<Grid.ColumnDefinitions>
+												<ColumnDefinition Width="*" />
+												<ColumnDefinition Width="Auto" />
+											</Grid.ColumnDefinitions>
+											<TextBox
+												Name="txtBgVideoPath"
+												Grid.Column="0"
+												Text=""
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="10,8"
+												FontSize="13"
+												FontFamily="Microsoft YaHei"
+												IsReadOnly="True" />
+											<Button
+												Grid.Column="1"
+												Content="浏览..."
+												Background="{DynamicResource SurfaceBrush}"
+												Foreground="{DynamicResource TextPrimaryBrush}"
+												BorderBrush="{DynamicResource BorderBrush}"
+												BorderThickness="1"
+												Padding="12,8"
+												FontSize="12"
+												FontFamily="Microsoft YaHei"
+												Cursor="Hand"
+												Margin="8,0,0,0"
+												Click="BtnBrowseBgVideo_Click">
+												<Button.Template>
+													<ControlTemplate TargetType="{x:Type Button}">
+														<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+															<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+														</Border>
+														<ControlTemplate.Triggers>
+															<Trigger Property="IsMouseOver" Value="True">
+																<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+															</Trigger>
+														</ControlTemplate.Triggers>
+													</ControlTemplate>
+												</Button.Template>
+											</Button>
+										</Grid>
+									</StackPanel>
+
+									<!-- 透明度调节 -->
+									<TextBlock
+										Text="背景透明度"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<Slider
+											Name="sliderBgOpacity"
+											Grid.Column="0"
+											Minimum="0"
+											Maximum="1"
+											Value="0.6"
+											TickFrequency="0.05"
+											IsSnapToTickEnabled="True"
+											ValueChanged="SliderBgOpacity_ValueChanged"
+											VerticalAlignment="Center"
+											Margin="0,0,12,0" />
+										<TextBlock
+											Name="txtBgOpacityValue"
+											Grid.Column="1"
+											Text="60%"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											FontSize="14"
+											FontFamily="Microsoft YaHei"
+											MinWidth="40"
+											TextAlignment="Right"
+											VerticalAlignment="Center" />
+									</Grid>
+
+									<!-- 高斯模糊强度调节 -->
+									<TextBlock
+										Text="高斯模糊强度"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="12"
+										FontFamily="Microsoft YaHei"
+										Margin="0,24,0,8" />
+									<Grid>
+										<Grid.ColumnDefinitions>
+											<ColumnDefinition Width="*" />
+											<ColumnDefinition Width="Auto" />
+										</Grid.ColumnDefinitions>
+										<Slider
+											Name="sliderBgBlur"
+											Grid.Column="0"
+											Minimum="0"
+											Maximum="20"
+											Value="0"
+											TickFrequency="1"
+											IsSnapToTickEnabled="True"
+											ValueChanged="SliderBgBlur_ValueChanged"
+											VerticalAlignment="Center"
+											Margin="0,0,12,0" />
+										<TextBlock
+											Name="txtBgBlurValue"
+											Grid.Column="1"
+											Text="0"
+											Foreground="{DynamicResource TextPrimaryBrush}"
+											FontSize="14"
+											FontFamily="Microsoft YaHei"
+											MinWidth="30"
+											TextAlignment="Right"
+											VerticalAlignment="Center" />
+									</Grid>
+
+									<!-- 重置按钮 -->
+									<Button
+										Name="btnResetBackground"
+										Content="重置默认背景"
+										Background="{DynamicResource SurfaceBrush}"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										BorderBrush="{DynamicResource BorderBrush}"
+										BorderThickness="1"
+										Padding="14,8"
+										FontSize="13"
+										FontFamily="Microsoft YaHei"
+										Cursor="Hand"
+										HorizontalAlignment="Left"
+										Margin="0,24,0,0"
+										Click="BtnResetBackground_Click">
+										<Button.Template>
+											<ControlTemplate TargetType="{x:Type Button}">
+												<Border Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+													<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+												</Border>
+												<ControlTemplate.Triggers>
+													<Trigger Property="IsMouseOver" Value="True">
+														<Setter TargetName="border" Property="Background" Value="{DynamicResource CardHoverBrush}" />
+													</Trigger>
+												</ControlTemplate.Triggers>
+											</ControlTemplate>
+										</Button.Template>
+									</Button>
+								</StackPanel>
+							</TabItem>
+						</TabControl>
+						<Button
+							Content="保存设置"
+							Background="{DynamicResource PrimaryBrush}"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							BorderThickness="0"
+							Padding="16,10"
+							FontSize="14"
+							FontFamily="Microsoft YaHei"
+							Cursor="Hand"
+							Margin="0,30,0,0"
+							HorizontalAlignment="Left"
+							Click="BtnSaveSettings_Click">
+							<Button.Template>
+								<ControlTemplate
+									TargetType="{x:Type Button}">
+									<Border
+										Name="border"
+										Background="{TemplateBinding Background}"
+										CornerRadius="4"
+										Padding="{TemplateBinding Padding}">
+										<ContentPresenter
+											HorizontalAlignment="Center"
+											VerticalAlignment="Center" />
+									</Border>
+									<ControlTemplate.Triggers>
+										<Trigger
+											Property="UIElement.IsMouseOver"
+											Value="True">
+											<Setter
+												TargetName="border"
+												Property="Background"
+												Value="{DynamicResource PrimaryDarkBrush}" />
+										</Trigger>
+									</ControlTemplate.Triggers>
+								</ControlTemplate>
+							</Button.Template>
+						</Button>
+					</StackPanel>
+				</Border>
+			</Grid>
+		</Grid>
+	</ScrollViewer>
+</UserControl>

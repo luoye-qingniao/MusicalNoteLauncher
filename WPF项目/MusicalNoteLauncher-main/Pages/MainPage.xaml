@@ -1,0 +1,400 @@
+<UserControl
+	x:Class="MusicalNoteLauncher.Pages.MainPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	Background="#00FFFFFF" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	<Grid>
+		<Border
+			Background="{DynamicResource BackgroundBrush}" />
+		<Grid
+			Margin="0">
+			<Grid.RowDefinitions>
+				<RowDefinition
+					Height="60" />
+				<RowDefinition
+					Height="*" />
+			</Grid.RowDefinitions>
+			<Border
+				Grid.Row="0"
+				Background="{DynamicResource CardBackgroundBrush}">
+				<Grid
+					Margin="20,0">
+					<Grid.ColumnDefinitions>
+						<ColumnDefinition
+							Width="Auto" />
+						<ColumnDefinition
+							Width="*" />
+						<ColumnDefinition
+							Width="Auto" />
+					</Grid.ColumnDefinitions>
+					<StackPanel
+						Grid.Column="0"
+						Orientation="Horizontal"
+						VerticalAlignment="Center">
+						<Image
+							Source="pack://application:,,,/Assets/图标.png"
+							Width="34"
+							Height="34"
+							VerticalAlignment="Center"
+							RenderOptions.BitmapScalingMode="HighQuality" />
+						<TextBlock
+							Text="MNL"
+							FontSize="16"
+							Foreground="{DynamicResource TextPrimaryBrush}"
+							VerticalAlignment="Center"
+							Margin="10,0,0,0"
+							FontWeight="SemiBold" />
+					</StackPanel>
+					<StackPanel
+						Grid.Column="2"
+						Orientation="Horizontal"
+						VerticalAlignment="Center">
+						<Border
+							Background="{DynamicResource SurfaceBrush}"
+							CornerRadius="12"
+							Padding="12,6">
+							<StackPanel
+								Orientation="Horizontal">
+								<Border
+									Width="24"
+									Height="24"
+									CornerRadius="12"
+									Background="{DynamicResource PrimaryBrush}"
+									Padding="0"
+									VerticalAlignment="Center">
+									<Image
+										Name="imgCurrentUser"
+										Stretch="UniformToFill" />
+								</Border>
+								<TextBlock
+									Name="txtCurrentUser"
+									Text="Player"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									VerticalAlignment="Center"
+									Margin="10,0,0,0"
+									FontSize="14" />
+							</StackPanel>
+						</Border>
+						<Button
+							Name="btnLogout"
+							Style="{StaticResource NavButton}"
+							Content="退出"
+							Margin="10,0,0,0"
+							Click="BtnLogout_Click" />
+					</StackPanel>
+				</Grid>
+			</Border>
+			<ScrollViewer
+				Grid.Row="1"
+				VerticalScrollBarVisibility="Auto"
+				Padding="20">
+				<StackPanel>
+					<Grid
+						Margin="0,0,0,20">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition
+								Width="*" />
+							<ColumnDefinition
+								Width="*" />
+						</Grid.ColumnDefinitions>
+						<Border
+							Grid.Column="0"
+							Style="{StaticResource CardBorder}"
+							Margin="0,0,10,0">
+							<StackPanel>
+								<TextBlock
+									Text="Java 环境"
+									FontSize="16"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									FontWeight="SemiBold"
+									Margin="0,0,0,15" />
+								<TextBlock
+									Text="Java 路径"
+									FontSize="12"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									Margin="0,0,0,5" />
+								<Grid
+									Margin="0,0,0,15">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition
+											Width="*" />
+										<ColumnDefinition
+											Width="Auto" />
+									</Grid.ColumnDefinitions>
+									<TextBox
+										Name="txtJavaPath"
+										Grid.Column="0"
+										Style="{StaticResource ModernTextBox}"
+										IsReadOnly="True" />
+									<Button
+										Grid.Column="1"
+										Style="{StaticResource SecondaryButton}"
+										Content="浏览..."
+										Margin="10,0,0,0"
+										Click="BtnBrowseJava_Click" />
+								</Grid>
+								<Button
+									Name="btnAutoDetectJava"
+									Style="{StaticResource SecondaryButton}"
+									Content="自动检测 Java"
+									HorizontalAlignment="Left"
+									Margin="0,0,0,10"
+									Click="BtnAutoDetectJava_Click" />
+								<TextBlock
+									Name="txtJavaStatus"
+									Text="未检测"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									FontSize="12" />
+							</StackPanel>
+						</Border>
+						<Border
+							Grid.Column="1"
+							Style="{StaticResource CardBorder}"
+							Margin="10,0,0,0">
+							<StackPanel>
+								<!-- [增量新增] 游戏类型切换 -->
+								<StackPanel Orientation="Horizontal" Margin="0,0,0,15">
+									<RadioButton x:Name="rbJava" Content="Java版" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" Margin="0,0,16,0" GroupName="GameType" Click="RbJava_Click"/>
+									<RadioButton x:Name="rbBedrock" Content="基岩版" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="14" FontWeight="SemiBold" GroupName="GameType" Click="RbBedrock_Click"/>
+								</StackPanel>
+								<Grid
+									Margin="0,0,0,15" x:Name="panelJavaVersion">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition
+											Width="*" />
+										<ColumnDefinition
+											Width="Auto" />
+										<ColumnDefinition
+											Width="Auto" />
+									</Grid.ColumnDefinitions>
+									<TextBlock
+										Grid.Column="0"
+										Text="游戏版本"
+										FontSize="16"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										FontWeight="SemiBold" />
+									<Button
+										Grid.Column="1"
+										Style="{StaticResource SecondaryButton}"
+										Content="刷新"
+										Margin="10,0,5,0"
+										Click="BtnRefreshVersions_Click" />
+									<Button
+										Grid.Column="2"
+										x:Name="btnDownloadVersion"
+										Style="{StaticResource PrimaryButton}"
+										Content="下载版本"
+										Margin="5,0,0,0"
+										Click="BtnDownloadVersion_Click" />
+								</Grid>
+								<TextBlock
+									Text="选择版本"
+									FontSize="12"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									Margin="0,0,0,5" x:Name="lblVersionSelect"/>
+								<ComboBox
+									Name="cmbGameVersion"
+									Background="{DynamicResource SurfaceBrush}"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									BorderBrush="{DynamicResource BorderBrush}"
+									Padding="12,10"
+									Margin="0,0,0,15"
+									SelectionChanged="CmbGameVersion_SelectionChanged" />
+								<!-- [增量新增] 基岩版离线用户名（基岩模式下显示） -->
+								<StackPanel x:Name="panelBedrockUser" Visibility="Collapsed" Margin="0,0,0,15">
+									<TextBlock Text="离线用户名" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,5"/>
+									<TextBox x:Name="txtBedrockUsername" Style="{StaticResource ModernTextBox}" Text="Player"/>
+									<TextBlock Text="⚠ 离线模式不支持多人联机" FontSize="11" Foreground="#FF9800" Margin="0,4,0,0"/>
+								</StackPanel>
+								<TextBlock
+									Text="游戏目录"
+									FontSize="12"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									Margin="0,0,0,5" />
+								<Grid>
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition
+											Width="*" />
+										<ColumnDefinition
+											Width="Auto" />
+									</Grid.ColumnDefinitions>
+									<TextBox
+										Name="txtGameDir"
+										Grid.Column="0"
+										Style="{StaticResource ModernTextBox}"
+										IsReadOnly="True" />
+									<Button
+										Grid.Column="1"
+										Style="{StaticResource SecondaryButton}"
+										Content="选择"
+										Margin="10,0,0,0"
+										Click="BtnSelectGameDir_Click" />
+								</Grid>
+								<TextBlock
+									Name="txtVersionStatus"
+									Text="请选择游戏版本"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									FontSize="12"
+									Margin="0,10,0,0" />
+							</StackPanel>
+						</Border>
+					</Grid>
+					<Grid
+						Margin="0,0,0,20">
+						<Grid.ColumnDefinitions>
+							<ColumnDefinition
+								Width="*" />
+							<ColumnDefinition
+								Width="*" />
+						</Grid.ColumnDefinitions>
+						<Border
+							Grid.Column="0"
+							Style="{StaticResource CardBorder}"
+							Margin="0,0,10,0">
+							<StackPanel>
+								<TextBlock
+									Text="启动设置"
+									FontSize="16"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									FontWeight="SemiBold"
+									Margin="0,0,0,15" />
+								<TextBlock
+									FontSize="12"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									Margin="0,0,0,5">
+									<Run
+										Text="分配内存: " /> <Run
+										Name="txtMemoryValue"
+										Text="2048 MB"
+										Foreground="{DynamicResource PrimaryBrush}" /></TextBlock>
+								<Slider
+									Name="sliderMemory"
+									Minimum="512"
+									Maximum="8192"
+									Value="2048"
+									TickFrequency="128"
+									IsSnapToTickEnabled="True"
+									Margin="0,0,0,5"
+									ValueChanged="SliderMemory_ValueChanged" />
+								<Grid
+									Margin="0,0,0,15">
+									<TextBlock
+										Text="512 MB"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="10"
+										HorizontalAlignment="Left" />
+									<TextBlock
+										Text="8192 MB"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="10"
+										HorizontalAlignment="Right" />
+								</Grid>
+								<TextBlock
+									Text="启动参数预览"
+									FontSize="12"
+									Foreground="{DynamicResource TextSecondaryBrush}"
+									Margin="0,0,0,5" />
+								<Border
+									Background="{DynamicResource SurfaceBrush}"
+									CornerRadius="4"
+									Padding="10">
+									<TextBlock
+										Name="txtLaunchPreview"
+										Text="-Xmx2048M -Xms2048M ..."
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										FontSize="11"
+										TextWrapping="Wrap" />
+								</Border>
+							</StackPanel>
+						</Border>
+						<Border
+							Grid.Column="1"
+							Style="{StaticResource CardBorder}"
+							Margin="10,0,0,0">
+							<StackPanel>
+								<TextBlock
+									Text="账号信息"
+									FontSize="16"
+									Foreground="{DynamicResource TextPrimaryBrush}"
+									FontWeight="SemiBold"
+									Margin="0,0,0,15" />
+								<Grid
+									Margin="0,0,0,10">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition
+											Width="100" />
+										<ColumnDefinition
+											Width="*" />
+									</Grid.ColumnDefinitions>
+									<TextBlock
+										Text="用户名:"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										VerticalAlignment="Center" />
+									<TextBlock
+										Name="txtAccountUser"
+										Grid.Column="1"
+										Text="Player"
+										Foreground="{DynamicResource TextPrimaryBrush}"
+										VerticalAlignment="Center" />
+								</Grid>
+								<Grid
+									Margin="0,0,0,10">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition
+											Width="100" />
+										<ColumnDefinition
+											Width="*" />
+									</Grid.ColumnDefinitions>
+									<TextBlock
+										Text="游戏模式:"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										VerticalAlignment="Center" />
+									<TextBlock
+										Name="txtGameMode"
+										Grid.Column="1"
+										Text="离线模式"
+										Foreground="{DynamicResource PrimaryBrush}"
+										VerticalAlignment="Center" />
+								</Grid>
+								<Grid
+									Margin="0,0,0,10">
+									<Grid.ColumnDefinitions>
+										<ColumnDefinition
+											Width="100" />
+										<ColumnDefinition
+											Width="*" />
+									</Grid.ColumnDefinitions>
+									<TextBlock
+										Text="游戏目录:"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										VerticalAlignment="Center" />
+									<TextBlock
+										Name="txtMinecraftDir"
+										Grid.Column="1"
+										Text=".minecraft"
+										Foreground="{DynamicResource TextSecondaryBrush}"
+										VerticalAlignment="Center"
+										TextTrimming="CharacterEllipsis" />
+								</Grid>
+								<Button
+									Style="{StaticResource SecondaryButton}"
+									Content="保存设置"
+									HorizontalAlignment="Left"
+									Click="BtnSaveSettings_Click" />
+							</StackPanel>
+						</Border>
+					</Grid>
+					<Border
+						Style="{StaticResource CardBorder}"
+						Padding="30">
+						<Button
+							Name="btnLaunch"
+							Style="{StaticResource LaunchButton}"
+							Content="♪ 启动游戏"
+							HorizontalAlignment="Center"
+							MinWidth="300"
+							Click="BtnLaunch_Click" />
+					</Border>
+				</StackPanel>
+			</ScrollViewer>
+		</Grid>
+	</Grid>
+</UserControl>

@@ -1,0 +1,106 @@
+<Window x:Class="MusicalNoteLauncher.Windows.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MNL"
+        Height="600"
+        Width="450"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="{StaticResource BackgroundBrush}">
+
+    <Grid>
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="40">
+            <!-- 顶部图标区域 -->
+            <Border Background="{StaticResource CardBackgroundBrush}"
+                    CornerRadius="50"
+                    Width="100" Height="100"
+                    Margin="0,0,0,30">
+                <TextBlock Text="🎮"
+                           FontSize="50"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"/>
+            </Border>
+
+            <!-- 标题 -->
+            <TextBlock Text="MNL"
+                       FontSize="28"
+                       FontWeight="Bold"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       HorizontalAlignment="Center"
+                       FontFamily="Microsoft YaHei"
+                       Margin="0,0,0,8"/>
+
+            <!-- 副标题 -->
+            <TextBlock Text="点击即玩，无需下载"
+                       FontSize="14"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       FontFamily="Microsoft YaHei"
+                       Margin="0,0,0,40"/>
+
+            <!-- 用户名输入框 -->
+            <TextBox x:Name="txtUsername"
+                     Width="320"
+                     FontSize="16"
+                     Margin="0,0,0,24">
+                <TextBox.Resources>
+                    <VisualBrush x:Key="HintBrush" AlignmentX="Left" AlignmentY="Center" Stretch="None">
+                        <VisualBrush.Visual>
+                            <TextBlock Text="输入离线用户名"
+                                       Foreground="#888888"
+                                       FontSize="16"
+                                       FontFamily="Microsoft YaHei"
+                                       Margin="4,0,0,0"/>
+                        </VisualBrush.Visual>
+                    </VisualBrush>
+                </TextBox.Resources>
+                <TextBox.Style>
+                    <Style TargetType="TextBox" BasedOn="{StaticResource ModernTextBox}">
+                        <Style.Triggers>
+                            <Trigger Property="Text" Value="">
+                                <Setter Property="Background" Value="{StaticResource HintBrush}"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+
+            <!-- 离线登录按钮 -->
+            <Button x:Name="btnOfflineLogin"
+                    Content="🖥️ 离线登录"
+                    Style="{StaticResource GreenButton}"
+                    Width="320"
+                    Height="48"
+                    FontSize="16"
+                    Margin="0,0,0,16"
+                    Click="BtnOfflineLogin_Click"/>
+
+            <!-- 正版登录按钮 -->
+            <Button x:Name="btnMicrosoftLogin"
+                    Content="&#x1FA9F; 微软正版登录"
+                    Style="{StaticResource BlueButton}"
+                    Width="320"
+                    Height="48"
+                    FontSize="16"
+                    Margin="0,0,0,16"
+                    Click="BtnMicrosoftLogin_Click"/>
+
+            <!-- 青鸟账号登录按钮 -->
+            <Button x:Name="btnQingNiaoLogin"
+                    Content="&#x1F426; 青鸟账号登录"
+                    Style="{StaticResource OrangeButton}"
+                    Width="320"
+                    Height="48"
+                    FontSize="16"
+                    Margin="0,0,0,40"
+                    Click="BtnQingNiaoLogin_Click"/>
+
+            <!-- 底部版本信息 -->
+            <TextBlock Text="v1.0.0 | 深色主题"
+                       FontSize="12"
+                       Foreground="{StaticResource TextSecondaryBrush}"
+                       HorizontalAlignment="Center"
+                       FontFamily="Microsoft YaHei"/>
+        </StackPanel>
+    </Grid>
+</Window>
