@@ -184,6 +184,7 @@ _pkginfo.txt
 # 额外构建产物 / 发布目录
 # ========================
 node_modules/
+.npm-cache/
 publish/
 publish2/
 dist-electron/
