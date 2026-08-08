@@ -1,6 +1,6 @@
-<UserControl
+﻿<UserControl
 	x:Class="MusicalNoteLauncher.Pages.GameVersionsPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:MusicalNoteLauncher.Pages"
-	Background="{DynamicResource BackgroundBrush}"
+	Background="Transparent"
 	PreviewMouseWheel="Page_PreviewMouseWheel">
 	<FrameworkElement.Resources>
 		<local:VersionTypeToColorConverter
@@ -241,7 +241,7 @@
 		</Style>
 	</FrameworkElement.Resources>
 	<Grid
-		Background="{DynamicResource BackgroundBrush}">
+		Background="Transparent">
 		<Grid.RowDefinitions>
 			<RowDefinition
 				Height="60" />

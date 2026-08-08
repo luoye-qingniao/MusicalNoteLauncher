@@ -8,8 +8,7 @@ namespace MusicalNoteLauncher.Core
     {
         private static string ConfigFile => MNLEnvironment.ConfigFilePath;
 
-        private static readonly string ConfigFolder = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, "MNL");
+        private static string ConfigFolder => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MNL");
 
         public string Username { get; set; }
         public bool RememberAccount { get; set; }

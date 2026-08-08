@@ -17,10 +17,10 @@ namespace MusicalNoteLauncher.Core
     public static class UpdateService
     {
         /// <summary>当前启动器版本号</summary>
-        public const string CurrentVersion = "1.0.0";
+        public const string CurrentVersion = "1.2.2";
 
         /// <summary>当前启动器版本序号</summary>
-        public const int CurrentVersionCode = 1;
+        public const int CurrentVersionCode = 5;
 
         private static readonly HttpClient _http = SafeHttpClientFactory.CreateClient();
         private static readonly JsonSerializerOptions _jsonOptions = new()

@@ -9,16 +9,40 @@ namespace MusicalNoteLauncher.Core
         private static readonly string LogFilePath;
         private static readonly object _lock = new object();
 
+        /// <summary>
+        /// 获取日志目录（参考 PCL：{exe}\MNL\logs\）
+        /// </summary>
+        private static string GetLogDirectory()
+        {
+            // 参考 PCL：日志与程序同级目录
+            string appDir = AppDomain.CurrentDomain.BaseDirectory;
+            string preferredDir = Path.Combine(appDir, "MNL", "logs");
+
+            try
+            {
+                if (!Directory.Exists(preferredDir))
+                    Directory.CreateDirectory(preferredDir);
+
+                // 验证可写
+                string testFile = Path.Combine(preferredDir, ".write_test");
+                File.WriteAllText(testFile, "");
+                File.Delete(testFile);
+                return preferredDir;
+            }
+            catch
+            {
+                // 回退到用户临时目录
+                string fallbackDir = Path.Combine(Path.GetTempPath(), "MNL", "logs");
+                Directory.CreateDirectory(fallbackDir);
+                return fallbackDir;
+            }
+        }
+
         static Logger()
         {
-            LogDirectory = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            LogDirectory = GetLogDirectory();
             string logFileName = $"launcher_{DateTime.Now:yyyy-MM-dd}.log";
             LogFilePath = Path.Combine(LogDirectory, logFileName);
-
-            if (!Directory.Exists(LogDirectory))
-            {
-                Directory.CreateDirectory(LogDirectory);
-            }
         }
 
         public static void Info(string message)

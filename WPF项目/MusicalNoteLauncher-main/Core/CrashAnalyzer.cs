@@ -5,10 +5,9 @@ using System.Text.RegularExpressions;
 
 namespace MusicalNoteLauncher.Core
 {
-    /// <summary>崩溃原因分类</summary>
+    /// <summary>崩溃原因分类（参照PCL CrashReason）</summary>
     public enum CrashReason
     {
-        /// <summary>未识别，需要 AI 分析</summary>
         Unknown,
 
         // ── Java 相关 ──
@@ -22,15 +21,24 @@ namespace MusicalNoteLauncher.Core
         OutOfMemory,
         NotEnoughRam,
 
-        // ── Mod / 加载器相关 ──
-        ModIncompatible,
-        ModMissingDependency,
-        ModDuplicate,
-        ModCausingCrash,
-        FabricApiMissing,
-        OptifineForgeConflict,
-        ForgeIncomplete,
-        MixinInjectionFailed,
+        // ── Mod / 加载器相关（参照PCL完整列表）──
+        ModIncompatible,           // 模组互不兼容 (Incompatible mods found!)
+        ModMissingDependency,      // 缺少前置模组
+        ModDuplicate,              // 模组重复安装
+        ModCausingCrash,           // 确定某个模组导致崩溃 (Caught exception from)
+        ModConfigError,            // Mod配置文件错误
+        ModNeedsJava17,            // Mod需要更高版本Java
+        ModExtracted,              // Mod被解压
+        ModNameInvalidChar,        // Mod名称包含特殊字符
+        ModTooManyIdRange,         // Mod过多超出ID限制
+        FabricApiMissing,          // Fabric API缺失
+        OptifineForgeConflict,     // OptiFine与Forge不兼容
+        ShadersModConflict,        // ShadersMod与OptiFine冲突
+        ForgeIncomplete,           // Forge安装不完整
+        NeoForgeIncomplete,        // NeoForge安装不完整
+        FabricLoaderCrash,         // Fabric Loader崩溃
+        ForgeModResolutionFailed,  // Forge模组解析失败
+        MixinInjectionFailed,      // Mixin注入失败
 
         // ── 文件 / 路径相关 ──
         FileNotFound,
@@ -60,12 +68,16 @@ namespace MusicalNoteLauncher.Core
         public string Description { get; set; }
         public string Suggestion { get; set; }
         public int Priority { get; set; } = 3; // 1=高, 2=中, 3=低/未知
+        /// <summary>附加信息（如提取的Mod名称）</summary>
+        public string AdditionalInfo { get; set; }
 
-        /// <summary>是否被识别</summary>
         public bool IsKnown => Reason != CrashReason.Unknown;
     }
 
-    /// <summary>本地崩溃分析器 —— 先匹配已知模式，未命中再交给 AI</summary>
+    /// <summary>
+    /// 本地崩溃分析器 —— 参照PCL CrashAnalyzer实现三层优先级匹配
+    /// 先匹配已知模式，未命中再交给 AI
+    /// </summary>
     public static class CrashAnalyzer
     {
         /// <summary>分析崩溃原因</summary>
@@ -76,19 +88,18 @@ namespace MusicalNoteLauncher.Core
         {
             if (string.IsNullOrEmpty(logText))
             {
-                // 仅有退出码的情况下作有限分析
                 return AnalyzeByExitCode(exitCode, errorMessage);
             }
 
-            // 第一层：高优先级精准匹配
+            // 第一层：高优先级精准匹配（参照PCL AnalyzeCrit1）
             var result = MatchHighPriority(logText, exitCode, errorMessage);
             if (result != null) return result;
 
-            // 第二层：中优先级匹配
+            // 第二层：中优先级匹配（参照PCL AnalyzeCrit2 + AnalyzeStackKeyword）
             result = MatchMediumPriority(logText);
             if (result != null) return result;
 
-            // 第三层：低优先级 / 兜底
+            // 第三层：低优先级 / 兜底（参照PCL AnalyzeCrit3）
             result = MatchLowPriority(logText, exitCode, errorMessage);
             if (result != null) return result;
 
@@ -96,7 +107,7 @@ namespace MusicalNoteLauncher.Core
         }
 
         // ═══════════════════════════════════════════════
-        // 第一层：高优先级
+        // 第一层：高优先级精准匹配（参照PCL AnalyzeCrit1）
         // ═══════════════════════════════════════════════
 
         private static CrashAnalysisResult MatchHighPriority(string log, int exitCode, string errorMsg)
@@ -128,49 +139,143 @@ namespace MusicalNoteLauncher.Core
             if (log.Contains("java.lang.OutOfMemoryError") || log.Contains("Out of memory"))
                 return Result(CrashReason.OutOfMemory, 1, "内存不足",
                     "游戏因内存不足而崩溃。",
-                    "点击「设置」加大分配内存（建议至少 4096 MB），或尝试使用更多 → 百宝箱中的内存优化功能。");
+                    "点击「设置」加大分配内存（建议至少 4096 MB），或尝试使用内存优化功能。");
 
             if (Match(log, @"Could not reserve enough space for (?:object heap|\d+KB)"))
                 return Result(CrashReason.NotEnoughRam, 1, "系统内存不足",
                     "操作系统无法为 Java 分配足够的内存。",
                     "请关闭其他占用内存的程序后重试，或在启动设置中降低分配的内存大小。");
 
-            // ── Mod / 加载器 ──
+            // ═══════════════════════════════════════════
+            // ── Mod 冲突 / 加载器（参照PCL ModCrash完整列表）──
+            // ═══════════════════════════════════════════
 
-            if (Match(log, @"OptiFine.*not compatible|OptiFine.*incompatible|NoSuchMethodError.*optifine", RegexOptions.IgnoreCase))
+            // ★ Mod互不兼容（参照PCL CrashReason.Mod互不兼容）
+            if (Match(log, @"Incompatible mods found!"))
+            {
+                var details = ExtractIncompatibleMods(log);
+                return Result(CrashReason.ModIncompatible, 1, "模组互不兼容",
+                    "你所安装的模组存在兼容性冲突。" + (details != null ? $"\n冲突详情：{details}" : ""),
+                    "请检查上述冲突信息，删除冲突的模组或更换为兼容版本。");
+            }
+
+            // ★ Mod缺少前置/MC版本错误（参照PCL CrashReason.Mod缺少前置或MC版本错误）
+            if (Match(log, @"Missing or unsupported mandatory dependencies:"))
+            {
+                var deps = ExtractMissingDeps(log);
+                return Result(CrashReason.ModMissingDependency, 1, "模组缺少前置依赖",
+                    "由于未安装正确的前置模组，导致游戏退出。" + (deps != null ? $"\n缺失的依赖项：{deps}" : ""),
+                    "请根据上述信息下载并安装缺失的模组。");
+            }
+
+            // ★ Mod重复安装（参照PCL CrashReason.Mod重复安装，5种模式）
+            if (Match(log, @"DuplicateModsFoundException") ||
+                Match(log, @"Duplicate mod") ||
+                Match(log, @"duplicate.*mod") ||
+                Match(log, @"mod with id.*already registered") ||
+                Match(log, @"already present.*Duplicate") ||
+                Match(log, @"Found a duplicate mod"))
+                return Result(CrashReason.ModDuplicate, 1, "模组重复安装",
+                    "mods 文件夹中存在重复的模组文件。",
+                    "检查 .minecraft/mods 文件夹，删除不同版本的同一个模组，只保留最新版本。");
+
+            // ★ 确定Mod导致游戏崩溃（参照PCL Caught exception from）
+            if (Match(log, @"Caught exception from (\w+)"))
+            {
+                var modName = Regex.Match(log, @"Caught exception from (\w+)", RegexOptions.IgnoreCase).Groups[1].Value;
+                return Result(CrashReason.ModCausingCrash, 1, $"模组「{modName}」导致崩溃",
+                    $"模组 {modName} 引发了未处理的异常，导致游戏崩溃。",
+                    $"禁用或更新 {modName} 模组。如果问题仍然存在，可能是该模组的 bug，请向模组作者反馈。");
+            }
+
+            // ★ Mod配置文件错误（参照PCL Failed loading config file）
+            if (Match(log, @"Failed loading config file (\S+)"))
+            {
+                var cfgFile = Regex.Match(log, @"Failed loading config file (\S+)", RegexOptions.IgnoreCase).Groups[1].Value;
+                return Result(CrashReason.ModConfigError, 1, "Mod 配置文件错误",
+                    $"Mod 配置文件 {cfgFile} 无法加载，可能已损坏。",
+                    $"删除 {cfgFile} 文件后重新启动游戏（游戏会自动生成新的默认配置文件）。");
+            }
+
+            // ★ Mod被解压（参照PCL Mod文件被解压）
+            if (Match(log, @"The directories below appear to be extracted jar files") ||
+                Match(log, @"Extracted mod jars found") ||
+                Match(log, @"Extracted mod"))
+                return Result(CrashReason.ModExtracted, 1, "模组被解压",
+                    "请不要将模组 jar 文件解压！",
+                    "删除 .minecraft/mods 中被解压的模组文件夹，模组应该直接以 .jar 格式放入。");
+
+            // ★ Mod名称包含特殊字符（参照PCL Invalid module name）
+            if (Match(log, @"Invalid module name:.*is not a Java identifier"))
+                return Result(CrashReason.ModNameInvalidChar, 1, "Mod 名称包含特殊字符",
+                    "某个 Mod 的文件名包含 Java 不支持的字符（如中文、空格等）。",
+                    "检查 .minecraft/mods 中 Mod 的文件名，移除特殊字符后重试。");
+
+            // ★ Mod需要Java17+（参照PCL has been compiled by a more recent version）
+            if (Match(log, @"has been compiled by a more recent version of the Java Runtime") ||
+                Match(log, @"class file version \d+\.\d+"))
+            {
+                var classVer = Regex.Match(log, @"class file version (\d+\.\d+)");
+                string hint = classVer.Success ? $"（类文件版本 {classVer.Groups[1].Value}）" : "";
+                return Result(CrashReason.ModNeedsJava17, 1, "Mod 需要更高版本 Java",
+                    $"某个模组需要更高版本的 Java 才能运行。{hint}",
+                    "在启动设置中更换为 Java 17 或 Java 21。1.16.5 及以下版本的模组通常使用 Java 8，1.18+ 版本的模组需要 Java 17+。");
+            }
+
+            // ★ Mod过多超出ID限制（参照PCL maximum id range exceeded）
+            if (Match(log, @"maximum id range exceeded"))
+                return Result(CrashReason.ModTooManyIdRange, 1, "Mod 数量过多",
+                    "安装的模组过多，超出了 Minecraft 的 ID 限制。",
+                    "请减少安装的模组数量，或安装 JEID（Just Enough IDs）等修复模组来扩展 ID 范围。");
+
+            // ★ Forge模组解析失败（参照PCL Mod resolution failed）
+            if (Match(log, @"Mod resolution failed"))
+                return Result(CrashReason.ForgeModResolutionFailed, 1, "Forge 模组解析失败",
+                    "Forge 无法解析所有模组的依赖关系。",
+                    "请检查是否有模组的依赖版本不匹配。查看上方错误日志中列出的具体冲突模组信息。");
+
+            // ── 加载器相关 ──
+
+            // ★ OptiFine与Forge不兼容（参照PCL 6种NoSuchMethodError模式）
+            if (Match(log, @"OptiFine.*not compatible|OptiFine.*incompatible|NoSuchMethodError.*optifine", RegexOptions.IgnoreCase) ||
+                Match(log, @"NoSuchMethodError.*net\.optifine") ||
+                Match(log, @"NoSuchMethodError.*Config\.isShaders") ||
+                Match(log, @"NoSuchMethodError.*reflector"))
                 return Result(CrashReason.OptifineForgeConflict, 1, "OptiFine 与 Forge 不兼容",
                     "当前安装的 OptiFine 版本不支持你的 Forge 版本。",
-                    "前往 OptiFine 官网查看你的 Forge 版本所兼容的 OptiFine 版本，或改用支持 OptiFine 的替代方案（如 Embeddium + Oculus）。");
+                    "前往 OptiFine 官网查看你的 Forge 版本所兼容的 OptiFine 版本，或改用 Embeddium + Oculus 替代方案。");
 
-            if (Match(log, @"ShadersMod.*OptiFine|ShadersModCore.*already present"))
-                return Result(CrashReason.ModDuplicate, 1, "光影 Mod 冲突",
+            // ★ ShadersMod与OptiFine冲突
+            if (Match(log, @"ShadersMod.*OptiFine|ShadersModCore.*already present|Shaders Mod detected.*remove"))
+                return Result(CrashReason.ShadersModConflict, 1, "光影 Mod 冲突",
                     "请不要同时安装 ShadersMod 和 OptiFine。",
                     "删除 .minecraft/mods 中的 ShadersModCore.jar，OptiFine 已内置光影加载功能。");
 
+            // ★ Fabric API缺失
             if (Match(log, @"fabric-api.*not found|Fabric API.*missing|could not find.*fabric-api", RegexOptions.IgnoreCase))
                 return Result(CrashReason.FabricApiMissing, 1, "Fabric API 缺失",
                     "Fabric 模组加载器需要安装 Fabric API 才能运行大多数模组。",
                     "请从 Modrinth 或 CurseForge 下载并安装 Fabric API 到 mods 文件夹。");
 
-            if (Match(log, @"Duplicate mod|duplicate.*mod|mod with id.*already registered|already present.*Duplicate"))
-                return Result(CrashReason.ModDuplicate, 1, "模组重复安装",
-                    "mods 文件夹中存在重复的模组文件。",
-                    "检查 .minecraft/mods 文件夹，删除不同版本的同一个模组，只保留最新版本。");
-
-            if (Match(log, @"Missing dependencies|Requires.*to be installed|mod.*requires.*but it is missing"))
-                return Result(CrashReason.ModMissingDependency, 1, "模组缺少前置依赖",
-                    "某个模组所依赖的前置模组没有安装。",
-                    "请检查报错信息中提示的缺失模组名称，下载并安装对应的前置模组。");
-
-            if (Match(log, @"Extracted mod jars found|Extracted mod"))
-                return Result(CrashReason.ModIncompatible, 1, "模组被解压",
-                    "请不要将模组 jar 文件解压！",
-                    "模组应该直接放入 mods 文件夹中，不要解压成文件夹。删除被解压的模组文件夹即可。");
-
-            if (Match(log, @"Forge\.(?:jar|mods\.toml) not found|forge\.jar.*not found"))
+            // ★ Forge安装不完整（参照PCL Cannot find launch target fmlclient）
+            if (Match(log, @"Cannot find launch target fmlclient") ||
+                Match(log, @"Forge\.(?:jar|mods\.toml) not found") ||
+                Match(log, @"forge\.jar.*not found"))
                 return Result(CrashReason.ForgeIncomplete, 1, "Forge 安装不完整",
                     "Forge 没有正确安装，缺少必要的文件。",
                     "请重新安装 Forge，或在启动器中换用一个新的 Forge 版本。");
+
+            // ★ NeoForge安装不完整
+            if (Match(log, @"Cannot find launch target neoforge"))
+                return Result(CrashReason.NeoForgeIncomplete, 1, "NeoForge 安装不完整",
+                    "NeoForge 没有正确安装，缺少必要的文件。",
+                    "请重新安装 NeoForge，或在启动器中换用一个新的 NeoForge 版本。");
+
+            // ★ Fabric Loader崩溃
+            if (Match(log, @"Fabric Loader has crashed"))
+                return Result(CrashReason.FabricLoaderCrash, 1, "Fabric Loader 崩溃",
+                    "Fabric 模组加载器在启动过程中崩溃。",
+                    "请检查 Fabric Loader 和 Fabric API 版本是否匹配。可以尝试更新 Fabric Loader 到最新版本。");
 
             // ── 文件 / 路径 ──
 
@@ -199,7 +304,7 @@ namespace MusicalNoteLauncher.Core
             if (Match(log, @"No OpenGL context found|GLFW error.*No WGL|no opengl|OpenGL\.error"))
                 return Result(CrashReason.OpenGLNotSupported, 1, "OpenGL 不可用",
                     "系统不支持 OpenGL 图形加速。",
-                    "请确保已安装显卡驱动（非 Microsoft Basic Display Adapter）。Intel 用户可能需要安装显卡驱动，而不是仅用 Windows 默认驱动。");
+                    "请确保已安装显卡驱动（非 Microsoft Basic Display Adapter）。");
 
             // ── 启动异常 ──
 
@@ -213,19 +318,39 @@ namespace MusicalNoteLauncher.Core
                     log.Contains("【错误】") ? log : "游戏进程启动后立即退出，无足够日志信息。",
                     "请检查 Java 是否正确安装、游戏版本是否完整。可尝试用管理员身份运行启动器。");
 
+            // ★ 实时检测到的Mod加载失败（来自GameLauncher ScanCrashKeywords）
+            if (errorMsg != null && errorMsg.Contains("模组加载失败"))
+                return Result(CrashReason.ModCausingCrash, 1, "模组加载失败",
+                    "游戏在加载模组阶段出错。",
+                    "请检查上方错误日志中的具体报错信息。常见原因：模组版本不兼容、缺少前置模组、或模组文件损坏。");
+
+            if (errorMsg != null && errorMsg.Contains("Mixin 注入失败"))
+                return Result(CrashReason.MixinInjectionFailed, 1, "Mixin 注入失败",
+                    "模组 Mixin 注入过程中出错（模组兼容性问题）。",
+                    "尝试更新相关模组到最新版本，或逐个禁用模组排查问题来源。");
+
             return null;
         }
 
         // ═══════════════════════════════════════════════
-        // 第二层：中优先级
+        // 第二层：中优先级（参照PCL AnalyzeCrit2 + AnalyzeStackKeyword）
         // ═══════════════════════════════════════════════
 
         private static CrashAnalysisResult MatchMediumPriority(string log)
         {
-            // Mixin 注入失败
+            // ★ 怀疑Mod导致崩溃（参照PCL Suspected Mod）
+            if (Match(log, @"Suspected Mod[s]?:"))
+            {
+                var modMatch = Regex.Match(log, @"Suspected Mod[s]?:\s*(.+)", RegexOptions.IgnoreCase);
+                string mods = modMatch.Success ? modMatch.Groups[1].Value.Trim() : "";
+                return Result(CrashReason.ModCausingCrash, 2, "怀疑模组导致崩溃",
+                    "崩溃报告中标记了可疑的模组。" + (string.IsNullOrEmpty(mods) ? "" : $"\n可疑模组：{mods}"),
+                    "建议先禁用上述可疑模组，测试游戏能否正常启动，然后逐个启用以定位问题。");
+            }
+
+            // ★ Mixin 注入失败（参照PCL Mixin相关，提取Mod名）
             if (Match(log, @"Mixin prepare failed|Mixin apply failed|MixinApplyError|MixinTransformerError"))
             {
-                // 尝试提取 Mod 名
                 var modMatch = Regex.Match(log, @"mixin\.(\w+)\.json", RegexOptions.IgnoreCase);
                 if (modMatch.Success)
                 {
@@ -238,19 +363,25 @@ namespace MusicalNoteLauncher.Core
                     "这通常是模组兼容性问题。可以尝试更新所有模组，或逐个禁用模组来定位出问题的模组。");
             }
 
-            // 通用的 Mod 崩溃模式
-            if (Match(log, @"Caused by: [\s\S]*?at \w[\w.]*\.(?:mod|Mod|client|Client)[\w.]*\.(\w+)"))
+            // ★ 通过堆栈提取Mod信息（参照PCL AnalyzeStackKeyword）
+            if (Match(log, @"Caused by: [\s\S]*?at \w[\w.]*\.(?:mod|Mod|client|Client|core|Core)[\w.]*\.(\w+)"))
                 return Result(CrashReason.ModCausingCrash, 2, "模组导致崩溃",
-                    "堆栈信息显示某个模组导致了游戏崩溃。",
+                    "堆栈信息显示某个模组或核心组件导致了游戏崩溃。",
                     "建议先禁用近期新增的模组尝试启动，然后逐个启用以找到问题来源。");
 
-            // Fabric loader 错误
+            // ★ Fabric loader 错误
             if (Match(log, @"Fabric Loader.*crash|fabric.*crash|loader.*crash", RegexOptions.IgnoreCase))
-                return Result(CrashReason.ModCausingCrash, 2, "Fabric 加载器错误",
+                return Result(CrashReason.FabricLoaderCrash, 2, "Fabric 加载器错误",
                     "Fabric 模组加载器在加载模组时崩溃。",
                     "检查最近安装的 Fabric 模组是否与当前 Fabric Loader 版本兼容。尝试禁用部分模组定位问题。");
 
-            // 认证失败
+            // ★ NoClassDefFoundError - 可能是缺少依赖
+            if (Match(log, @"NoClassDefFoundError.*(?:mod|api|core|lib)"))
+                return Result(CrashReason.ModMissingDependency, 2, "缺少模组依赖",
+                    "某个模组依赖的类文件未找到，可能是前置模组缺失或版本不匹配。",
+                    "检查报错中涉及的类名，找到对应的前置模组并安装。");
+
+            // ★ 认证失败
             if (Match(log, @"401 Unauthorized|Invalid credentials|Yggdrasil authentication|auth\w* fail", RegexOptions.IgnoreCase))
                 return Result(CrashReason.AuthFailed, 2, "认证失败",
                     "Minecraft 账号认证失败。",
@@ -260,7 +391,7 @@ namespace MusicalNoteLauncher.Core
         }
 
         // ═══════════════════════════════════════════════
-        // 第三层：低优先级 / 兜底
+        // 第三层：低优先级 / 兜底（参照PCL AnalyzeCrit3）
         // ═══════════════════════════════════════════════
 
         private static CrashAnalysisResult MatchLowPriority(string log, int exitCode, string errorMsg)
@@ -275,7 +406,7 @@ namespace MusicalNoteLauncher.Core
             if (Match(log, @"extract.*native|native.*fail|LWJGL.*native", RegexOptions.IgnoreCase))
                 return Result(CrashReason.NativeExtractFailed, 3, "运行库提取失败",
                     "Minecraft 的运行库文件（native libraries）提取失败。",
-                    "请检查磁盘空间是否充足、.minecraft 目录是否有写入权限。可以尝试删除版本文件夹中的 natives 文件夹后重新启动。");
+                    "请检查磁盘空间是否充足、.minecraft 目录是否有写入权限。可以删除版本文件夹中的 natives 文件夹后重新启动。");
 
             // 网络相关
             if (Match(log, @"UnknownHostException|ConnectException|SocketTimeoutException|Failed to connect"))
@@ -284,7 +415,8 @@ namespace MusicalNoteLauncher.Core
                     "请检查网络连接，或尝试更换网络环境。如果使用 VPN，请先关闭 VPN 后重试。");
 
             // 路径特殊字符
-            if (errorMsg != null && Match(errorMsg, @"[！!;；]") || Match(log, @"illegal character.*path|路径.*非法字符", RegexOptions.IgnoreCase))
+            if ((errorMsg != null && Match(errorMsg, @"[！!;；]")) ||
+                Match(log, @"illegal character.*path|路径.*非法字符", RegexOptions.IgnoreCase))
                 return Result(CrashReason.PathContainsSpecialChar, 3, "路径包含特殊字符",
                     "游戏路径中存在特殊字符（如 ！! ;）。",
                     "请将 Minecraft 文件夹移动到一个不含特殊字符的路径下。");
@@ -298,6 +430,21 @@ namespace MusicalNoteLauncher.Core
 
         private static CrashAnalysisResult AnalyzeByExitCode(int exitCode, string errorMsg)
         {
+            if (errorMsg != null && errorMsg.Contains("模组加载失败"))
+                return Result(CrashReason.ModCausingCrash, 2, "模组加载失败",
+                    "游戏在加载模组阶段出错。",
+                    "常见原因：模组版本不兼容、缺少前置模组、模组文件损坏。请检查上方错误日志。");
+
+            if (errorMsg != null && errorMsg.Contains("Mixin 注入失败"))
+                return Result(CrashReason.MixinInjectionFailed, 2, "Mixin 注入失败",
+                    "模组 Mixin 注入过程中出错。",
+                    "尝试更新相关模组到最新版本，或逐个禁用模组排查问题。");
+
+            if (errorMsg != null && errorMsg.Contains("Forge 加载器报告无法启动"))
+                return Result(CrashReason.ForgeModResolutionFailed, 2, "Forge 加载失败",
+                    "Forge 加载器报告无法启动游戏。",
+                    "检查模组间的兼容性，或尝试禁用所有模组后逐个启用排查。");
+
             if (errorMsg != null && errorMsg.Contains("启动异常"))
                 return Result(CrashReason.ProcessImmediateExit, 3, "启动异常",
                     "游戏启动过程中出现未预期的错误。",
@@ -306,17 +453,53 @@ namespace MusicalNoteLauncher.Core
             return exitCode switch
             {
                 1 => Result(CrashReason.ProcessImmediateExit, 3, "游戏异常退出 (退出码 1)",
-                    "游戏启动后立即退出，可能是 Java 环境或游戏文件存在问题。",
-                    "检查 Java 是否正确安装、游戏版本是否完整。"),
+                    "游戏启动后立即退出，可能是 Java 环境、游戏文件或模组存在问题。",
+                    "检查 Java 是否正确安装、游戏版本是否完整。尝试不使用模组启动纯净版。"),
+                -1 => Result(CrashReason.ProcessImmediateExit, 2, "启动阶段崩溃",
+                    "游戏在启动阶段崩溃（进程被实时监控检测到）。",
+                    "请查看错误日志中具体的崩溃关键词，定位到具体的模组或配置问题。"),
                 _ => new CrashAnalysisResult { Reason = CrashReason.Unknown, Priority = 3 },
             };
+        }
+
+        // ═══════════════════════════════════════════════
+        // 辅助提取方法（参照PCL）
+        // ═══════════════════════════════════════════════
+
+        /// <summary>提取不兼容模组的详细信息</summary>
+        private static string ExtractIncompatibleMods(string log)
+        {
+            var match = Regex.Match(log, @"Incompatible mods found!\s*[\s\S]*?(?=\n\n|\n\[|\Z)", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                string block = match.Value;
+                var lines = block.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                var modLines = lines.Where(l => l.Contains(" - ")).Take(5);
+                if (modLines.Any())
+                    return string.Join("\n", modLines.Select(l => "  " + l.Trim()));
+            }
+            return null;
+        }
+
+        /// <summary>提取缺失依赖的详细信息</summary>
+        private static string ExtractMissingDeps(string log)
+        {
+            var match = Regex.Match(log, @"Missing or unsupported mandatory dependencies:[\s\S]*?(?=\n\n|\n\[|\Z)", RegexOptions.IgnoreCase);
+            if (match.Success)
+            {
+                string block = match.Value;
+                var lines = block.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+                var depLines = lines.Skip(1).Where(l => l.TrimStart().StartsWith("Mod ID") || l.Contains("requires") || l.Contains("✗")).Take(8);
+                if (depLines.Any())
+                    return string.Join("\n", depLines.Select(l => "  " + l.Trim()));
+            }
+            return null;
         }
 
         // ═══════════════════════════════════════════════
         // 结果格式化
         // ═══════════════════════════════════════════════
 
-        /// <summary>将分析结果格式化为可展示的中文文本</summary>
         public static string FormatResult(CrashAnalysisResult result)
         {
             if (result == null || !result.IsKnown) return null;
@@ -330,15 +513,13 @@ namespace MusicalNoteLauncher.Core
             return string.Join("\n\n", lines);
         }
 
-        /// <summary>生成完整的分析报告（含用于 AI 回退的提示语）</summary>
         public static string GenerateReport(CrashAnalysisResult result)
         {
             var knownText = FormatResult(result);
             if (!string.IsNullOrEmpty(knownText))
             {
-                return $"✅ 本地分析已完成检测到已知问题模式，结果如下：\n\n{knownText}";
+                return $"✅ 本地分析已完成，检测到已知问题模式，结果如下：\n\n{knownText}";
             }
-
             return "⚠️ 本地分析未匹配到已知错误模式，建议使用 AI 分析获取详细诊断。";
         }
 

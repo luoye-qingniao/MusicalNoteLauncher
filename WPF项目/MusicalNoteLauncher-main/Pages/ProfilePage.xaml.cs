@@ -1,4 +1,4 @@
-﻿﻿﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,6 +16,10 @@ using PCL.Account;
 using PCL.Auth.Microsoft;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading.Tasks;
 
 namespace MusicalNoteLauncher.Pages
 {
@@ -103,16 +107,20 @@ namespace MusicalNoteLauncher.Pages
         /// </summary>
         private void RefreshQingNiaoInfo()
         {
-            bool isQingNiao = _selectedAccount != null && _selectedAccount.Type == AccountType.QingNiao;
+            // 通过是否有有效的青鸟登录令牌判断是否已登录
+            bool hasQingNiaoLogin = !string.IsNullOrEmpty(AppContext.QingniaoId)
+                && PCL.Account.AccountManager.IsServerCacheValid("QingNiao",
+                    PCL.Account.Settings.Get<string>("CacheQingNiaoEmail"),
+                    Core.SecureStorage.Unprotect(PCL.Account.Settings.Get<string>("CacheQingNiaoPass")));
 
             // 切换显示面板
             if (panelQingNiaoLoggedIn != null)
-                panelQingNiaoLoggedIn.Visibility = isQingNiao ? Visibility.Visible : Visibility.Collapsed;
+                panelQingNiaoLoggedIn.Visibility = hasQingNiaoLogin ? Visibility.Visible : Visibility.Collapsed;
             if (panelQingNiaoNotLoggedIn != null)
-                panelQingNiaoNotLoggedIn.Visibility = isQingNiao ? Visibility.Collapsed : Visibility.Visible;
+                panelQingNiaoNotLoggedIn.Visibility = hasQingNiaoLogin ? Visibility.Collapsed : Visibility.Visible;
 
             // 已登录时刷新数据
-            if (isQingNiao)
+            if (hasQingNiaoLogin)
             {
                 txtQingniaoName.Text = AppContext.QingniaoName ?? AppContext.Username ?? "Player";
                 txtUsername.Text = AppContext.Username ?? "Player";
@@ -201,19 +209,7 @@ namespace MusicalNoteLauncher.Pages
                     _gameAccounts.Add(account);
                 }
 
-                // 加载青鸟账号
-                foreach (var record in AccountManager.GetServerLoginRecords("QingNiao"))
-                {
-                    var account = new GameAccount
-                    {
-                        Name = record.Item1,
-                        Type = AccountType.QingNiao,
-                        AuthServer = AccountManager.GetQingNiaoServer(),
-                        Uuid = GenerateOfflineUuid(record.Item1)
-                    };
-                    LoadAccountHeadImage(account);
-                    _gameAccounts.Add(account);
-                }
+                // 加载青鸟账号记录（仅用于缓存，不加入游戏账号列表）
             }
             catch (Exception ex)
             {
@@ -314,6 +310,9 @@ namespace MusicalNoteLauncher.Pages
                     }
                     AppContext.SetQingniaoName(newName);
                     txtQingniaoName.Text = newName;
+
+                    // 异步同步名称到青鸟服务器
+                    _ = SyncNicknameToServerAsync(newName);
                 }
             }
         }
@@ -456,10 +455,87 @@ namespace MusicalNoteLauncher.Pages
 
                 // 通知外部（如 MainWindow）更新头像显示
                 OnAvatarChanged?.Invoke();
+
+                // 异步同步头像到青鸟服务器
+                _ = SyncAvatarToServerAsync(targetFile);
             }
             catch (Exception ex)
             {
                 ModernMessageBox.ShowError("头像加载失败：" + ex.Message, "提示");
+            }
+        }
+
+        /// <summary>异步将本地头像同步到青鸟服务器</summary>
+        private static async Task SyncAvatarToServerAsync(string avatarFilePath)
+        {
+            try
+            {
+                string serverUrl = AccountManager.GetQingNiaoServer();
+                string accessToken = PCL.Account.Settings.Get<string>("CacheQingNiaoAccess");
+
+                if (string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(accessToken))
+                    return; // 未登录青鸟，无需同步
+
+                // 读取本地头像并转为 Base64 Data URL
+                byte[] imageBytes = await File.ReadAllBytesAsync(avatarFilePath);
+                string base64 = Convert.ToBase64String(imageBytes);
+                string avatarDataUrl = $"data:image/png;base64,{base64}";
+
+                // 调用 update_profile API
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+                var requestBody = new { avatar_url = avatarDataUrl };
+                string json = JsonSerializer.Serialize(requestBody);
+
+                var request = new HttpRequestMessage(HttpMethod.Post,
+                    $"http://{serverUrl}/api/auth.php?action=update_profile");
+                request.Headers.Add("Authorization", $"Bearer {accessToken}");
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await http.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    Logger.Info("[青鸟] 头像已同步到服务器");
+                }
+                else
+                {
+                    Logger.Warning($"[青鸟] 头像同步失败: HTTP {response.StatusCode}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"[青鸟] 头像同步异常: {ex.Message}");
+            }
+        }
+
+        /// <summary>异步将显示名称同步到青鸟服务器</summary>
+        private static async Task SyncNicknameToServerAsync(string nickname)
+        {
+            try
+            {
+                string serverUrl = AccountManager.GetQingNiaoServer();
+                string accessToken = PCL.Account.Settings.Get<string>("CacheQingNiaoAccess");
+
+                if (string.IsNullOrEmpty(serverUrl) || string.IsNullOrEmpty(accessToken))
+                    return;
+
+                using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+                var requestBody = new { nickname };
+                string json = JsonSerializer.Serialize(requestBody);
+
+                var request = new HttpRequestMessage(HttpMethod.Post,
+                    $"http://{serverUrl}/api/auth.php?action=update_profile");
+                request.Headers.Add("Authorization", $"Bearer {accessToken}");
+                request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await http.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                    Logger.Info("[青鸟] 名称已同步到服务器");
+                else
+                    Logger.Warning($"[青鸟] 名称同步失败: HTTP {response.StatusCode}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"[青鸟] 名称同步异常: {ex.Message}");
             }
         }
 
@@ -501,7 +577,7 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnSwitchAccount_Click(object sender, RoutedEventArgs e)
         {
-            NavigateToGameAccount();
+            DoQingNiaoLogin();
         }
 
         private void BtnQuickStart_Click(object sender, RoutedEventArgs e)
@@ -555,36 +631,16 @@ namespace MusicalNoteLauncher.Pages
             {
                 Dispatcher.Invoke(() =>
                 {
-                    // 更新当前账号
-                    AppContext.Username = result.UserName;
+                    // 用服务器返回的真实数据更新青鸟账号信息（不覆盖游戏账号名）
+                    AppContext.QingniaoName = result.UserName;
+                    AppContext.QingniaoId = result.Uuid;
+                    PCL.Account.Settings.Set("QingniaoId", result.Uuid);
+                    PCL.Account.Settings.Set("QingniaoName", result.UserName);
 
-                    // 添加到账号列表
-                    var existing = _gameAccounts.FirstOrDefault(a =>
-                        a.Type == AccountType.QingNiao && a.Name == result.UserName);
-                    if (existing == null)
-                    {
-                        var account = new GameAccount
-                        {
-                            Name = result.UserName,
-                            Type = AccountType.QingNiao,
-                            AuthServer = result.ServerUrl,
-                            Uuid = result.Uuid
-                        };
-                        LoadAccountHeadImage(account);
-                        _gameAccounts.Insert(0, account);
-                        SelectAccount(account);
-                    }
-                    else
-                    {
-                        existing.AuthServer = result.ServerUrl;
-                        existing.Uuid = result.Uuid;
-                        LoadAccountHeadImage(existing);
-                        SelectAccount(existing);
-                    }
-
-                    // 刷新青鸟页面
+                    // 刷新侧边栏和青鸟页面
+                    MainWindow.RequestSidebarRefresh();
                     RefreshQingNiaoInfo();
-                    ModernMessageBox.ShowInfo("青鸟账号刷新成功！", "提示");
+                    ModernMessageBox.ShowInfo("青鸟账号登录成功！", "提示");
                 });
             };
 
@@ -602,10 +658,11 @@ namespace MusicalNoteLauncher.Pages
                 AccountManager.ExitQingNiaoLogin();
                 AccountManager.RemoveAccount("QingNiao", AppContext.Username);
 
-                // 从列表中移除青鸟账号
-                var qingNiaoAccounts = _gameAccounts.Where(a => a.Type == AccountType.QingNiao).ToList();
-                foreach (var acc in qingNiaoAccounts)
-                    _gameAccounts.Remove(acc);
+                // 清除青鸟ID和名称
+                AppContext.QingniaoId = null;
+                AppContext.QingniaoName = null;
+                PCL.Account.Settings.Set("QingniaoId", "");
+                PCL.Account.Settings.Set("QingniaoName", "");
 
                 // 切换到离线模式
                 AppContext.Username = "Player";
@@ -614,6 +671,7 @@ namespace MusicalNoteLauncher.Pages
 
                 SelectAccount(null);
                 RefreshQingNiaoInfo();
+                MainWindow.RequestSidebarRefresh();
 
                 ModernMessageBox.ShowInfo("已登出青鸟账号", "提示");
             }
@@ -1911,11 +1969,11 @@ namespace MusicalNoteLauncher.Pages
             ResizeMode = ResizeMode.NoResize;
             Topmost = false;
 
-            _textPri = (Brush)FindResource("TextPrimaryBrush");
-            _textSec = (Brush)FindResource("TextSecondaryBrush");
-            _surfaceBg = (Brush)FindResource("SurfaceBrush");
-            _borderBr = (Brush)FindResource("BorderBrush");
-            _cardBg = (Brush)FindResource("CardBackgroundBrush");
+            _textPri = (Brush)Application.Current.FindResource("TextPrimaryBrush");
+            _textSec = (Brush)Application.Current.FindResource("TextSecondaryBrush");
+            _surfaceBg = (Brush)Application.Current.FindResource("SurfaceBrush");
+            _borderBr = (Brush)Application.Current.FindResource("BorderBrush");
+            _cardBg = (Brush)Application.Current.FindResource("CardBackgroundBrush");
 
             _currentSkinFile = existingSkinFile;
             _selectedSkinFile = existingSkinFile;

@@ -117,6 +117,7 @@ namespace MusicalNoteLauncher.Core
         private BackgroundConfigService()
         {
             LoadConfig();
+            RefreshPanelTransparency();
         }
 
         // ── 加载/保存 ──
@@ -368,7 +369,7 @@ namespace MusicalNoteLauncher.Core
 
             SaveConfig();
             ModeChanged?.Invoke(BackgroundMode.Mica);
-            RestorePanelTransparency();
+            ApplyMicaPanelTransparency();
             OnBackgroundChanged();
 
             Logger.Info("背景配置已重置为默认 Mica 模式");
@@ -430,7 +431,7 @@ namespace MusicalNoteLauncher.Core
             OnPropertyChanged(nameof(VideoPath));
             SaveConfig();
             ModeChanged?.Invoke(BackgroundMode.Mica);
-            RestorePanelTransparency();
+            ApplyMicaPanelTransparency();
             OnBackgroundChanged();
         }
 
@@ -441,12 +442,13 @@ namespace MusicalNoteLauncher.Core
 
         /// <summary>
         /// 捕获 Application 资源中背景型笔刷的当前颜色快照。
-        /// 仅在首次调用或主题切换后重新捕获，防止已透明化的笔刷被误存为"原始值"。
+        /// 仅在首次调用成功后缓存，防止已透明化的笔刷被误存为"原始值"。
+        /// 若首次调用时资源未就绪（返回 null），后续调用可重试。
         /// </summary>
         private void CaptureOriginalBrushColors()
         {
-            if (_originalBrushColors != null)
-                return; // 本会话内已捕获，透明度调节期间不需要重复读文件
+            if (_originalBrushColors != null && _originalBrushColors.Count > 0)
+                return; // 本会话内已成功捕获，透明度调节期间不需要重复读文件
 
             string currentPreset = "";
             try
@@ -528,14 +530,62 @@ namespace MusicalNoteLauncher.Core
         }
 
         /// <summary>
-        /// 根据当前模式刷新面板笔刷透明度：Mica 恢复原样，Image/Video 施加半透明。
+        /// 根据当前模式刷新面板笔刷透明度并更新窗口背景：
+        /// Mica 模式施加轻微半透让云母背景可见，Image/Video 模式施加较强半透。
         /// </summary>
         public void RefreshPanelTransparency()
         {
             if (_mode == BackgroundMode.Mica)
-                RestorePanelTransparency();
+                ApplyMicaPanelTransparency();
             else
                 ApplyPanelTransparency();
+
+            // 若 Mica 效果活跃，同步窗口背景为半透明主题色
+            if (_mode == BackgroundMode.Mica && WindowEffectHelper.IsEffectActive)
+            {
+                var mainWindow = Application.Current?.MainWindow;
+                if (mainWindow != null)
+                    WindowEffectHelper.ApplyThemeTintedBackground(mainWindow);
+            }
+        }
+
+        /// <summary>
+        /// Mica 模式下，若窗口效果真正生效则将页面底色 BackgroundBrush 设为纯透明让 Mica 穿透，
+        /// 其他面板笔刷保持适度半透明以确保 UI 层次感和文字可读性。
+        /// 若 Mica 未生效（OS 不支持），则保留主题原始笔刷不做透明化。
+        /// </summary>
+        private void ApplyMicaPanelTransparency()
+        {
+            CaptureOriginalBrushColors();
+            if (_originalBrushColors == null) return;
+
+            var resources = Application.Current?.Resources;
+            if (resources == null) return;
+
+            bool micaActive = WindowEffectHelper.IsEffectActive;
+
+            foreach (string key in PanelBrushKeys)
+            {
+                if (!_originalBrushColors.TryGetValue(key, out var orig))
+                    continue;
+
+                if (key == "BackgroundBrush")
+                {
+                    if (micaActive)
+                    {
+                        // Mica 生效：页面底色完全透明，让云母背景穿透
+                        resources[key] = Brushes.Transparent;
+                    }
+                    // Mica 未生效：保留主题原始颜色不变（已在 ApplyTheme 中设置）
+                }
+                else if (resources[key] is SolidColorBrush)
+                {
+                    double strength = BrushTransparencyFactor.TryGetValue(key, out var f) ? f : 0.35;
+                    double factor = 1.0 - (micaActive ? strength : strength * 0.5);
+                    byte a = (byte)Math.Clamp((int)(orig.A * factor), 0, 255);
+                    resources[key] = new SolidColorBrush(Color.FromArgb(a, orig.R, orig.G, orig.B));
+                }
+            }
         }
 
         /// <summary>主题切换后调用，强制下次 Capture 重新抓取笔刷颜色</summary>

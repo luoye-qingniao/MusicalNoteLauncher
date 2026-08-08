@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -15,34 +14,29 @@ namespace MusicalNoteLauncher.Pages
 {
     public partial class AIAssistantPage : UserControl
     {
-        private const string SystemPrompt =
-            "你是「音符启动器」的 AI 游戏助手，专注于帮助用户解决 Minecraft 及相关游戏的问题。" +
-            "你可以回答关于：Minecraft 游戏玩法、红石电路、建筑技巧、模组(Mod)安装与使用、" +
-            "光影(Shader)配置、服务器搭建、游戏命令、Boss 攻略、资源包推荐等问题。" +
-            "请用中文回答，语气友好热情，回答简洁实用。如果用户问的不是游戏相关问题，" +
-            "请友好地引导用户回到 Minecraft 游戏话题。你的名字叫「小音符」。";
-
-        private readonly HttpClient _httpClient = new();
+        private AIAgentService _agentService;
         private bool _isSending;
+        private string _streamingMessageId = string.Empty;
+        private Border _streamingBubble;
+        private TextBlock _streamingText;
 
-        /// <summary>来自启动失败弹窗的错误信息，供 AI 自动分析</summary>
         private static Core.GameLaunchInfo _pendingLaunchError;
+        private static event Action<Core.GameLaunchInfo> LaunchErrorReceived;
 
-        /// <summary>接收来自启动弹窗的错误信息</summary>
         public static void SetLaunchErrorForAnalysis(Core.GameLaunchInfo info)
         {
             _pendingLaunchError = info;
+            LaunchErrorReceived?.Invoke(info);
         }
 
-        // 大模型提供商预设
         private static readonly Dictionary<string, (string Name, string Endpoint, string DefaultModel)> ProviderPresets = new()
         {
-            ["openai"]     = ("OpenAI",             "https://api.openai.com/v1/chat/completions",         "gpt-4o"),
-            ["deepseek"]   = ("DeepSeek",           "https://api.deepseek.com/v1/chat/completions",       "deepseek-chat"),
-            ["siliconflow"]= ("硅基流动",           "https://api.siliconflow.cn/v1/chat/completions",     "Qwen/Qwen2.5-7B-Instruct"),
-            ["aliyun"]     = ("阿里百炼",           "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
-            ["zhipu"]      = ("智谱AI",             "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4-flash"),
-            ["custom"]     = ("自定义接口",         "",                                                      ""),
+            ["openai"]     = ("OpenAI",     "https://api.openai.com/v1/chat/completions",         "gpt-4o"),
+            ["deepseek"]   = ("DeepSeek",   "https://api.deepseek.com/v1/chat/completions",       "deepseek-chat"),
+            ["siliconflow"]= ("硅基流动",   "https://api.siliconflow.cn/v1/chat/completions",     "Qwen/Qwen2.5-7B-Instruct"),
+            ["aliyun"]     = ("阿里百炼",   "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions", "qwen-plus"),
+            ["zhipu"]      = ("智谱AI",     "https://open.bigmodel.cn/api/paas/v4/chat/completions", "glm-4-flash"),
+            ["custom"]     = ("自定义接口", "",                                                      ""),
         };
 
         public AIAssistantPage()
@@ -50,7 +44,6 @@ namespace MusicalNoteLauncher.Pages
             InitializeComponent();
             LoadSettings();
 
-            // 延迟检查是否有待分析的启动错误
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 if (_pendingLaunchError != null)
@@ -60,11 +53,48 @@ namespace MusicalNoteLauncher.Pages
                     _ = AnalyzeLaunchErrorAsync(errorInfo);
                 }
             }), System.Windows.Threading.DispatcherPriority.Loaded);
+
+            LaunchErrorReceived += OnLaunchErrorReceived;
+        }
+
+        private async void OnLaunchErrorReceived(Core.GameLaunchInfo info)
+        {
+            _pendingLaunchError = null;
+            await AnalyzeLaunchErrorAsync(info);
         }
 
         private string ConfigPath => Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai_config.json");
 
         private bool IsConfigured => !string.IsNullOrWhiteSpace(txtApiKey.Text);
+
+        private AiAgentConfig GetConfig()
+        {
+            return new AiAgentConfig
+            {
+                Endpoint = txtApiEndpoint.Text?.Trim() ?? "",
+                ApiKey = txtApiKey.Text?.Trim() ?? "",
+                Model = txtModelName.Text?.Trim() ?? "gpt-3.5-turbo"
+            };
+        }
+
+        private AIAgentService GetAgentService()
+        {
+            if (_agentService == null)
+            {
+                var minecraftPath = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    ".minecraft");
+                _agentService = new AIAgentService(minecraftPath);
+
+                _agentService.StreamContentReceived += OnStreamContent;
+                _agentService.ToolCallStarted += OnToolCallStarted;
+                _agentService.ToolCallCompleted += OnToolCallCompleted;
+                _agentService.ConversationCompleted += OnConversationCompleted;
+                _agentService.ErrorOccurred += OnError;
+                _agentService.ToolProgressChanged += OnToolProgress;
+            }
+            return _agentService;
+        }
 
         private void LoadSettings()
         {
@@ -102,8 +132,8 @@ namespace MusicalNoteLauncher.Pages
             if (IsConfigured)
             {
                 statusDot.Background = new SolidColorBrush(Color.FromRgb(46, 204, 113));
-                statusDot.ToolTip = "API 已配置";
-                txtStatusLabel.Text = "已就绪";
+                statusDot.ToolTip = "API 已配置 · Agent 模式就绪";
+                txtStatusLabel.Text = "Agent 就绪";
                 txtStatusLabel.Foreground = new SolidColorBrush(Color.FromRgb(46, 204, 113));
                 cardConfigPrompt.Visibility = Visibility.Collapsed;
             }
@@ -117,18 +147,17 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
-        /// <summary>根据当前已填的 endpoint 匹配预设提供商</summary>
         private void AutoMatchProvider()
         {
             var currentEndpoint = txtApiEndpoint.Text?.Trim() ?? "";
-            cmbProvider.SelectedIndex = cmbProvider.Items.Count - 1; // 默认"自定义"
+            cmbProvider.SelectedIndex = cmbProvider.Items.Count - 1;
 
             foreach (ComboBoxItem item in cmbProvider.Items)
             {
                 if (item.Tag is string tag && ProviderPresets.TryGetValue(tag, out var p))
                 {
                     if (!string.IsNullOrEmpty(p.Endpoint) &&
-                        currentEndpoint.StartsWith(p.Endpoint.Split('/')[2])) // 按域名匹配
+                        currentEndpoint.StartsWith(p.Endpoint.Split('/')[2]))
                     {
                         cmbProvider.SelectedItem = item;
                         break;
@@ -137,17 +166,11 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
-        /// <summary>提供商下拉框选择变更</summary>
         private void CmbProvider_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (cmbProvider.SelectedItem is ComboBoxItem item && item.Tag is string tag)
             {
-                if (tag == "custom")
-                {
-                    // 自定义：清除字段让用户自行填写
-                    return;
-                }
-
+                if (tag == "custom") return;
                 if (ProviderPresets.TryGetValue(tag, out var preset))
                 {
                     if (!string.IsNullOrEmpty(preset.Endpoint))
@@ -186,9 +209,19 @@ namespace MusicalNoteLauncher.Pages
             popupSettings.IsOpen = true;
         }
 
+        // ─────────────── Agent 发送消息 ───────────────
+
         private async void SendMessage(string content)
         {
             if (_isSending || string.IsNullOrWhiteSpace(content)) return;
+
+            var apiKey = txtApiKey.Text?.Trim();
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                AddMessage("assistant", "你需要先配置 API Key，请在弹出的设置面板中填写后保存。\n\n支持 OpenAI / DeepSeek / 硅基流动 等兼容接口。Agent 模式需要支持 Function Calling 的模型。");
+                OpenSettings();
+                return;
+            }
 
             _isSending = true;
             btnSend.IsEnabled = false;
@@ -196,81 +229,137 @@ namespace MusicalNoteLauncher.Pages
             AddMessage("user", content);
             txtInput.Text = "";
 
-            var loadingBorder = AddLoadingMessage();
+            _streamingMessageId = Guid.NewGuid().ToString();
+            _streamingBubble = AddStreamingBubble();
+            _streamingText = null;
+
+            ShowStatus("正在思考...", "#2ECC71");
 
             try
             {
-                var endpoint = txtApiEndpoint.Text.Trim();
-                var apiKey = txtApiKey.Text.Trim();
-                var model = txtModelName.Text.Trim();
-
-                if (string.IsNullOrWhiteSpace(apiKey))
-                {
-                    RemoveLoadingMessage(loadingBorder);
-                    AddMessage("assistant", "🔑 你还没有配置 API Key，请在弹出的设置面板中填写后保存。\n\n支持 OpenAI / DeepSeek / 硅基流动 等兼容接口。");
-                    OpenSettings();
-                    _isSending = false;
-                    btnSend.IsEnabled = true;
-                    return;
-                }
-
-                var messages = new List<AiChatMessage>
-                {
-                    new AiChatMessage { role = "system", content = SystemPrompt },
-                    new AiChatMessage { role = "user", content = content }
-                };
-
-                var requestBody = new AiRequestBody
-                {
-                    model = model,
-                    messages = messages,
-                    temperature = 0.7,
-                    max_tokens = 2048
-                };
-
-                var jsonBody = JsonSerializer.Serialize(requestBody);
-                var contentBytes = new StringContent(jsonBody, Encoding.UTF8, "application/json");
-
-                _httpClient.DefaultRequestHeaders.Authorization =
-                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", apiKey);
-
-                var response = await _httpClient.PostAsync(endpoint, contentBytes);
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new Exception($"API 请求失败 ({(int)response.StatusCode}): {errorContent}");
-                }
-
-                var responseJson = await response.Content.ReadAsStringAsync();
-                var aiResponse = JsonSerializer.Deserialize<AiResponse>(responseJson);
-
-                var reply = aiResponse?.choices?[0]?.message?.content ?? "（未获取到回复）";
-
-                RemoveLoadingMessage(loadingBorder);
-                AddMessage("assistant", reply);
+                var agent = GetAgentService();
+                await agent.SendMessageAsync(GetConfig(), content);
             }
             catch (Exception ex)
             {
-                RemoveLoadingMessage(loadingBorder);
-                AddMessage("assistant", $"❌ 出错了：{ex.Message}\n\n请检查 API 配置是否正确。");
+                FinishStreaming();
+                AddMessage("assistant", $"出错了：{ex.Message}\n\n请检查 API 配置和网络是否正常。");
             }
             finally
             {
                 _isSending = false;
                 btnSend.IsEnabled = true;
+                HideStatus();
                 txtInput.Focus();
             }
         }
 
+        private void ShowStatus(string text, string color)
+        {
+            txtStatus.Text = text;
+            txtStatus.Foreground = (SolidColorBrush)new BrushConverter().ConvertFrom(color);
+            txtStatus.Visibility = Visibility.Visible;
+        }
+
+        private void HideStatus()
+        {
+            txtStatus.Visibility = Visibility.Collapsed;
+        }
+
+        private void OnToolProgress(string toolName, string status)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                var displayName = GetToolDisplayName(toolName);
+                ShowStatus($"{displayName}: {status}", "#F39C12");
+            });
+        }
+
+        // ─────────────── Agent 事件处理 ───────────────
+
+        private void OnStreamContent(string text)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (_streamingBubble == null) return;
+                if (_streamingText == null)
+                    _streamingText = FindStreamingTextBlock(_streamingBubble);
+
+                if (_streamingText != null)
+                {
+                    _streamingText.Text += text;
+                    scrollMessages?.ScrollToBottom();
+                }
+            });
+        }
+
+        private void OnToolCallStarted(string toolName, string args)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                ShowStatus($"正在执行: {GetToolDisplayName(toolName)}...", "#F39C12");
+                AddToolCallCard(toolName, false);
+            });
+        }
+
+        private void OnToolCallCompleted(AgentToolResult result)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                var icon = result.Success ? "" : "";
+                ShowStatus($"{icon} {GetToolDisplayName(result.Name)} {(result.Success ? "完成" : "失败")}",
+                    result.Success ? "#2ECC71" : "#E74C3C");
+                AddToolResultCard(result);
+            });
+        }
+
+        private void OnConversationCompleted(string finalContent)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                FinishStreaming();
+                HideStatus();
+            });
+        }
+
+        private void OnError(string error)
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                FinishStreaming();
+                AddMessage("assistant", $"{error}");
+                HideStatus();
+            });
+        }
+
+        private void FinishStreaming()
+        {
+            _streamingMessageId = string.Empty;
+            _streamingBubble = null;
+            _streamingText = null;
+        }
+
+        private TextBlock FindStreamingTextBlock(Border bubble)
+        {
+            if (bubble.Child is StackPanel sp)
+            {
+                foreach (var child in sp.Children)
+                {
+                    if (child is TextBlock tb && tb.Name == "streamingContent")
+                        return tb;
+                }
+            }
+            return null;
+        }
+
+        // ─────────────── UI 消息气泡 ───────────────
+
         private void AddMessage(string role, string content)
         {
             var isUser = role == "user";
-
-            // 头像颜色
             var avatarColor = isUser
-                ? Color.FromRgb(33, 150, 243)
-                : Color.FromRgb(46, 204, 113);
+                ? Color.FromRgb(155, 89, 182)   // 优雅紫色
+                : Color.FromRgb(46, 204, 113);  // 绿色（AI）
 
             var bubble = new Border
             {
@@ -285,16 +374,10 @@ namespace MusicalNoteLauncher.Pages
 
             if (isUser)
             {
-                bubble.Background = new LinearGradientBrush
-                {
-                    StartPoint = new Point(0, 0),
-                    EndPoint = new Point(0, 1),
-                    GradientStops = new GradientStopCollection
-                    {
-                        new GradientStop(Color.FromRgb(33, 150, 243), 0),
-                        new GradientStop(Color.FromRgb(25, 118, 210), 1)
-                    }
-                };
+                // 用户消息：深色卡片 + 左侧彩色边框（简洁优雅）
+                bubble.Background = new SolidColorBrush(Color.FromRgb(40, 40, 45));
+                bubble.BorderBrush = new SolidColorBrush(Color.FromRgb(155, 89, 182));
+                bubble.BorderThickness = new Thickness(3, 0, 0, 0);
             }
             else
             {
@@ -304,46 +387,8 @@ namespace MusicalNoteLauncher.Pages
             }
 
             var inner = new StackPanel();
+            inner.Children.Add(CreateMessageHeader(isUser, avatarColor));
 
-            // 头像 + 名字
-            var header = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 0, 10)
-            };
-
-            var ava = new Border
-            {
-                Width = 30,
-                Height = 30,
-                CornerRadius = new CornerRadius(8),
-                Background = new SolidColorBrush(avatarColor)
-            };
-            ava.Child = new TextBlock
-            {
-                Text = isUser ? "👤" : "🤖",
-                FontSize = 13,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-
-            var name = new TextBlock
-            {
-                Text = isUser ? "我" : "小音符",
-                FontSize = 12,
-                FontWeight = FontWeights.Bold,
-                Foreground = isUser
-                    ? new SolidColorBrush(Color.FromRgb(179, 223, 255))
-                    : new SolidColorBrush(Color.FromRgb(46, 204, 113)),
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(8, 0, 0, 0),
-                FontFamily = new FontFamily("Microsoft YaHei")
-            };
-
-            header.Children.Add(ava);
-            header.Children.Add(name);
-
-            // 内容文本
             var text = new TextBlock
             {
                 Text = content,
@@ -353,16 +398,14 @@ namespace MusicalNoteLauncher.Pages
                 TextWrapping = TextWrapping.Wrap,
                 LineHeight = 22
             };
-
-            inner.Children.Add(header);
             inner.Children.Add(text);
             bubble.Child = inner;
 
             spMessages.Children.Add(bubble);
-            ScrollToBottom();
+            scrollMessages?.ScrollToBottom();
         }
 
-        private Border AddLoadingMessage()
+        private Border AddStreamingBubble()
         {
             var bubble = new Border
             {
@@ -377,24 +420,44 @@ namespace MusicalNoteLauncher.Pages
             };
 
             var inner = new StackPanel();
+            inner.Children.Add(CreateMessageHeader(false, Color.FromRgb(46, 204, 113)));
 
-            // 头像 + 名字
+            var text = new TextBlock
+            {
+                Name = "streamingContent",
+                Text = "",
+                FontSize = 14,
+                Foreground = (Brush)FindResource("TextPrimaryBrush"),
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 22
+            };
+            inner.Children.Add(text);
+            bubble.Child = inner;
+
+            spMessages.Children.Add(bubble);
+            scrollMessages?.ScrollToBottom();
+
+            return bubble;
+        }
+
+        private StackPanel CreateMessageHeader(bool isUser, Color avatarColor)
+        {
             var header = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
-                Margin = new Thickness(0, 0, 0, 12)
+                Margin = new Thickness(0, 0, 0, 10)
             };
 
             var ava = new Border
             {
-                Width = 30,
-                Height = 30,
+                Width = 30, Height = 30,
                 CornerRadius = new CornerRadius(8),
-                Background = new SolidColorBrush(Color.FromRgb(46, 204, 113))
+                Background = new SolidColorBrush(avatarColor)
             };
             ava.Child = new TextBlock
             {
-                Text = "🤖",
+                Text = isUser ? "\U0001F464" : "\U0001F916",
                 FontSize = 13,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
@@ -402,10 +465,12 @@ namespace MusicalNoteLauncher.Pages
 
             var name = new TextBlock
             {
-                Text = "小音符",
+                Text = isUser ? "我" : "小音符",
                 FontSize = 12,
                 FontWeight = FontWeights.Bold,
-                Foreground = new SolidColorBrush(Color.FromRgb(46, 204, 113)),
+                Foreground = isUser
+                    ? new SolidColorBrush(Color.FromRgb(187, 134, 252))
+                    : new SolidColorBrush(Color.FromRgb(46, 204, 113)),
                 VerticalAlignment = VerticalAlignment.Center,
                 Margin = new Thickness(8, 0, 0, 0),
                 FontFamily = new FontFamily("Microsoft YaHei")
@@ -413,86 +478,130 @@ namespace MusicalNoteLauncher.Pages
 
             header.Children.Add(ava);
             header.Children.Add(name);
-
-            // 跳动点动画
-            var dotsPanel = new StackPanel { Orientation = Orientation.Horizontal };
-
-            // 创建 3 个跳动点，带延迟动画
-            var dispatcherTimer = new System.Windows.Threading.DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(400)
-            };
-
-            var dot1 = new Border
-            {
-                Width = 8, Height = 8,
-                CornerRadius = new CornerRadius(4),
-                Background = new SolidColorBrush(Color.FromRgb(46, 204, 113)),
-                Margin = new Thickness(0, 0, 5, 0)
-            };
-            var dot2 = new Border
-            {
-                Width = 8, Height = 8,
-                CornerRadius = new CornerRadius(4),
-                Background = new SolidColorBrush(Color.FromRgb(46, 204, 113)),
-                Opacity = 0.4,
-                Margin = new Thickness(0, 0, 5, 0)
-            };
-            var dot3 = new Border
-            {
-                Width = 8, Height = 8,
-                CornerRadius = new CornerRadius(4),
-                Background = new SolidColorBrush(Color.FromRgb(46, 204, 113)),
-                Opacity = 0.4,
-                Margin = new Thickness(0, 0, 5, 0)
-            };
-
-            dotsPanel.Children.Add(dot1);
-            dotsPanel.Children.Add(dot2);
-            dotsPanel.Children.Add(dot3);
-
-            int step = 0;
-            dispatcherTimer.Tick += (_, _) =>
-            {
-                step = (step + 1) % 3;
-                dot1.Opacity = step == 0 ? 1.0 : 0.4;
-                dot2.Opacity = step == 1 ? 1.0 : 0.4;
-                dot3.Opacity = step == 2 ? 1.0 : 0.4;
-            };
-            dispatcherTimer.Start();
-
-            // 将 timer 引用存储在 bubble 的 Tag 中以备停止
-            bubble.Tag = dispatcherTimer;
-
-            inner.Children.Add(header);
-            inner.Children.Add(dotsPanel);
-            bubble.Child = inner;
-
-            spMessages.Children.Add(bubble);
-            ScrollToBottom();
-
-            return bubble;
+            return header;
         }
 
-        private void RemoveLoadingMessage(Border border)
+        private void AddToolCallCard(string toolName, bool isResult)
         {
-            if (border.Tag is System.Windows.Threading.DispatcherTimer timer)
-            {
-                timer.Stop();
-            }
-            if (spMessages.Children.Contains(border))
-            {
-                spMessages.Children.Remove(border);
-            }
-        }
+            var icon = GetToolIcon(toolName);
+            var displayName = GetToolDisplayName(toolName);
 
-        private void ScrollToBottom()
-        {
-            Dispatcher.InvokeAsync(() =>
+            var card = new Border
             {
-                scrollMessages?.ScrollToBottom();
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 10, 14, 10),
+                Margin = new Thickness(0, 0, 60, 6),
+                MaxWidth = 680,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Background = new SolidColorBrush(Color.FromRgb(42, 42, 42)),
+                BorderBrush = new SolidColorBrush(Color.FromRgb(243, 156, 18)),
+                BorderThickness = new Thickness(1),
+                Opacity = 0.9
+            };
+
+            var stack = new StackPanel { Orientation = Orientation.Horizontal };
+            stack.Children.Add(new TextBlock
+            {
+                Text = icon,
+                FontSize = 14,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(0, 0, 8, 0)
             });
+
+            stack.Children.Add(new TextBlock
+            {
+                Text = $"正在执行: {displayName}",
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.FromRgb(243, 156, 18)),
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                VerticalAlignment = VerticalAlignment.Center
+            });
+
+            card.Child = stack;
+            spMessages.Children.Add(card);
+            scrollMessages?.ScrollToBottom();
         }
+
+        private void AddToolResultCard(AgentToolResult result)
+        {
+            var ok = result.Success;
+            var bgColor = ok ? Color.FromRgb(20, 55, 35) : Color.FromRgb(58, 26, 26);
+            var borderColor = ok ? Color.FromRgb(46, 204, 113) : Color.FromRgb(231, 76, 60);
+            var icon = ok ? "✅" : "❌";
+
+            var card = new Border
+            {
+                CornerRadius = new CornerRadius(10),
+                Padding = new Thickness(14, 10, 14, 10),
+                Margin = new Thickness(0, 0, 60, 6),
+                MaxWidth = 680,
+                HorizontalAlignment = HorizontalAlignment.Left,
+                Background = new SolidColorBrush(bgColor),
+                BorderBrush = new SolidColorBrush(borderColor),
+                BorderThickness = new Thickness(1),
+                Opacity = 0.85
+            };
+
+            var stack = new StackPanel();
+            var headerRow = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 4) };
+
+            headerRow.Children.Add(new TextBlock
+            {
+                Text = $"{icon} {GetToolDisplayName(result.Name)}",
+                FontSize = 12,
+                FontWeight = FontWeights.Bold,
+                Foreground = new SolidColorBrush(borderColor),
+                FontFamily = new FontFamily("Microsoft YaHei")
+            });
+
+            stack.Children.Add(headerRow);
+
+            var msg = result.Message;
+            if (msg.Length > 300) msg = msg.Substring(0, 300) + "...";
+            stack.Children.Add(new TextBlock
+            {
+                Text = msg,
+                FontSize = 11,
+                Foreground = (Brush)FindResource("TextSecondaryBrush"),
+                FontFamily = new FontFamily("Microsoft YaHei"),
+                TextWrapping = TextWrapping.Wrap,
+                LineHeight = 18
+            });
+
+            card.Child = stack;
+            spMessages.Children.Add(card);
+            scrollMessages?.ScrollToBottom();
+        }
+
+        private static string GetToolIcon(string toolName) => toolName switch
+        {
+            "launch_game" => "🚀",
+            "download_version" => "📥",
+            "download_mod" => "🔍",
+            "repair_version" => "🔧",
+            "get_installed_versions" => "📋",
+            "get_system_info" => "🖥",
+            "install_loader" => "⚙",
+            "delete_version" => "🗑",
+            "check_mods" => "📦",
+            _ => "🔨"
+        };
+
+        private static string GetToolDisplayName(string toolName) => toolName switch
+        {
+            "launch_game" => "启动游戏",
+            "download_version" => "下载版本",
+            "download_mod" => "搜索模组",
+            "repair_version" => "修复版本",
+            "get_installed_versions" => "版本列表",
+            "get_system_info" => "系统诊断",
+            "install_loader" => "安装加载器",
+            "delete_version" => "删除版本",
+            "check_mods" => "检查模组",
+            _ => toolName
+        };
+
+        // ─────────────── 按钮事件 ───────────────
 
         private void BtnSend_Click(object sender, RoutedEventArgs e)
         {
@@ -501,7 +610,9 @@ namespace MusicalNoteLauncher.Pages
 
         private void TxtInput_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
-            if (e.Key == System.Windows.Input.Key.Enter && !System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.LeftShift) && !System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.RightShift))
+            if (e.Key == System.Windows.Input.Key.Enter &&
+                !System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.LeftShift) &&
+                !System.Windows.Input.Keyboard.IsKeyDown(System.Windows.Input.Key.RightShift))
             {
                 e.Handled = true;
                 SendMessage(txtInput.Text);
@@ -532,29 +643,38 @@ namespace MusicalNoteLauncher.Pages
             SaveSettings();
         }
 
+        private void BtnClear_Click(object sender, RoutedEventArgs e)
+        {
+            _agentService?.ClearHistory();
+
+            var welcomeCard = spMessages.Children[0];
+            spMessages.Children.Clear();
+            spMessages.Children.Add(welcomeCard);
+
+            HideStatus();
+            FinishStreaming();
+        }
+
         private void CardConfigPrompt_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             OpenSettings();
         }
 
-        /// <summary>由启动弹窗触发：自动将错误信息填入输入框并发送分析请求</summary>
+        // ─────────────── 启动错误分析 ───────────────
+
         private async Task AnalyzeLaunchErrorAsync(Core.GameLaunchInfo info)
         {
-            // 先运行本地分析
             var logText = info.GetErrorSummary(200);
             var localResult = CrashAnalyzer.Analyze(logText, info.ExitCode, info.ErrorMessage);
 
             if (localResult.IsKnown)
             {
-                // 本地诊断命中，展示结果，再补充 AI 分析
                 var localReport = CrashAnalyzer.FormatResult(localResult);
-                AddMessage("assistant", "🔍 本地诊断已完成，检测到已知问题模式：\n\n" + localReport);
+                AddMessage("assistant", "本地诊断已完成，检测到已知问题模式：\n\n" + localReport);
                 await Task.Delay(800);
-
-                AddMessage("assistant", "🤖 正在使用 AI 进行深度分析，以获取更详细的解决方案…");
+                AddMessage("assistant", "正在使用 AI Agent 进行深度分析，以获取更详细的解决方案…");
             }
 
-            // 始终发送 AI 分析请求（在本地诊断基础上做深度分析）
             var prompt = new StringBuilder();
             prompt.AppendLine("我的 Minecraft 游戏启动失败了，请帮我分析一下错误原因：");
             prompt.AppendLine();
@@ -577,11 +697,9 @@ namespace MusicalNoteLauncher.Pages
             prompt.AppendLine(logText);
             prompt.AppendLine("```");
             prompt.AppendLine();
-            prompt.AppendLine("请分析可能的错误原因并给出解决方案。");
+            prompt.AppendLine("如果判断是版本文件损坏，请直接使用 repair_version 工具帮我修复。");
 
-            // 将分析请求填入输入框（显示给用户看）
             txtInput.Text = "";
-            // 自动发送分析请求
             SendMessage(prompt.ToString());
         }
     }
@@ -591,29 +709,5 @@ namespace MusicalNoteLauncher.Pages
         public string Endpoint { get; set; }
         public string ApiKey { get; set; }
         public string Model { get; set; }
-    }
-
-    public class AiRequestBody
-    {
-        public string model { get; set; }
-        public List<AiChatMessage> messages { get; set; }
-        public double temperature { get; set; }
-        public int max_tokens { get; set; }
-    }
-
-    public class AiChatMessage
-    {
-        public string role { get; set; }
-        public string content { get; set; }
-    }
-
-    public class AiResponse
-    {
-        public List<AiChoice> choices { get; set; }
-    }
-
-    public class AiChoice
-    {
-        public AiChatMessage message { get; set; }
     }
 }

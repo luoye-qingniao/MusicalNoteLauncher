@@ -18,13 +18,15 @@ namespace MusicalNoteLauncher.Core
         private readonly string[] _manifestUrls = new[]
         {
             "https://bmclapi2.bangbang93.com/bedrock/version_manifest.json",
-            "https://data.mcappx.com/v2/bedrock.json"
+            "https://data.mcappx.com/v2/bedrock.json",
+            "https://mcapks.com/api/get-vslist.php"
         };
 
         private readonly string[] _sourceNames = new[]
         {
             "BMCLAPI镜像",
-            "mcappx.com"
+            "mcappx.com",
+            "苦力怕论坛"
         };
 
         private readonly string _minecraftPath;
@@ -44,8 +46,7 @@ namespace MusicalNoteLauncher.Core
 
         private void ConfigureSslAndProtocol()
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
             ServicePointManager.Expect100Continue = false;
             ServicePointManager.DefaultConnectionLimit = 200;
             ServicePointManager.MaxServicePoints = 200;
@@ -53,7 +54,7 @@ namespace MusicalNoteLauncher.Core
 
         public async Task<List<BedrockVersionInfo>> GetRemoteVersionsAsync(CancellationToken cancellationToken = default)
         {
-            List<string> errors = new List<string>();
+            var allVersions = new Dictionary<string, BedrockVersionInfo>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < _manifestUrls.Length; i++)
             {
@@ -68,8 +69,13 @@ namespace MusicalNoteLauncher.Core
                     var versions = await FetchVersionManifestAsync(_manifestUrls[i], cancellationToken);
                     if (versions != null && versions.Count > 0)
                     {
-                        StatusChanged?.Invoke($"成功从 {sourceName} 获取 {versions.Count} 个版本");
-                        return versions;
+                        foreach (var v in versions)
+                        {
+                            var key = v.Version ?? v.Id;
+                            if (!allVersions.ContainsKey(key))
+                                allVersions[key] = v;
+                        }
+                        StatusChanged?.Invoke($"{sourceName} 获取 {versions.Count} 个版本");
                     }
                 }
                 catch (OperationCanceledException)
@@ -78,12 +84,15 @@ namespace MusicalNoteLauncher.Core
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"{sourceName}: {ex.Message}");
-                    StatusChanged?.Invoke($"{sourceName} 失败，尝试下一个...");
+                    StatusChanged?.Invoke($"{sourceName} 失败: {ex.Message}");
                 }
             }
 
-            throw new Exception($"所有数据源均失败:\n{string.Join("\n", errors)}");
+            if (allVersions.Count == 0)
+                throw new Exception("所有数据源均无数据");
+
+            StatusChanged?.Invoke($"共获取 {allVersions.Count} 个版本（多源合并）");
+            return allVersions.Values.OrderByDescending(v => v.ReleaseTime).ToList();
         }
 
         private async Task<List<BedrockVersionInfo>> FetchVersionManifestAsync(string url, CancellationToken cancellationToken)
@@ -307,6 +316,7 @@ namespace MusicalNoteLauncher.Core
                                 var info = ParseMcappxEntry(kv);
                                 if (info != null)
                                 {
+                                    info.Source = "mcappx";
                                     versions.Add(info);
                                     successCount++;
 
@@ -322,6 +332,49 @@ namespace MusicalNoteLauncher.Core
                                 if (failCount <= 3)
                                 {
                                     Logger.Warning($"[基岩版解析] mcappx条目解析异常: {ex.Message}");
+                                }
+                            }
+                        }
+                    }
+                    else if (root.TryGetProperty("success", out var msuccess) && msuccess.GetBoolean()
+                             && root.TryGetProperty("data", out var mdata))
+                    {
+                        // mcapks.com（苦力怕论坛）格式
+                        Logger.Info($"[基岩版解析] 找到苦力怕论坛格式，开始解析版本列表...");
+
+                        if (mdata.TryGetProperty("versions", out var vsList))
+                        {
+                            foreach (var item in vsList.EnumerateArray())
+                            {
+                                try
+                                {
+                                    string versionStr = item.TryGetProperty("version", out var v) ? v.GetString() : "";
+                                    if (string.IsNullOrEmpty(versionStr)) continue;
+
+                                    bool beta = item.TryGetProperty("beta", out var b) && b.GetBoolean();
+                                    string date = item.TryGetProperty("date", out var d) ? d.GetString() : "";
+
+                                    var info = new BedrockVersionInfo
+                                    {
+                                        Id = versionStr,
+                                        Version = versionStr,
+                                        Type = beta ? "preview" : "release",
+                                        InstallerUrl = versionStr,
+                                        Source = "mcapks"
+                                    };
+
+                                    if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var rt))
+                                        info.ReleaseTime = rt;
+
+                                    info.IsDownloaded = IsVersionDownloaded(info.Id);
+                                    versions.Add(info);
+                                    successCount++;
+                                }
+                                catch (Exception ex)
+                                {
+                                    failCount++;
+                                    if (failCount <= 3)
+                                        Logger.Warning($"[基岩版解析] 苦力怕论坛条目解析异常: {ex.Message}");
                                 }
                             }
                         }
@@ -516,7 +569,20 @@ namespace MusicalNoteLauncher.Core
                 string versionDir = Path.Combine(_minecraftPath, "bedrock", version.Id);
                 Directory.CreateDirectory(versionDir);
 
-                string installerPath = Path.Combine(versionDir, "installer.msixbundle");
+                // 解析真实下载地址（苦力怕论坛需要二次查询）
+                string downloadUrl = version.InstallerUrl;
+                string installerExt = ".msixbundle";
+                if (version.Source == "mcapks")
+                {
+                    taskInfo.Status = "解析下载地址";
+                    StatusChanged?.Invoke($"正在获取基岩版 {version.Id} 下载地址 (苦力怕论坛)...");
+                    downloadUrl = await ResolveMcapksDownloadUrlAsync(downloadUrl, token);
+                    if (string.IsNullOrEmpty(downloadUrl))
+                        throw new Exception("无法获取下载地址");
+                    installerExt = ".xapk";
+                }
+
+                string installerPath = Path.Combine(versionDir, $"installer{installerExt}");
                 string hashPath = Path.Combine(versionDir, "installer.sha1");
 
                 if (File.Exists(installerPath) && File.Exists(hashPath))
@@ -527,7 +593,7 @@ namespace MusicalNoteLauncher.Core
                         taskInfo.Status = "已完成";
                         taskInfo.IsCompleted = true;
                         taskInfo.Progress = 100;
-                        taskInfo.CurrentFile = "installer.msixbundle";
+                        taskInfo.CurrentFile = Path.GetFileName(installerPath);
                         StatusChanged?.Invoke($"{version.Id} 已下载完成（文件已存在）");
                         DownloadCompleted?.Invoke(version.Id);
                         return taskInfo;
@@ -535,10 +601,10 @@ namespace MusicalNoteLauncher.Core
                 }
 
                 taskInfo.Status = "下载中";
-                taskInfo.CurrentFile = "installer.msixbundle";
-                StatusChanged?.Invoke($"正在下载基岩版 {version.Id}...");
+                taskInfo.CurrentFile = Path.GetFileName(installerPath);
+                StatusChanged?.Invoke($"正在下载基岩版 {version.Id} ({version.SourceDisplay})...");
 
-                await DownloadFileWithProgressAsync(version.InstallerUrl, installerPath, progress, token);
+                await DownloadFileWithProgressAsync(downloadUrl, installerPath, progress, token);
 
                 taskInfo.Status = "校验中";
                 StatusChanged?.Invoke("正在校验文件完整性...");
@@ -553,7 +619,8 @@ namespace MusicalNoteLauncher.Core
                 StatusChanged?.Invoke($"基岩版 {version.Id} 下载完成");
                 DownloadCompleted?.Invoke(version.Id);
 
-                await CheckRuntimeDependenciesAsync();
+                if (version.Source != "mcapks")
+                    await CheckRuntimeDependenciesAsync();
             }
             catch (OperationCanceledException)
             {
@@ -574,6 +641,48 @@ namespace MusicalNoteLauncher.Core
             }
 
             return taskInfo;
+        }
+
+        /// <summary>解析苦力怕论坛的下载地址</summary>
+        private async Task<string> ResolveMcapksDownloadUrlAsync(string versionId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                string url = $"https://mcapks.com/api/get-download.php?version={Uri.EscapeDataString(versionId)}";
+                using (var client = new WebClient())
+                {
+                    client.Encoding = Encoding.UTF8;
+                    client.Headers.Add(HttpRequestHeader.UserAgent, _userAgent);
+
+                    var data = await Task.Run(() => client.DownloadData(new Uri(url)), cancellationToken);
+                    string json = Encoding.UTF8.GetString(data);
+
+                    using (JsonDocument doc = JsonDocument.Parse(json))
+                    {
+                        JsonElement root = doc.RootElement;
+                        if (root.TryGetProperty("success", out var success) && success.GetBoolean())
+                        {
+                            if (root.TryGetProperty("data", out var dataEl))
+                            {
+                                if (dataEl.TryGetProperty("downloads", out var downloads) && downloads.GetArrayLength() > 0)
+                                {
+                                    foreach (var d in downloads.EnumerateArray())
+                                    {
+                                        string dlUrl = d.TryGetProperty("url", out var u) ? u.GetString() : "";
+                                        if (!string.IsNullOrEmpty(dlUrl) && dlUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                            return dlUrl;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[基岩版 苦力怕论坛] 解析下载地址失败 ({versionId}): {ex.Message}");
+            }
+            return null;
         }
 
         private async Task DownloadFileWithProgressAsync(string url, string savePath, DownloadProgress progress, CancellationToken cancellationToken)

@@ -17,6 +17,7 @@ namespace MusicalNoteLauncher.Core
         public string DisplayInfo { get; set; }
         public string VersionType { get; set; }
         public bool IsRecommended { get; set; }
+        public bool IsBadDisplay { get; set; }
         public string DownloadUrl { get; set; }
         public string FileName { get; set; }
         public long FileSize { get; set; }
@@ -32,11 +33,12 @@ namespace MusicalNoteLauncher.Core
         private static readonly CurseForgeApiService _curseForgeApi = new CurseForgeApiService();
 
         /// <summary>
-        /// 从 Modrinth 获取项目版本列表
+        /// 从 Modrinth 获取项目版本列表（可选指定 API 基地址用于 BBSMC 等兼容源）
         /// </summary>
-        public static async Task<List<DownloadVersionInfo>> GetModrinthVersions(string projectId, string gameVersion = null)
+        public static async Task<List<DownloadVersionInfo>> GetModrinthVersions(string projectId, string apiBase = null, string gameVersion = null)
         {
-            var versions = await _modrinthApi.GetProjectVersions(projectId, gameVersion);
+            var api = string.IsNullOrEmpty(apiBase) ? _modrinthApi : new ModrinthApiService(apiBase);
+            var versions = await api.GetProjectVersions(projectId, gameVersion);
             var result = new List<DownloadVersionInfo>();
 
             foreach (var v in versions)
@@ -50,6 +52,7 @@ namespace MusicalNoteLauncher.Core
                     DisplayInfo = $"支持版本: {v.DisplayGameVersions} | 加载器: {v.DisplayLoaders}",
                     VersionType = v.VersionTypeText,
                     IsRecommended = v.IsRecommended,
+                    IsBadDisplay = v.IsBadDisplay,
                     DownloadUrl = v.DownloadUrl,
                     FileName = v.FileName,
                     FileSize = v.FileSize,

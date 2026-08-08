@@ -20,10 +20,17 @@ namespace MusicalNoteLauncher.Core
         private readonly ConcurrentDictionary<string, InstalledVersionInfo> _installedBedrockVersions = new ConcurrentDictionary<string, InstalledVersionInfo>();
 
         private DateTime _lastScanTime = DateTime.MinValue;
-        private readonly TimeSpan _cacheDuration = TimeSpan.FromSeconds(10);
         private bool _isScanning = false;
         private int _scanSequence = 0;
         private readonly object _scanLock = new object();
+
+        /// <summary>上次扫描时 versions 文件夹的 LastWriteTime（递归取最大值），用于变更检测</summary>
+        private DateTime _lastKnownWriteTime = DateTime.MinValue;
+        /// <summary>上次扫描时文件夹名列表的校验和，用于缓存验证</summary>
+        private string _lastKnownFolderChecksum = "";
+
+        /// <summary>去抖间隔，避免短时间内重复扫描</summary>
+        private static readonly TimeSpan DebounceInterval = TimeSpan.FromSeconds(1);
 
         public event Action<VersionScanResult> ScanCompleted;
         public event Action<string> ScanStarted;
@@ -35,6 +42,7 @@ namespace MusicalNoteLauncher.Core
         {
         }
 
+        /// <summary>智能扫描：仅当 versions 文件夹发生变更时才重新扫描</summary>
         public async Task<VersionScanResult> ScanAsync(string triggerSource = "manual")
         {
             int currentSequence;
@@ -46,9 +54,10 @@ namespace MusicalNoteLauncher.Core
                     return CreateResultFromCache();
                 }
 
-                if ((DateTime.Now - _lastScanTime) < _cacheDuration && _installedVersions.Count > 0)
+                // 去抖：短时间内不重复扫描
+                if ((DateTime.Now - _lastScanTime) < DebounceInterval)
                 {
-                    Logger.Info($"[版本扫描] 缓存仍在有效期内 (来源: {triggerSource}, 距上次扫描: {(DateTime.Now - _lastScanTime).TotalSeconds:F1}秒)，跳过重复请求");
+                    Logger.Info($"[版本扫描] 去抖保护 (来源: {triggerSource}, 距上次扫描: {(DateTime.Now - _lastScanTime).TotalSeconds:F1}秒)，返回缓存");
                     return CreateResultFromCache();
                 }
 
@@ -59,16 +68,32 @@ namespace MusicalNoteLauncher.Core
 
             ScanStarted?.Invoke(triggerSource);
             Logger.Info($"[版本扫描] ===============================================");
-            Logger.Info($"[版本扫描] 开始扫描已安装版本 (来源: {triggerSource}, 序号: {currentSequence})");
+            Logger.Info($"[版本扫描] 智能扫描开始 (来源: {triggerSource}, 序号: {currentSequence})");
 
             try
             {
+                // 检查文件夹是否变更
+                string versionsDir = Path.Combine(_minecraftPath, "versions");
+                if (!NeedRescan(versionsDir))
+                {
+                    lock (_scanLock) { _isScanning = false; }
+                    Logger.Info($"[版本扫描] versions 文件夹未变更，跳过扫描");
+                    Logger.Info($"[版本扫描] ===============================================");
+                    return CreateResultFromCache();
+                }
+
+                Logger.Info($"[版本扫描] 检测到 versions 文件夹变更，执行全量扫描");
+
                 await Task.Run(() => ScanVersionsInternal(currentSequence));
 
                 _lastScanTime = DateTime.Now;
                 var result = CreateResultFromCache();
 
                 Logger.Info($"[版本扫描] 扫描完成！共发现 {_installedVersions.Count} 个Java版本, {_installedBedrockVersions.Count} 个基岩版本");
+
+                // 持久化到磁盘缓存
+                SaveCacheToDisk();
+
                 Logger.Info($"[版本扫描] ===============================================");
 
                 ScanCompleted?.Invoke(result);
@@ -86,6 +111,164 @@ namespace MusicalNoteLauncher.Core
                 {
                     _isScanning = false;
                 }
+            }
+        }
+
+        /// <summary>强制扫描：跳过变更检测，始终执行全量扫描。用于已知发生变更的场景（下载完成、删除版本等）</summary>
+        public async Task<VersionScanResult> ForceScanAsync(string triggerSource = "force")
+        {
+            int currentSequence;
+            lock (_scanLock)
+            {
+                if (_isScanning)
+                {
+                    Logger.Info($"[版本扫描] 强制扫描请求但已有扫描进行中 (来源: {triggerSource})，返回当前缓存");
+                    return CreateResultFromCache();
+                }
+
+                // 去抖：短时间内不重复扫描
+                if ((DateTime.Now - _lastScanTime) < DebounceInterval)
+                {
+                    Logger.Info($"[版本扫描] 强制扫描去抖 (来源: {triggerSource})，返回缓存");
+                    return CreateResultFromCache();
+                }
+
+                _isScanning = true;
+                _scanSequence++;
+                currentSequence = _scanSequence;
+            }
+
+            ScanStarted?.Invoke(triggerSource);
+            Logger.Info($"[版本扫描] ===============================================");
+            Logger.Info($"[版本扫描] 强制扫描开始 (来源: {triggerSource}, 序号: {currentSequence})");
+
+            try
+            {
+                await Task.Run(() => ScanVersionsInternal(currentSequence));
+
+                _lastScanTime = DateTime.Now;
+                var result = CreateResultFromCache();
+
+                Logger.Info($"[版本扫描] 强制扫描完成！共发现 {_installedVersions.Count} 个Java版本, {_installedBedrockVersions.Count} 个基岩版本");
+
+                // 持久化到磁盘缓存
+                SaveCacheToDisk();
+
+                Logger.Info($"[版本扫描] ===============================================");
+
+                ScanCompleted?.Invoke(result);
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[版本扫描] 强制扫描发生异常: {ex.Message}");
+                return CreateResultFromCache();
+            }
+            finally
+            {
+                lock (_scanLock)
+                {
+                    _isScanning = false;
+                }
+            }
+        }
+
+        /// <summary>初始化时尝试从磁盘缓存加载，若无缓存则执行全量扫描</summary>
+        public async Task<VersionScanResult> InitAsync()
+        {
+            // 先从磁盘缓存加载
+            if (LoadCacheFromDisk())
+            {
+                _lastScanTime = DateTime.Now;
+                var result = CreateResultFromCache();
+                Logger.Info($"[版本扫描] 从磁盘缓存加载完成，共 {_installedVersions.Count} 个Java版本, {_installedBedrockVersions.Count} 个基岩版本");
+                ScanCompleted?.Invoke(result);
+                return result;
+            }
+
+            // 无缓存，执行全量扫描
+            return await ForceScanAsync("初始化-无缓存");
+        }
+
+        /// <summary>检查 versions 文件夹是否需要重新扫描</summary>
+        private bool NeedRescan(string versionsDir)
+        {
+            try
+            {
+                if (!Directory.Exists(versionsDir))
+                {
+                    // 如果之前有缓存但目录现在不存在了，需要更新
+                    if (_installedVersions.Count > 0 || _installedBedrockVersions.Count > 0)
+                        return true;
+                    // 之前就没有缓存且目录不存在，无需重扫
+                    if (_lastKnownWriteTime == DateTime.MinValue && string.IsNullOrEmpty(_lastKnownFolderChecksum))
+                        return false;
+                    // 目录被删除了，需要重扫以清空缓存
+                    _lastKnownWriteTime = DateTime.MinValue;
+                    _lastKnownFolderChecksum = "";
+                    return true;
+                }
+
+                DateTime currentWriteTime = GetFolderMaxLastWriteTime(versionsDir);
+                string currentChecksum = ComputeFolderChecksum(versionsDir);
+
+                if (currentWriteTime != _lastKnownWriteTime || currentChecksum != _lastKnownFolderChecksum)
+                {
+                    _lastKnownWriteTime = currentWriteTime;
+                    _lastKnownFolderChecksum = currentChecksum;
+                    return true;
+                }
+
+                return false;
+            }
+            catch
+            {
+                // 出错时保守处理，执行扫描
+                return true;
+            }
+        }
+
+        /// <summary>递归获取文件夹及其子文件/子文件夹的最大 LastWriteTime</summary>
+        private DateTime GetFolderMaxLastWriteTime(string folderPath)
+        {
+            DateTime maxTime = Directory.GetLastWriteTime(folderPath);
+
+            try
+            {
+                foreach (var file in Directory.GetFiles(folderPath))
+                {
+                    DateTime fileTime = File.GetLastWriteTime(file);
+                    if (fileTime > maxTime) maxTime = fileTime;
+                }
+
+                foreach (var subDir in Directory.GetDirectories(folderPath))
+                {
+                    DateTime subTime = GetFolderMaxLastWriteTime(subDir);
+                    if (subTime > maxTime) maxTime = subTime;
+                }
+            }
+            catch { /* 权限不足时忽略 */ }
+
+            return maxTime;
+        }
+
+        /// <summary>计算文件夹名列表的校验和（仅第一层子目录名）</summary>
+        private string ComputeFolderChecksum(string versionsDir)
+        {
+            try
+            {
+                var names = new List<string>();
+                foreach (var dir in Directory.GetDirectories(versionsDir))
+                {
+                    names.Add(Path.GetFileName(dir));
+                }
+                names.Sort();
+                return string.Join("|", names);
+            }
+            catch
+            {
+                return "";
             }
         }
 
@@ -126,14 +309,11 @@ namespace MusicalNoteLauncher.Core
                         string versionId = Path.GetFileName(dir);
                         string jsonFile = Path.Combine(dir, $"{versionId}.json");
 
-                        // 必须有 JSON 文件（只要有 json 就认为是一个有效版本）
                         if (!File.Exists(jsonFile))
                         {
-                            Logger.Info($"[版本扫描] [序号:{sequence}] 跳过无效Java版本: {versionId} (缺少json文件)");
                             continue;
                         }
 
-                        // 解析版本信息，失败时用目录名构造一个最小信息
                         var versionInfo = ParseJavaVersionInfo(jsonFile, versionId)
                             ?? new InstalledVersionInfo
                             {
@@ -144,7 +324,6 @@ namespace MusicalNoteLauncher.Core
                             };
 
                         newJavaVersions.TryAdd(versionId, versionInfo);
-                        Logger.Info($"[版本扫描] [序号:{sequence}] 发现Java版本: {versionId}");
                     }
                     catch (Exception ex)
                     {
@@ -190,7 +369,6 @@ namespace MusicalNoteLauncher.Core
 
                         if (!File.Exists(exePath))
                         {
-                            Logger.Info($"[版本扫描] [序号:{sequence}] 跳过无效基岩版: {versionId} (缺少Minecraft.Windows.exe)");
                             continue;
                         }
 
@@ -202,7 +380,6 @@ namespace MusicalNoteLauncher.Core
                         };
 
                         newBedrockVersions.TryAdd(versionId, versionInfo);
-                        Logger.Info($"[版本扫描] [序号:{sequence}] 发现有效基岩版: {versionId}");
                     }
                     catch (Exception ex)
                     {
@@ -281,6 +458,147 @@ namespace MusicalNoteLauncher.Core
             };
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // 磁盘缓存持久化
+        // ═══════════════════════════════════════════════════════════════
+
+        private string CacheFilePath => Path.Combine(MNLEnvironment.MNLFolder, "versionCache.json");
+
+        /// <summary>将扫描结果保存到磁盘缓存</summary>
+        private void SaveCacheToDisk()
+        {
+            try
+            {
+                string cacheDir = MNLEnvironment.MNLFolder;
+                if (!Directory.Exists(cacheDir))
+                    Directory.CreateDirectory(cacheDir);
+
+                var cacheData = new VersionCacheData
+                {
+                    FolderChecksum = _lastKnownFolderChecksum,
+                    LastWriteTime = _lastKnownWriteTime.ToString("O"),
+                    JavaVersions = _installedVersions.Values.Select(v => new VersionCacheEntry
+                    {
+                        VersionId = v.VersionId,
+                        VersionType = v.VersionType,
+                        ReleaseTime = v.ReleaseTime.ToString("O")
+                    }).ToList(),
+                    BedrockVersions = _installedBedrockVersions.Values.Select(v => new VersionCacheEntry
+                    {
+                        VersionId = v.VersionId,
+                        VersionType = v.VersionType,
+                        ReleaseTime = v.ReleaseTime.ToString("O")
+                    }).ToList()
+                };
+
+                string json = JsonSerializer.Serialize(cacheData, new JsonSerializerOptions { WriteIndented = false });
+                File.WriteAllText(CacheFilePath, json);
+                Logger.Info($"[磁盘缓存] 缓存已保存: {CacheFilePath}");
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"[磁盘缓存] 保存缓存失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>从磁盘缓存加载，返回是否成功加载且缓存有效</summary>
+        private bool LoadCacheFromDisk()
+        {
+            try
+            {
+                if (!File.Exists(CacheFilePath))
+                {
+                    Logger.Info("[磁盘缓存] 缓存文件不存在，需要全量扫描");
+                    return false;
+                }
+
+                string json = File.ReadAllText(CacheFilePath);
+                var cacheData = JsonSerializer.Deserialize<VersionCacheData>(json);
+                if (cacheData == null)
+                {
+                    Logger.Info("[磁盘缓存] 缓存文件为空，需要全量扫描");
+                    return false;
+                }
+
+                // 验证缓存是否仍然有效：对比 versions 文件夹的校验和
+                string versionsDir = Path.Combine(_minecraftPath, "versions");
+                string currentChecksum = ComputeFolderChecksum(versionsDir);
+
+                if (currentChecksum != cacheData.FolderChecksum)
+                {
+                    Logger.Info($"[磁盘缓存] 文件夹校验和不匹配（缓存={cacheData.FolderChecksum}, 当前={currentChecksum}），缓存失效");
+                    return false;
+                }
+
+                // 校验和匹配，恢复数据
+                _installedVersions.Clear();
+                _installedBedrockVersions.Clear();
+
+                if (cacheData.JavaVersions != null)
+                {
+                    foreach (var entry in cacheData.JavaVersions)
+                    {
+                        _installedVersions.TryAdd(entry.VersionId, new InstalledVersionInfo
+                        {
+                            VersionId = entry.VersionId,
+                            VersionType = entry.VersionType ?? "release",
+                            ReleaseTime = DateTime.TryParse(entry.ReleaseTime, out var t) ? t : DateTime.MinValue,
+                            IsValid = true
+                        });
+                    }
+                }
+
+                if (cacheData.BedrockVersions != null)
+                {
+                    foreach (var entry in cacheData.BedrockVersions)
+                    {
+                        _installedBedrockVersions.TryAdd(entry.VersionId, new InstalledVersionInfo
+                        {
+                            VersionId = entry.VersionId,
+                            VersionType = entry.VersionType ?? "bedrock",
+                            ReleaseTime = DateTime.TryParse(entry.ReleaseTime, out var t) ? t : DateTime.MinValue,
+                            IsValid = true
+                        });
+                    }
+                }
+
+                _lastKnownFolderChecksum = currentChecksum;
+                if (DateTime.TryParse(cacheData.LastWriteTime, out var writeTime))
+                    _lastKnownWriteTime = writeTime;
+
+                Logger.Info($"[磁盘缓存] 缓存加载成功，共 {_installedVersions.Count} 个Java版本, {_installedBedrockVersions.Count} 个基岩版本");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning($"[磁盘缓存] 加载缓存失败: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 磁盘缓存数据类
+        // ═══════════════════════════════════════════════════════════════
+
+        private class VersionCacheData
+        {
+            public string FolderChecksum { get; set; }
+            public string LastWriteTime { get; set; }
+            public List<VersionCacheEntry> JavaVersions { get; set; }
+            public List<VersionCacheEntry> BedrockVersions { get; set; }
+        }
+
+        private class VersionCacheEntry
+        {
+            public string VersionId { get; set; }
+            public string VersionType { get; set; }
+            public string ReleaseTime { get; set; }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // 公共查询 API
+        // ═══════════════════════════════════════════════════════════════
+
         public bool IsJavaVersionInstalled(string versionId)
         {
             return _installedVersions.ContainsKey(versionId);
@@ -326,7 +644,9 @@ namespace MusicalNoteLauncher.Core
             _installedVersions.Clear();
             _installedBedrockVersions.Clear();
             _lastScanTime = DateTime.MinValue;
-            Logger.Info("[版本扫描] 缓存已清除");
+            _lastKnownWriteTime = DateTime.MinValue;
+            _lastKnownFolderChecksum = "";
+            Logger.Info("[版本扫描] 内存缓存已清除");
         }
 
         private class VersionStringComparer : IComparer<string>

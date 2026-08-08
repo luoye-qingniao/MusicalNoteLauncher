@@ -1,0 +1,159 @@
+/* ============================================================
+   themes.css - MNL 启动器主题变量
+   ============================================================ */
+:root {
+    /* 背景色 */
+    --bg-primary: #f5f5f5;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e8e8e8;
+    
+    /* 文字色 */
+    --text-primary: #1a1a1a;
+    --text-secondary: #6b6b6b;
+    --text-muted: #999999;
+    
+    /* 强调色 */
+    --accent: #2196F3;
+    --accent-hover: #1976D2;
+    --accent-light: #E3F2FD;
+    
+    /* 边框 */
+    --border: #e0e0e0;
+    --border-light: #f0f0f0;
+    
+    /* 卡片 */
+    --card-bg: #ffffff;
+    --card-hover: #f5f5f5;
+    --card-pressed: #e8e8e8;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.12);
+    
+    /* 侧边栏 */
+    --sidebar-bg: #ffffff;
+    --sidebar-hover: #f0f7ff;
+    --sidebar-active: #E3F2FD;
+    --sidebar-width: 220px;
+    
+    /* 启动按钮 */
+    --launch-bg: #4CAF50;
+    --launch-hover: #43A047;
+    --launch-text: #ffffff;
+    
+    /* 动画 */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.25s ease;
+    
+    /* 圆角 */
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    
+    /* 字体 */
+    --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    --font-mono: "Cascadia Code", "Fira Code", monospace;
+}
+
+[data-theme="dark"] {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #0f3460;
+    
+    --text-primary: #e0e0e0;
+    --text-secondary: #a0a0a0;
+    --text-muted: #666666;
+    
+    --accent: #64B5F6;
+    --accent-hover: #42A5F5;
+    --accent-light: #1a3a5c;
+    
+    --border: #2a2a4a;
+    --border-light: #222244;
+    
+    --card-bg: #1e2a4a;
+    --card-hover: #253356;
+    --card-pressed: #1a2340;
+    --card-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    --card-shadow-hover: 0 4px 12px rgba(0,0,0,0.4);
+    
+    --sidebar-bg: #16213e;
+    --sidebar-hover: #1a2a4a;
+    --sidebar-active: #1a3a5c;
+    
+    --launch-bg: #4CAF50;
+    --launch-hover: #43A047;
+}
+
+/* ============================================================
+   壁纸/视频背景激活时：主容器透明度由 --bg-opacity 控制
+   默认值 1（完全不透明），拖滑块时 JS 实时更新为 0~1
+   覆盖层 --bg-overlay 用于透明背景下保持文字可读性 (0~0.6)
+   ============================================================ */
+body.bg-active { 
+    background-color: transparent !important; 
+    --bg-opacity: 0.4;
+    --bg-overlay: 0;
+}
+
+/* 背景覆盖层 — 在透明 UI 与视频/壁纸之间的半透明层 */
+body.bg-active #app-container::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: rgba(245, 245, 245, var(--bg-overlay, 0));
+    pointer-events: none;
+}
+
+/* 玻璃质感 — 透明度越低（越透明）模糊越小，让视频清晰可见 */
+body.bg-active #app-container {
+    background: rgba(245, 245, 245, var(--bg-opacity, 1));
+    backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+    -webkit-backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+}
+
+body.bg-active #sidebar {
+    background: rgba(255, 255, 255, var(--bg-opacity, 1));
+    backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+    -webkit-backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+}
+
+body.bg-active #main-content {
+    background: transparent;
+}
+
+body.bg-active .sp-sidebar-inner {
+    background: rgba(255, 255, 255, var(--bg-opacity, 1));
+    backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+    -webkit-backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+}
+
+body.bg-active .sp-panel {
+    background: transparent;
+}
+
+/* 暗色主题玻璃 */
+[data-theme="dark"].bg-active #app-container::before,
+body.bg-active[data-theme="dark"] #app-container::before {
+    background: rgba(26, 26, 46, var(--bg-overlay, 0));
+}
+
+[data-theme="dark"].bg-active #app-container,
+body.bg-active[data-theme="dark"] #app-container {
+    background: rgba(26, 26, 46, var(--bg-opacity, 1));
+    backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+    -webkit-backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+}
+
+[data-theme="dark"].bg-active #sidebar,
+body.bg-active[data-theme="dark"] #sidebar {
+    background: rgba(22, 33, 62, var(--bg-opacity, 1));
+    backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+    -webkit-backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+}
+
+[data-theme="dark"].bg-active .sp-sidebar-inner,
+body.bg-active[data-theme="dark"] .sp-sidebar-inner {
+    background: rgba(30, 42, 74, var(--bg-opacity, 1));
+    backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+    -webkit-backdrop-filter: blur(calc(var(--bg-opacity, 1) * 4px));
+}

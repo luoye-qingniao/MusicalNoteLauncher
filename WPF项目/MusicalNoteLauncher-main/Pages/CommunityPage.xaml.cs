@@ -194,10 +194,11 @@ namespace MusicalNoteLauncher.Pages
 
                 foreach (var msg in messages)
                 {
-                    // 取消息前30字作为标题
-                    string title = msg.content.Length > 30
-                        ? msg.content[..30] + "..."
-                        : msg.content;
+                    string title = !string.IsNullOrEmpty(msg.title)
+                        ? msg.title
+                        : msg.content.Length > 30
+                            ? msg.content[..30] + "..."
+                            : msg.content;
 
                     channel.Posts.Add(new ForumPost
                     {
@@ -349,18 +350,31 @@ namespace MusicalNoteLauncher.Pages
 
         private async void BtnSubmitPost_Click(object sender, RoutedEventArgs e)
         {
+            string title = txtPostTitle.Text?.Trim() ?? "";
             string content = txtPostContent.Text?.Trim() ?? "";
+
+            if (string.IsNullOrEmpty(title))
+            {
+                ModernMessageBox.ShowWarning("请输入帖子标题");
+                return;
+            }
+
+            if (title.Length < 2)
+            {
+                ModernMessageBox.ShowWarning("帖子标题至少需要2个字");
+                return;
+            }
 
             if (string.IsNullOrEmpty(content))
             {
-                ModernMessageBox.ShowWarning("请输入消息内容");
+                ModernMessageBox.ShowWarning("请输入帖子内容");
                 return;
             }
 
             if (_selectedChannel == null) return;
 
             string senderId = AccountManager.GetLatestMsLogin()?.UserName ?? "匿名用户";
-            var result = await CommunityService.Instance.SendMessageAsync(_selectedChannel.Id, senderId, content);
+            var result = await CommunityService.Instance.SendMessageAsync(_selectedChannel.Id, senderId, title, content);
 
             if (result.success)
             {
@@ -368,7 +382,7 @@ namespace MusicalNoteLauncher.Pages
                 _selectedChannel.Posts.Insert(0, new ForumPost
                 {
                     Id = result.id,
-                    Title = content.Length > 30 ? content[..30] + "..." : content,
+                    Title = title,
                     Content = content,
                     Author = senderId,
                     AvatarEmoji = "👤",

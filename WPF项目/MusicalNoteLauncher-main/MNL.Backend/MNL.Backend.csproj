@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <AssemblyName>MNL.Backend</AssemblyName>
+    <Version>1.2.2.0</Version>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsWindows Condition="$([MSBuild]::IsOSPlatform('Windows'))">true</IsWindows>
+    <IsLinux Condition="$([MSBuild]::IsOSPlatform('Linux'))">true</IsLinux>
+    <IsMacOS Condition="$([MSBuild]::IsOSPlatform('OSX'))">true</IsMacOS>
+    <DefineConstants Condition="'$(IsWindows)' == 'true'">$(DefineConstants);WINDOWS</DefineConstants>
+    <DefineConstants Condition="'$(IsLinux)' == 'true'">$(DefineConstants);LINUX</DefineConstants>
+    <DefineConstants Condition="'$(IsMacOS)' == 'true'">$(DefineConstants);MACOS</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- 仅链接必要的纯跨平台 Core 文件 -->
+  <ItemGroup>
+    <Compile Include="..\Core\Logger.cs" Link="Core\Logger.cs" />
+    <Compile Include="..\Core\MNLEnvironment.cs" Link="Core\MNLEnvironment.cs" />
+    <Compile Include="..\Core\ConfigManager.cs" Link="Core\ConfigManager.cs" />
+    <Compile Include="..\Core\SettingsManager.cs" Link="Core\SettingsManager.cs" />
+    <Compile Include="..\Core\ModLoaderDetector.cs" Link="Core\ModLoaderDetector.cs" />
+    <Compile Include="..\Core\SafeHttpClientFactory.cs" Link="Core\SafeHttpClientFactory.cs" />
+    <Compile Include="..\Core\VersionDownloadService.cs" Link="Core\VersionDownloadService.cs" />
+    <Compile Include="..\Core\VersionInfo.cs" Link="Core\VersionInfo.cs" />
+    <Compile Include="..\Core\ModrinthApiService.cs" Link="Core\ModrinthApiService.cs" />
+    <Compile Include="..\Core\DownloadDataTypes.cs" Link="Core\DownloadDataTypes.cs" />
+  </ItemGroup>
+
+  <!-- 复制 WebApp 到输出目录 -->
+  <ItemGroup>
+    <Content Include="..\WebApp\**\*" Exclude="..\WebApp\test-step.html;..\WebApp\test-vue.html;..\WebApp\vue.global.prod.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>WebApp\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Assets\Skins\steve.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Assets\steve.png</Link>
+    </Content>
+    <Content Include="..\Assets\Skins\alex.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Assets\alex.png</Link>
+    </Content>
+  </ItemGroup>
+</Project>

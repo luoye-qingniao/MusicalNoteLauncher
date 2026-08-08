@@ -454,12 +454,12 @@ namespace MusicalNoteLauncher.Pages
             button.Background = (Brush)FindResource("PrimaryBrush");
 
             string content = button.Content.ToString();
-            if (content == "常规设置") { tabSettings.SelectedIndex = 0; return; }
-            if (content == "游戏设置") { tabSettings.SelectedIndex = 1; return; }
-            if (content == "Java设置") { tabSettings.SelectedIndex = 2; return; }
+            if (content == "游戏设置") { tabSettings.SelectedIndex = 0; return; }
+            if (content == "Java设置") { tabSettings.SelectedIndex = 1; return; }
+            if (content == "常规设置") { tabSettings.SelectedIndex = 2; return; }
             if (content == "下载设置") { tabSettings.SelectedIndex = 3; return; }
-            if (content == "关于") { tabSettings.SelectedIndex = 4; return; }
-            if (content == "背景设置") { tabSettings.SelectedIndex = 5; return; }
+            if (content == "背景设置") { tabSettings.SelectedIndex = 4; return; }
+            if (content == "关于") { tabSettings.SelectedIndex = 5; return; }
         }
 
         private void ResetCategoryButtons()
@@ -478,12 +478,12 @@ namespace MusicalNoteLauncher.Pages
             var brush = (Brush)FindResource("PrimaryBrush");
             switch (tabSettings.SelectedIndex)
             {
-                case 0: btnCategoryGeneral.Background = brush; break;
-                case 1: btnCategoryGame.Background = brush; break;
-                case 2: btnCategoryJava.Background = brush; break;
+                case 0: btnCategoryGame.Background = brush; break;
+                case 1: btnCategoryJava.Background = brush; break;
+                case 2: btnCategoryGeneral.Background = brush; break;
                 case 3: btnCategoryDownload.Background = brush; break;
-                case 4: btnCategoryAbout.Background = brush; break;
-                case 5: btnCategoryBackground.Background = brush; break;
+                case 4: btnCategoryBackground.Background = brush; break;
+                case 5: btnCategoryAbout.Background = brush; break;
             }
         }
 
@@ -1635,15 +1635,23 @@ namespace MusicalNoteLauncher.Pages
 
                         _ = System.Threading.Tasks.Task.Run(async () =>
                         {
-                            bool success = await Core.UpdateService.DownloadAndInstallAsync(versionInfo);
+                            string lastError = "";
+                            bool success = await Core.UpdateService.DownloadAndInstallAsync(versionInfo, p =>
+                            {
+                                if (!string.IsNullOrEmpty(p.Status) && p.Status.StartsWith("更新失败"))
+                                    lastError = p.Status;
+                            });
                             if (success)
                             {
                                 Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown(0));
                             }
                             else
                             {
+                                var errMsg = string.IsNullOrEmpty(lastError)
+                                    ? "更新安装失败，请稍后重试"
+                                    : lastError;
                                 Application.Current.Dispatcher.Invoke(() =>
-                                    ModernMessageBox.ShowError("更新安装失败，请稍后重试", "更新失败"));
+                                    ModernMessageBox.ShowError(errMsg, "更新失败"));
                             }
                         });
                     }
@@ -1654,15 +1662,23 @@ namespace MusicalNoteLauncher.Pages
                         {
                             _ = System.Threading.Tasks.Task.Run(async () =>
                             {
-                                bool success = await Core.UpdateService.DownloadAndInstallAsync(versionInfo);
+                                string lastError = "";
+                                bool success = await Core.UpdateService.DownloadAndInstallAsync(versionInfo, p =>
+                                {
+                                    if (!string.IsNullOrEmpty(p.Status) && p.Status.StartsWith("更新失败"))
+                                        lastError = p.Status;
+                                });
                                 if (success)
                                 {
                                     Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown(0));
                                 }
                                 else
                                 {
+                                    var errMsg = string.IsNullOrEmpty(lastError)
+                                        ? "更新安装失败，请稍后重试"
+                                        : lastError;
                                     Application.Current.Dispatcher.Invoke(() =>
-                                        ModernMessageBox.ShowError("更新安装失败，请稍后重试", "更新失败"));
+                                        ModernMessageBox.ShowError(errMsg, "更新失败"));
                                 }
                             });
                         }

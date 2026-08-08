@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
@@ -27,6 +28,8 @@ namespace MusicalNoteLauncher.Core
         private VersionInfo _versionInfo;
         private CancellationTokenSource _cts;
         private static readonly HttpClient _httpClient = CreateHttpClient();
+        /// <summary>版本清单 URL 缓存（versionId → detailUrl），避免每次下载都拉取完整清单</summary>
+        private static readonly ConcurrentDictionary<string, string> _versionUrlCache = new();
 
         public event Action<string> StatusChanged;
         public event Action<int> ProgressChanged;
@@ -41,8 +44,7 @@ namespace MusicalNoteLauncher.Core
 
         private void ConfigureSslAndProtocol()
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
             ServicePointManager.Expect100Continue = false;
             ServicePointManager.DefaultConnectionLimit = 200;
             ServicePointManager.MaxServicePoints = 200;
@@ -887,16 +889,20 @@ namespace MusicalNoteLauncher.Core
                     {
                         if (!string.IsNullOrEmpty(lib.Url) && !string.IsNullOrEmpty(lib.Path))
                         {
+                            // 先快速尝试 BMCLAPI，失败立即回退 Mojang（不在单个源上重试）
                             try
                             {
-                                await DownloadFileAsync(lib.Url, lib.Path, _cts.Token);
+                                await DownloadFileOnceAsync(lib.Url, lib.Path, _cts.Token);
                             }
                             catch (Exception ex) when (!(ex is OperationCanceledException))
                             {
-                                // BMCLAPI 失败，尝试 Mojang 官方源
-                                string mojangUrl = lib.Url.Replace("bmclapi2.bangbang93.com", "libraries.minecraft.net");
-                                Logger.Warning($"[库] BMCLAPI 失败，回退到 Mojang 官方源: {ex.Message}");
-                                await DownloadFileAsync(mojangUrl, lib.Path, _cts.Token);
+                                string mojangUrl = GetMojangFallbackUrl(lib.Url);
+                                if (!string.IsNullOrEmpty(mojangUrl))
+                                {
+                                    Logger.Warning($"[库] BMCLAPI 失败 ({ex.Message})，回退到 Mojang");
+                                    await DownloadFileOnceAsync(mojangUrl, lib.Path, _cts.Token);
+                                }
+                                else throw;
                             }
                         }
                     }
@@ -939,14 +945,17 @@ namespace MusicalNoteLauncher.Core
                         {
                             try
                             {
-                                await DownloadFileAsync(native.Url, native.Path, _cts.Token);
+                                await DownloadFileOnceAsync(native.Url, native.Path, _cts.Token);
                             }
                             catch (Exception ex) when (!(ex is OperationCanceledException))
                             {
-                                // BMCLAPI 失败，尝试 Mojang 官方源
-                                string mojangUrl = native.Url.Replace("bmclapi2.bangbang93.com", "libraries.minecraft.net");
-                                Logger.Warning($"[Natives] BMCLAPI 失败，回退到 Mojang 官方源: {ex.Message}");
-                                await DownloadFileAsync(mojangUrl, native.Path, _cts.Token);
+                                string mojangUrl = GetMojangFallbackUrl(native.Url);
+                                if (!string.IsNullOrEmpty(mojangUrl))
+                                {
+                                    Logger.Warning($"[Natives] BMCLAPI 失败 ({ex.Message})，回退到 Mojang");
+                                    await DownloadFileOnceAsync(mojangUrl, native.Path, _cts.Token);
+                                }
+                                else throw;
                             }
                         }
                     }
@@ -1053,13 +1062,28 @@ namespace MusicalNoteLauncher.Core
 
         public async Task StartDownloadAsync(string versionId, CancellationToken cancellationToken = default)
         {
-            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            
-            StatusChanged?.Invoke($"正在获取版本信息: {versionId}...");
+            await StartDownloadAsync(versionId, null, cancellationToken);
+        }
 
-            string versionDetailUrl = await GetVersionDetailUrlAsync(versionId);
+        /// <summary>开始下载（如果提供了 versionUrl 则跳过清单查询）</summary>
+        public async Task StartDownloadAsync(string versionId, string versionUrl, CancellationToken cancellationToken = default)
+        {
+            _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+            string versionDetailUrl;
+            if (!string.IsNullOrEmpty(versionUrl))
+            {
+                // 前端已提供 URL，直接使用（优先 BMCLAPI 镜像）
+                versionDetailUrl = versionUrl;
+                StatusChanged?.Invoke($"正在下载版本信息: {versionId}...");
+            }
+            else
+            {
+                StatusChanged?.Invoke($"正在获取版本信息: {versionId}...");
+                versionDetailUrl = await GetVersionDetailUrlAsync(versionId, _cts.Token);
+            }
             string jsonUrl = versionDetailUrl.Replace("https://launchermeta.mojang.com", "https://bmclapi2.bangbang93.com");
-            
+
             _versionInfo = new VersionInfo { Id = versionId, Url = jsonUrl };
 
             await StartDownloadAsync();
@@ -1410,50 +1434,61 @@ namespace MusicalNoteLauncher.Core
             }
         }
 
-        private async Task<string> GetVersionDetailUrlAsync(string versionId)
+        /// <summary>
+        /// 从版本清单获取指定版本 JSON 的下载地址（公开方法，供 BackendServer 等调用）。
+        /// 优先使用 BMCLAPI 镜像，失败后回退 Mojang 官方源。
+        /// </summary>
+        public async Task<string> GetVersionDownloadUrlAsync(string versionId)
         {
-            for (int i = 0; i < _manifestUrls.Length; i++)
+            string url = await GetVersionDetailUrlAsync(versionId);
+            // 优先使用 BMCLAPI 镜像加速
+            if (url.Contains("launchermeta.mojang.com"))
             {
-                try
+                url = url.Replace("https://launchermeta.mojang.com", "https://bmclapi2.bangbang93.com");
+            }
+            else if (url.Contains("piston-meta.mojang.com"))
+            {
+                url = url.Replace("https://piston-meta.mojang.com", "https://bmclapi2.bangbang93.com");
+            }
+            return url;
+        }
+
+        private async Task<string> GetVersionDetailUrlAsync(string versionId, CancellationToken ct = default)
+        {
+            // 命中缓存直接返回
+            if (_versionUrlCache.TryGetValue(versionId, out var cachedUrl))
+                return cachedUrl;
+
+            // 优先使用已缓存在线版本列表（通过 GetRemoteVersionsAsync 获取的列表前端已收到）
+            foreach (var manifestUrl in _manifestUrls)
+            {
+                using (var reqCts = CancellationTokenSource.CreateLinkedTokenSource(ct))
                 {
-                    using (var client = new WebClient())
+                    reqCts.CancelAfter(TimeSpan.FromSeconds(15));
+                    try
                     {
-                        client.Encoding = Encoding.UTF8;
-                        client.Headers.Add(HttpRequestHeader.UserAgent, _userAgent);
-                        client.Headers.Add(HttpRequestHeader.AcceptEncoding, "gzip, deflate");
-
-                        byte[] data = await client.DownloadDataTaskAsync(_manifestUrls[i]);
-
-                        string contentEncoding = client.ResponseHeaders[HttpResponseHeader.ContentEncoding];
-                        string manifestJson;
-
-                        if (!string.IsNullOrEmpty(contentEncoding) && (contentEncoding.Equals("gzip", StringComparison.OrdinalIgnoreCase) ||
-                            contentEncoding.Equals("deflate", StringComparison.OrdinalIgnoreCase)))
+                        using (var response = await _httpClient.GetAsync(manifestUrl, HttpCompletionOption.ResponseHeadersRead, reqCts.Token))
                         {
-                            manifestJson = DecompressData(data, contentEncoding);
-                        }
-                        else
-                        {
-                            manifestJson = Encoding.UTF8.GetString(data);
-                        }
-
-                        using (JsonDocument doc = JsonDocument.Parse(manifestJson))
-                        {
-                            JsonElement root = doc.RootElement;
-
-                            if (root.TryGetProperty("versions", out JsonElement versionsArray) &&
-                                versionsArray.ValueKind == JsonValueKind.Array)
+                            response.EnsureSuccessStatusCode();
+                            using (var stream = await response.Content.ReadAsStreamAsync())
+                            using (var decompressor = new GZipStream(stream, CompressionMode.Decompress))
+                            using (var reader = new StreamReader(decompressor, Encoding.UTF8))
                             {
-                                foreach (JsonElement element in versionsArray.EnumerateArray())
+                                var manifestJson = await reader.ReadToEndAsync();
+                                using (JsonDocument doc = JsonDocument.Parse(manifestJson))
                                 {
-                                    if (element.TryGetProperty("id", out JsonElement idElement))
+                                    if (doc.RootElement.TryGetProperty("versions", out var arr) && arr.ValueKind == JsonValueKind.Array)
                                     {
-                                        string id = idElement.GetString();
-                                        if (id == versionId)
+                                        foreach (var elem in arr.EnumerateArray())
                                         {
-                                            if (element.TryGetProperty("url", out JsonElement urlElement))
+                                            if (elem.TryGetProperty("id", out var idElem) && idElem.GetString() == versionId)
                                             {
-                                                return urlElement.GetString();
+                                                if (elem.TryGetProperty("url", out var urlElem))
+                                                {
+                                                    var url = urlElem.GetString();
+                                                    _versionUrlCache[versionId] = url;
+                                                    return url;
+                                                }
                                             }
                                         }
                                     }
@@ -1461,8 +1496,9 @@ namespace MusicalNoteLauncher.Core
                             }
                         }
                     }
+                    catch (OperationCanceledException) { } // 超时/取消 → 尝试下一个源
+                    catch { }
                 }
-                catch { }
             }
 
             throw new Exception($"无法找到版本 {versionId} 的详情URL");
@@ -1780,8 +1816,10 @@ namespace MusicalNoteLauncher.Core
 
         private async Task DownloadFileAsync(string url, string savePath, CancellationToken cancellationToken)
         {
-            int retryCount = 5;
-            int delayMs = 1000;
+            int retryCount = 3;
+            int delayMs = 300;
+            // 单请求超时 30 秒（避免被慢速服务器长时间阻塞）
+            var requestTimeout = TimeSpan.FromSeconds(30);
             
             // 确保目录存在
             string dir = Path.GetDirectoryName(savePath);
@@ -1804,14 +1842,18 @@ namespace MusicalNoteLauncher.Core
             {
                 try
                 {
-                    using (var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+                    using (var reqCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                     {
-                        response.EnsureSuccessStatusCode();
-                        
-                        using (var stream = await response.Content.ReadAsStreamAsync())
-                        using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                        reqCts.CancelAfter(requestTimeout);
+                        using (var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, reqCts.Token))
                         {
-                            await stream.CopyToAsync(fileStream, 81920, cancellationToken);
+                            response.EnsureSuccessStatusCode();
+                            
+                            using (var stream = await response.Content.ReadAsStreamAsync())
+                            using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                            {
+                                await stream.CopyToAsync(fileStream, 81920, cancellationToken);
+                            }
                         }
                     }
                     return;
@@ -1837,6 +1879,42 @@ namespace MusicalNoteLauncher.Core
                     delayMs *= 2;
                 }
             }
+        }
+
+        /// <summary>单次下载尝试（带 30s 超时，不重试），用于库文件的快速源回退</summary>
+        private async Task DownloadFileOnceAsync(string url, string savePath, CancellationToken cancellationToken)
+        {
+            string dir = Path.GetDirectoryName(savePath);
+            if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
+
+            if (File.Exists(savePath) && new FileInfo(savePath).Length == 0)
+                File.Delete(savePath);
+
+            using (var reqCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+            {
+                reqCts.CancelAfter(TimeSpan.FromSeconds(30));
+                using (var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, reqCts.Token))
+                {
+                    response.EnsureSuccessStatusCode();
+                    using (var stream = await response.Content.ReadAsStreamAsync())
+                    using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true))
+                    {
+                        await stream.CopyToAsync(fileStream, 81920, cancellationToken);
+                    }
+                }
+            }
+        }
+
+        /// <summary>将 BMCLAPI URL 转换为 Mojang 官方源</summary>
+        private static string GetMojangFallbackUrl(string url)
+        {
+            if (string.IsNullOrEmpty(url)) return null;
+            if (url.Contains("bmclapi2.bangbang93.com"))
+            {
+                return url.Replace("bmclapi2.bangbang93.com/maven", "libraries.minecraft.net")
+                          .Replace("bmclapi2.bangbang93.com", "libraries.minecraft.net");
+            }
+            return null;
         }
 
         private bool VerifyFileHash(string filePath, string expectedHash)

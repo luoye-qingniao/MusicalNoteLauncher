@@ -18,8 +18,18 @@ namespace MusicalNoteLauncher.Core
         public MusicCacheManager()
         {
             _cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MNL", "music_cache");
-            if (!Directory.Exists(_cacheDir))
-                Directory.CreateDirectory(_cacheDir);
+            try
+            {
+                if (!Directory.Exists(_cacheDir))
+                    Directory.CreateDirectory(_cacheDir);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[MusicCache] 创建缓存目录失败: {ex.Message}");
+                _cacheDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "music_cache");
+                if (!Directory.Exists(_cacheDir))
+                    Directory.CreateDirectory(_cacheDir);
+            }
 
             _http = SafeHttpClientFactory.CreateClient(60);
             _http.Timeout = TimeSpan.FromMinutes(5);

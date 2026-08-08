@@ -1,0 +1,18 @@
+{
+  "name": "mnl-electron",
+  "version": "1.2.2",
+  "description": "MNL 音符启动器 - Electron 跨平台壳",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64",
+    "build:mac": "electron-builder --mac --x64",
+    "build:all": "electron-builder --win --linux --mac --x64"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.9.0",
+    "rcedit": "^5.0.1"
+  }
+}

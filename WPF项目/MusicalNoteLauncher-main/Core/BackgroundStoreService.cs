@@ -18,10 +18,10 @@ namespace MusicalNoteLauncher.Core
 
         public static BackgroundStoreService Instance => _instance.Value;
 
-        private static readonly string StoreDir =
+        private static string StoreDir =>
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MNL", "backgrounds");
 
-        private static readonly string ManifestPath =
+        private static string ManifestPath =>
             Path.Combine(StoreDir, "manifest.json");
 
         private readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = true };

@@ -294,6 +294,23 @@ namespace MusicalNoteLauncher.Core
             return 0;
         }
 
+        /// <summary>获取完整内存信息（供 WebBridge 使用，返回 JSON 字符串）</summary>
+        public static string GetMemoryInfo()
+        {
+            var memStatus = new MEMORYSTATUSEX();
+            memStatus.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
+            if (GlobalMemoryStatusEx(ref memStatus))
+            {
+                double totalGB = memStatus.ullTotalPhys / (1024.0 * 1024 * 1024);
+                double availGB = memStatus.ullAvailPhys / (1024.0 * 1024 * 1024);
+                double usedGB = totalGB - availGB;
+                double usedPercent = totalGB > 0 ? (usedGB / totalGB) * 100 : 0;
+                double freePercent = totalGB > 0 ? (availGB / totalGB) * 100 : 0;
+                return $"{{\"usedGB\":\"{usedGB:F1}\",\"gameGB\":\"-\",\"freeGB\":\"{availGB:F1}\",\"totalGB\":\"{totalGB:F0}\",\"usedPercent\":{(int)usedPercent},\"gamePercent\":0,\"freePercent\":{(int)freePercent}}}";
+            }
+            return "{\"usedGB\":\"0\",\"gameGB\":\"-\",\"freeGB\":\"0\",\"totalGB\":\"0\",\"usedPercent\":0,\"gamePercent\":0,\"freePercent\":0}";
+        }
+
         // —— 优化步骤 ——
 
         /// <summary>清除系统文件缓存</summary>

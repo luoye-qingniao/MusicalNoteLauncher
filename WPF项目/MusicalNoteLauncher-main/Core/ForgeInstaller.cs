@@ -33,11 +33,11 @@ namespace MusicalNoteLauncher.Core
         private readonly HttpClient _httpClient;
 
         private static readonly string[] ForgeMavenUrls = new[]
-
         {
-
-            "https://files.minecraftforge.net/maven/net/minecraftforge/forge/",
-            "https://maven.minecraftforge.net/net/minecraftforge/forge/"
+            "https://bmclapi2.bangbang93.com/maven/net/minecraftforge/forge/",
+            "https://download.mcmod.cn/maven/net/minecraftforge/forge/",
+            "https://maven.minecraftforge.net/net/minecraftforge/forge/",
+            "https://files.minecraftforge.net/maven/net/minecraftforge/forge/"
         };
 
         public event Action<string> StatusChanged;
@@ -191,94 +191,77 @@ namespace MusicalNoteLauncher.Core
 
             {
 
-                StatusChanged?.Invoke($"开始安装 Forge {forgeVersion.Version}...");
-
                 // 1. 下载 Forge 安装包
-
+                StatusChanged?.Invoke($"开始安装 Forge {forgeVersion.Version}...");
                 string installerPath = await DownloadForgeInstaller(forgeVersion, cancellationToken);
                 if (string.IsNullOrEmpty(installerPath))
-
                 {
-
                     StatusChanged?.Invoke("下载 Forge 安装包失败");
                     return false;
-
                 }
-
-                ProgressChanged?.Invoke(20);
+                ProgressChanged?.Invoke(15);
 
                 // 2. 提取安装包内容
-
                 StatusChanged?.Invoke("提取 Forge 安装包...");
                 string extractDir = Path.Combine(Path.GetTempPath(), $"forge-install-{Guid.NewGuid()}");
                 await ExtractInstallerAsync(installerPath, extractDir, cancellationToken);
-                ProgressChanged?.Invoke(40);
+                ProgressChanged?.Invoke(25);
 
                 // 3. 创建 Forge 版本目录
-
                 StatusChanged?.Invoke("创建 Forge 版本目录...");
                 string forgeVersionDir = Path.Combine(_minecraftPath, "versions", forgeVersion.Version);
                 if (!Directory.Exists(forgeVersionDir))
-
                 {
-
                     Directory.CreateDirectory(forgeVersionDir);
-
                 }
-
-                ProgressChanged?.Invoke(50);
+                ProgressChanged?.Invoke(30);
 
                 // 4. 生成版本 JSON
-
                 StatusChanged?.Invoke("生成版本配置...");
                 await GenerateVersionJson(mcVersion, forgeVersion, forgeVersionDir, extractDir, cancellationToken);
-                ProgressChanged?.Invoke(70);
+                ProgressChanged?.Invoke(35);
 
-                // 5. 创建 mods 文件夹
-
-                string modsDir = Path.Combine(_minecraftPath, "mods");
-                if (!Directory.Exists(modsDir))
-
-                {
-
-                    Directory.CreateDirectory(modsDir);
-
-                }
-
-                ProgressChanged?.Invoke(80);
-
-                // 6. 清理临时文件
-
+                // 5. 清理临时文件
                 File.Delete(installerPath);
                 if (Directory.Exists(extractDir))
-
                 {
-
                     Directory.Delete(extractDir, true);
-
                 }
 
+                // 6. 下载所有依赖库（使用 BMCLAPI 国内镜像加速）
+                StatusChanged?.Invoke("正在下载 Forge 依赖库（使用国内镜像加速）...");
+                var repairService = new VersionRepairService(_minecraftPath);
+                repairService.StatusChanged += s => StatusChanged?.Invoke(s);
+                repairService.DownloadProgressChanged += (progress, status) =>
+                {
+                    int mappedProgress = 35 + (int)(progress * 0.55);
+                    ProgressChanged?.Invoke(Math.Min(mappedProgress, 90));
+                };
+                var repairResult = await repairService.RepairVersionAsync(forgeVersion.Version, cancellationToken);
+                if (!repairResult.IsSuccess)
+                {
+                    StatusChanged?.Invoke($"警告: 部分依赖下载可能不完整: {repairResult.ErrorMessage}");
+                }
                 ProgressChanged?.Invoke(90);
 
-                // 7. 验证安装
-
-                if (await VerifyInstallation(forgeVersion.Version))
-
+                // 7. 创建 mods 文件夹
+                string modsDir = Path.Combine(_minecraftPath, "mods");
+                if (!Directory.Exists(modsDir))
                 {
+                    Directory.CreateDirectory(modsDir);
+                }
 
+                // 8. 验证安装
+                if (await VerifyInstallation(forgeVersion.Version))
+                {
                     StatusChanged?.Invoke($"Forge {forgeVersion.Version} 安装完成！");
                     ProgressChanged?.Invoke(100);
                     return true;
-
                 }
-
                 else
-
                 {
-
                     StatusChanged?.Invoke("Forge 安装验证失败");
                     return false;
-
                 }
 
             }

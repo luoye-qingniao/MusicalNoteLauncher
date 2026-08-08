@@ -1,6 +1,6 @@
-<UserControl
+﻿<UserControl
 	x:Class="MusicalNoteLauncher.Pages.ProfilePage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:core="clr-namespace:MusicalNoteLauncher.Core"
-	Background="{DynamicResource BackgroundBrush}" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	Background="Transparent" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<UserControl.Resources>
 		<DropShadowEffect x:Key="CardShadow" Color="Black" Opacity="0.3" BlurRadius="12" ShadowDepth="4" />
 		<DropShadowEffect x:Key="ButtonShadow" Color="Black" Opacity="0.2" BlurRadius="8" ShadowDepth="2" />

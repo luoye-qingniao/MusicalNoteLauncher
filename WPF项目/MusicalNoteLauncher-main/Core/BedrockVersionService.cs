@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -19,6 +20,16 @@ namespace MusicalNoteLauncher.Core
         public string InstallerUrl { get; set; }
         public DateTime ReleaseTime { get; set; }
         public bool IsDownloaded { get; set; }
+
+        /// <summary>下载来源：mcappx / mcapks</summary>
+        public string Source { get; set; } = "mcappx";
+        /// <summary>下载来源友好显示名称</summary>
+        public string SourceDisplay => Source switch
+        {
+            "mcapks" => "苦力怕论坛",
+            "mcappx" => "mcappx",
+            _ => Source
+        };
 
         /// <summary>按钮文字：已下载 / 一键下载</summary>
         public string StatusText => IsDownloaded ? "已下载" : "一键下载";
@@ -63,6 +74,8 @@ namespace MusicalNoteLauncher.Core
     public class BedrockDownloadService
     {
         private const string BEDROCK_MANIFEST_URL = "https://data.mcappx.com/v2/bedrock.json";
+        private const string MCAPKS_LIST_URL = "https://mcapks.com/api/get-vslist.php";
+        private const string MCAPKS_DOWNLOAD_URL = "https://mcapks.com/api/get-download.php";
         private readonly string _minecraftPath;
         private readonly HttpClient _httpClient;
 
@@ -87,85 +100,201 @@ namespace MusicalNoteLauncher.Core
 
         public async Task<List<BedrockVersionInfo>> GetRemoteVersionsAsync(CancellationToken cancellationToken = default)
         {
-            List<BedrockVersionInfo> versions = new List<BedrockVersionInfo>();
+            var allVersions = new Dictionary<string, BedrockVersionInfo>(StringComparer.OrdinalIgnoreCase);
 
+            // 源1: mcappx.com（Windows）
+            var mcappxVersions = await FetchMcappxVersionsAsync(cancellationToken);
+            foreach (var v in mcappxVersions)
+            {
+                var key = v.Version ?? v.Id;
+                if (!allVersions.ContainsKey(key))
+                    allVersions[key] = v;
+            }
+
+            // 源2: mcapks.com（苦力怕论坛 / Android APK）
+            var mcapksVersions = await FetchMcapksVersionsAsync(cancellationToken);
+            foreach (var v in mcapksVersions)
+            {
+                var key = v.Version ?? v.Id;
+                if (!allVersions.ContainsKey(key))
+                    allVersions[key] = v;
+            }
+
+            return allVersions.Values.OrderByDescending(v => v.ReleaseTime).ToList();
+        }
+
+        /// <summary>从 mcappx.com 获取版本（Windows）</summary>
+        private async Task<List<BedrockVersionInfo>> FetchMcappxVersionsAsync(CancellationToken cancellationToken)
+        {
+            var versions = new List<BedrockVersionInfo>();
             try
             {
-                StatusChanged?.Invoke("正在获取基岩版版本列表...");
+                StatusChanged?.Invoke("正在获取基岩版版本列表 (mcappx)...");
                 using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
-                    cts.CancelAfter(30000);
+                    cts.CancelAfter(15000);
                     string json = await _httpClient.GetStringAsync(BEDROCK_MANIFEST_URL);
 
-                using (JsonDocument doc = JsonDocument.Parse(json))
-                {
-                    JsonElement root = doc.RootElement;
-                    // mcappx.com API: dictionary format
-                    if (root.TryGetProperty("From_mcappx.com", out JsonElement versionsDict))
+                    using (JsonDocument doc = JsonDocument.Parse(json))
                     {
-                        foreach (var kv in versionsDict.EnumerateObject())
+                        JsonElement root = doc.RootElement;
+                        if (root.TryGetProperty("From_mcappx.com", out JsonElement versionsDict))
                         {
-                            try
+                            foreach (var kv in versionsDict.EnumerateObject())
                             {
-                                string versionKey = kv.Name;
-                                var item = kv.Value;
-
-                                string type = "release";
-                                if (item.TryGetProperty("Type", out var t))
+                                try
                                 {
-                                    string typeStr = t.GetString() ?? "";
-                                    type = typeStr.ToLowerInvariant();
-                                }
+                                    string versionKey = kv.Name;
+                                    var item = kv.Value;
 
-                                string id = item.TryGetProperty("ID", out var vid) ? vid.GetString() : versionKey;
-                                string date = item.TryGetProperty("Date", out var d) ? d.GetString() : "";
+                                    string type = "release";
+                                    if (item.TryGetProperty("Type", out var t))
+                                        type = (t.GetString() ?? "").ToLowerInvariant();
 
-                                string installerUrl = null;
-                                if (item.TryGetProperty("Variations", out var variations))
-                                {
-                                    foreach (var v in variations.EnumerateArray())
+                                    string id = item.TryGetProperty("ID", out var vid) ? vid.GetString() : versionKey;
+                                    string date = item.TryGetProperty("Date", out var d) ? d.GetString() : "";
+
+                                    string installerUrl = null;
+                                    if (item.TryGetProperty("Variations", out var variations))
                                     {
-                                        string arch = v.TryGetProperty("Arch", out var a) ? a.GetString() : "";
-                                        if (arch != "x64") continue;
-                                        if (v.TryGetProperty("MetaData", out var md) && md.GetArrayLength() > 0)
+                                        foreach (var v in variations.EnumerateArray())
                                         {
-                                            string metaFirst = md[0].GetString();
-                                            if (!string.IsNullOrEmpty(metaFirst) && metaFirst.StartsWith("http", StringComparison.OrdinalIgnoreCase))
-                                                installerUrl = metaFirst;
+                                            string arch = v.TryGetProperty("Arch", out var a) ? a.GetString() : "";
+                                            if (arch != "x64") continue;
+                                            if (v.TryGetProperty("MetaData", out var md) && md.GetArrayLength() > 0)
+                                            {
+                                                string metaFirst = md[0].GetString();
+                                                if (!string.IsNullOrEmpty(metaFirst) && metaFirst.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                                    installerUrl = metaFirst;
+                                            }
+                                            break;
                                         }
-                                        break;
+                                    }
+
+                                    var info = new BedrockVersionInfo
+                                    {
+                                        Id = id,
+                                        Version = versionKey,
+                                        Type = type,
+                                        InstallerUrl = installerUrl,
+                                        Source = "mcappx"
+                                    };
+
+                                    if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var rt))
+                                        info.ReleaseTime = rt;
+
+                                    if (!string.IsNullOrEmpty(info.Id))
+                                    {
+                                        info.IsDownloaded = IsVersionDownloaded(info.Id);
+                                        versions.Add(info);
                                     }
                                 }
-
-                                BedrockVersionInfo info = new BedrockVersionInfo
-                                {
-                                    Id = id,
-                                    Version = versionKey,
-                                    Type = type,
-                                    InstallerUrl = installerUrl
-                                };
-
-                                if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var releaseTime))
-                                    info.ReleaseTime = releaseTime;
-
-                                if (!string.IsNullOrEmpty(info.Id))
-                                {
-                                    info.IsDownloaded = IsVersionDownloaded(info.Id);
-                                    versions.Add(info);
-                                }
+                                catch { }
                             }
-                            catch { }
                         }
                     }
-                }
                 }
             }
             catch (Exception ex)
             {
-                Logger.Error($"获取基岩版版本列表失败: {ex.Message}");
+                Logger.Error($"[基岩版 mcappx] 获取失败: {ex.Message}");
             }
-
             return versions;
+        }
+
+        /// <summary>从 mcapks.com（苦力怕论坛）获取版本</summary>
+        private async Task<List<BedrockVersionInfo>> FetchMcapksVersionsAsync(CancellationToken cancellationToken)
+        {
+            var versions = new List<BedrockVersionInfo>();
+            try
+            {
+                StatusChanged?.Invoke("正在获取基岩版版本列表 (苦力怕论坛)...");
+                using (var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
+                {
+                    cts.CancelAfter(15000);
+                    string json = await _httpClient.GetStringAsync(MCAPKS_LIST_URL);
+
+                    using (JsonDocument doc = JsonDocument.Parse(json))
+                    {
+                        JsonElement root = doc.RootElement;
+                        if (root.TryGetProperty("success", out var success) && success.GetBoolean())
+                        {
+                            if (root.TryGetProperty("data", out var data))
+                            {
+                                if (data.TryGetProperty("versions", out var vsList))
+                                {
+                                    foreach (var item in vsList.EnumerateArray())
+                                    {
+                                        try
+                                        {
+                                            string versionStr = item.TryGetProperty("version", out var v) ? v.GetString() : "";
+                                            if (string.IsNullOrEmpty(versionStr)) continue;
+
+                                            bool beta = item.TryGetProperty("beta", out var b) && b.GetBoolean();
+                                            string date = item.TryGetProperty("date", out var d) ? d.GetString() : "";
+
+                                            var info = new BedrockVersionInfo
+                                            {
+                                                Id = versionStr,
+                                                Version = versionStr,
+                                                Type = beta ? "preview" : "release",
+                                                InstallerUrl = versionStr, // 暂存版本号，下载时再查真实地址
+                                                Source = "mcapks"
+                                            };
+
+                                            if (!string.IsNullOrEmpty(date) && DateTime.TryParse(date, out var rt))
+                                                info.ReleaseTime = rt;
+
+                                            info.IsDownloaded = IsVersionDownloaded(info.Id);
+                                            versions.Add(info);
+                                        }
+                                        catch { }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[基岩版 苦力怕论坛] 获取失败: {ex.Message}");
+            }
+            return versions;
+        }
+
+        /// <summary>解析 mcapks 版本的真实下载地址</summary>
+        private async Task<string> ResolveMcapksDownloadUrlAsync(string versionId, CancellationToken cancellationToken)
+        {
+            try
+            {
+                string url = $"{MCAPKS_DOWNLOAD_URL}?version={Uri.EscapeDataString(versionId)}";
+                string json = await _httpClient.GetStringAsync(url);
+                using (JsonDocument doc = JsonDocument.Parse(json))
+                {
+                    JsonElement root = doc.RootElement;
+                    if (root.TryGetProperty("success", out var success) && success.GetBoolean())
+                    {
+                        if (root.TryGetProperty("data", out var data))
+                        {
+                            if (data.TryGetProperty("downloads", out var downloads) && downloads.GetArrayLength() > 0)
+                            {
+                                foreach (var d in downloads.EnumerateArray())
+                                {
+                                    string dlUrl = d.TryGetProperty("url", out var u) ? u.GetString() : "";
+                                    if (!string.IsNullOrEmpty(dlUrl) && dlUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                                        return dlUrl;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[基岩版 苦力怕论坛] 解析下载地址失败 ({versionId}): {ex.Message}");
+            }
+            return null;
         }
 
         private bool IsVersionDownloaded(string versionId)
@@ -228,13 +357,27 @@ namespace MusicalNoteLauncher.Core
                 string bedrockDir = Path.Combine(_minecraftPath, "bedrock", version.Id);
                 Directory.CreateDirectory(bedrockDir);
 
-                string installerPath = Path.Combine(bedrockDir, "installer.msixbundle");
+                // 解析真实下载地址
+                string downloadUrl = version.InstallerUrl;
+                string installerExt = ".msixbundle";
+
+                if (version.Source == "mcapks")
+                {
+                    taskInfo.Status = "正在解析下载地址...";
+                    StatusChanged?.Invoke($"正在获取基岩版 {version.Id} 下载地址 (苦力怕论坛)...");
+                    downloadUrl = await ResolveMcapksDownloadUrlAsync(version.InstallerUrl, cancellationToken);
+                    if (string.IsNullOrEmpty(downloadUrl))
+                        throw new Exception("无法获取下载地址");
+                    installerExt = ".xapk";
+                }
+
+                string installerPath = Path.Combine(bedrockDir, $"installer{installerExt}");
 
                 taskInfo.Status = "正在下载安装包";
-                taskInfo.CurrentFile = "installer.msixbundle";
-                StatusChanged?.Invoke($"正在下载基岩版 {version.Id}...");
+                taskInfo.CurrentFile = Path.GetFileName(installerPath);
+                StatusChanged?.Invoke($"正在下载基岩版 {version.Id} ({version.SourceDisplay})...");
 
-                await DownloadFileWithProgressAsync(version.InstallerUrl, installerPath, progress, cancellationToken);
+                await DownloadFileWithProgressAsync(downloadUrl, installerPath, progress, cancellationToken);
 
                 taskInfo.Status = "已完成";
                 taskInfo.IsCompleted = true;

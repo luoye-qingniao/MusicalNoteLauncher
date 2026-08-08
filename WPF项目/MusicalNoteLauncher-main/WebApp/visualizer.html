@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>音乐可视化播放 - MNL</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #05070c; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif; color: #fff; }
+    body { user-select: none; -webkit-user-select: none; }
+
+    #viz-canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; z-index: 1; }
+
+    /* 顶部：歌曲信息 + 退出按钮 */
+    .viz-top {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 28px; z-index: 10;
+      background: linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0) 100%);
+      pointer-events: none;
+    }
+    .viz-top > * { pointer-events: auto; }
+    .viz-track-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .viz-cover {
+      width: 52px; height: 52px; border-radius: 8px; flex-shrink: 0;
+      background: #1a1a2e url('img/icon.png') center/cover;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .viz-cover img { width: 100%; height: 100%; border-radius: 8px; object-fit: cover; }
+    .viz-meta { min-width: 0; }
+    .viz-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; }
+    .viz-artist { font-size: 13px; color: rgba(255,255,255,0.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 360px; margin-top: 4px; }
+    .viz-exit {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 16px; border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.08); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-radius: 22px; color: #fff; font-size: 13px; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .viz-exit:hover { background: rgba(255,255,255,0.18); border-color: rgba(255,255,255,0.35); transform: translateY(-1px); }
+
+    /* 底部：控制条 */
+    .viz-bottom {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      padding: 20px 28px 28px; z-index: 10;
+      background: linear-gradient(0deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0) 100%);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .viz-progress-row { display: flex; align-items: center; gap: 12px; }
+    .viz-time { font-size: 12px; color: rgba(255,255,255,0.75); font-variant-numeric: tabular-nums; min-width: 42px; }
+    .viz-progress {
+      flex: 1; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; cursor: pointer; position: relative; overflow: hidden;
+    }
+    .viz-progress-fill { position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(90deg, #4FC3F7, #B388FF, #F06292); border-radius: 2px; width: 0%; transition: width 0.1s linear; }
+    .viz-progress-thumb {
+      position: absolute; top: 50%; transform: translate(-50%, -50%);
+      width: 12px; height: 12px; background: #fff; border-radius: 50%;
+      box-shadow: 0 0 8px rgba(255,255,255,0.6);
+      left: 0%; opacity: 0; transition: opacity 0.2s;
+    }
+    .viz-progress:hover .viz-progress-thumb { opacity: 1; }
+
+    .viz-controls-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .viz-controls-left, .viz-controls-right { display: flex; align-items: center; gap: 10px; }
+    .viz-ctrl-btn {
+      width: 38px; height: 38px; border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-radius: 50%; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; transition: all 0.2s;
+    }
+    .viz-ctrl-btn:hover { background: rgba(255,255,255,0.18); transform: scale(1.08); }
+    .viz-ctrl-btn.play {
+      width: 56px; height: 56px; font-size: 22px;
+      background: linear-gradient(135deg, #4FC3F7 0%, #B388FF 100%);
+      border: none; box-shadow: 0 6px 20px rgba(79,195,247,0.4);
+    }
+    .viz-ctrl-btn.play:hover { box-shadow: 0 8px 28px rgba(79,195,247,0.6); }
+
+    .viz-mode-select {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      color: #fff; font-size: 12px; padding: 6px 12px; border-radius: 16px; cursor: pointer; outline: none;
+    }
+    .viz-mode-select option { background: #1a1a2e; color: #fff; }
+
+    .viz-volume { display: flex; align-items: center; gap: 8px; }
+    .viz-volume-bar {
+      width: 90px; height: 4px; background: rgba(255,255,255,0.15); border-radius: 2px; cursor: pointer; position: relative;
+    }
+    .viz-volume-fill { position: absolute; top: 0; left: 0; height: 100%; background: rgba(255,255,255,0.85); border-radius: 2px; width: 70%; }
+
+    /* 中央：状态提示（无歌曲时） */
+    .viz-empty {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 5; text-align: center; gap: 12px;
+    }
+    .viz-empty-icon { font-size: 64px; opacity: 0.6; }
+    .viz-empty-text { font-size: 16px; color: rgba(255,255,255,0.7); }
+    .viz-empty-hint { font-size: 13px; color: rgba(255,255,255,0.4); margin-bottom: 20px; }
+    .viz-exit-empty { margin-top: 8px; }
+
+    /* 加载状态 */
+    .viz-loading {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      z-index: 20; background: rgba(0,0,0,0.85); flex-direction: column; gap: 16px;
+    }
+    .viz-spinner {
+      width: 48px; height: 48px; border: 3px solid rgba(255,255,255,0.15);
+      border-top-color: #4FC3F7; border-radius: 50%;
+      animation: viz-spin 0.9s linear infinite;
+    }
+    @keyframes viz-spin { to { transform: rotate(360deg); } }
+    .viz-loading-text { font-size: 14px; color: rgba(255,255,255,0.7); }
+  </style>
+</head>
+<body>
+  <div class="viz-loading" id="viz-loading">
+    <div class="viz-spinner"></div>
+    <div class="viz-loading-text">加载中…</div>
+  </div>
+
+  <!-- 3D Canvas 容器：Visualizer.init 把 renderer 的 canvas 追加到这里 -->
+  <div id="viz-canvas" style="position:fixed;inset:0;width:100%;height:100%;z-index:1;"></div>
+
+  <div class="viz-empty" id="viz-empty" style="display:none;">
+    <div class="viz-empty-icon">🎵</div>
+    <div class="viz-empty-text">暂无可播放的歌曲</div>
+    <div class="viz-empty-hint">请先返回音乐盒选择歌曲</div>
+    <button class="viz-exit viz-exit-empty" onclick="window.history.length>1?window.history.back():window.location.href='index.html'">← 返回</button>
+  </div>
+
+  <div class="viz-top" id="viz-top" style="display:none;">
+    <div class="viz-track-info">
+      <div class="viz-cover"><img id="viz-cover-img" src="" onerror="this.style.display='none'"></div>
+      <div class="viz-meta">
+        <div class="viz-title" id="viz-title">未知歌曲</div>
+        <div class="viz-artist" id="viz-artist">未知艺术家</div>
+      </div>
+    </div>
+    <button class="viz-exit" id="viz-exit">
+      <span>←</span><span>返回</span>
+    </button>
+  </div>
+
+  <div class="viz-bottom" id="viz-bottom" style="display:none;">
+    <div class="viz-progress-row">
+      <span class="viz-time" id="viz-cur-time">0:00</span>
+      <div class="viz-progress" id="viz-progress">
+        <div class="viz-progress-fill" id="viz-progress-fill"></div>
+        <div class="viz-progress-thumb" id="viz-progress-thumb"></div>
+      </div>
+      <span class="viz-time" id="viz-dur-time">0:00</span>
+    </div>
+    <div class="viz-controls-row">
+      <div class="viz-controls-left">
+        <select class="viz-mode-select" id="viz-mode" style="display:none;">
+          <option value="list">📋 列表</option>
+          <option value="loop">🔁 循环</option>
+          <option value="single">🔂 单曲</option>
+          <option value="random">🔀 随机</option>
+        </select>
+        <div class="mnl-select viz-mode-select" id="viz-mode-wrap">
+          <div class="mnl-select-trigger" id="viz-mode-trigger">
+            <span class="mnl-select-text" id="viz-mode-text">📋 列表</span>
+            <span class="mnl-select-arrow">▾</span>
+          </div>
+          <div class="mnl-select-menu" id="viz-mode-menu" style="display:none;">
+            <div class="mnl-select-item active" data-value="list">📋 列表</div>
+            <div class="mnl-select-item" data-value="loop">🔁 循环</div>
+            <div class="mnl-select-item" data-value="single">🔂 单曲</div>
+            <div class="mnl-select-item" data-value="random">🔀 随机</div>
+          </div>
+        </div>
+      </div>
+      <div class="viz-controls-right">
+        <button class="viz-ctrl-btn" id="viz-prev" title="上一首">⏮</button>
+        <button class="viz-ctrl-btn play" id="viz-play" title="播放/暂停">▶</button>
+        <button class="viz-ctrl-btn" id="viz-next" title="下一首">⏭</button>
+        <div class="viz-volume">
+          <span id="viz-vol-icon" style="font-size:14px;cursor:pointer;">🔊</span>
+          <div class="viz-volume-bar" id="viz-volume-bar">
+            <div class="viz-volume-fill" id="viz-volume-fill"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/three.bundle.js"></script>
+  <script src="visualizer.js"></script>
+  <script>
+    (function () {
+      'use strict';
+      var loadingEl = document.getElementById('viz-loading');
+      var emptyEl = document.getElementById('viz-empty');
+      var topEl = document.getElementById('viz-top');
+      var bottomEl = document.getElementById('viz-bottom');
+      var playBtn = document.getElementById('viz-play');
+      var prevBtn = document.getElementById('viz-prev');
+      var nextBtn = document.getElementById('viz-next');
+      var progressEl = document.getElementById('viz-progress');
+      var progressFill = document.getElementById('viz-progress-fill');
+      var progressThumb = document.getElementById('viz-progress-thumb');
+      var curTimeEl = document.getElementById('viz-cur-time');
+      var durTimeEl = document.getElementById('viz-dur-time');
+      var coverImg = document.getElementById('viz-cover-img');
+      var titleEl = document.getElementById('viz-title');
+      var artistEl = document.getElementById('viz-artist');
+      var modeEl = document.getElementById('viz-mode');
+      var volBar = document.getElementById('viz-volume-bar');
+      var volFill = document.getElementById('viz-volume-fill');
+      var volIcon = document.getElementById('viz-vol-icon');
+      var exitBtn = document.getElementById('viz-exit');
+
+      // 读取状态
+      var state = null;
+      try {
+        var raw = sessionStorage.getItem('mnl.viz.state');
+        if (raw) state = JSON.parse(raw);
+      } catch (e) {}
+      if (!state || !state.queue || !state.queue.length) {
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'flex';
+        return;
+      }
+
+      // 始终显示 top 栏（含返回按钮），防止黑屏卡死
+      topEl.style.display = 'flex';
+
+      var queue = state.queue;
+      var currentIndex = state.currentIndex || 0;
+      var playMode = state.playMode || 'list';
+      var volume = state.volume != null ? state.volume : 0.7;
+      var isPlaying = false;
+      var firstLoadDone = false;
+
+      // 音频元素
+      var audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      audio.volume = volume;
+
+      // 初始化可视化
+      var vizReady = false;
+      var container = document.getElementById('viz-canvas');
+
+      function startVisualizer() {
+        if (vizReady) return;
+        try {
+          Visualizer.init('viz-canvas', audio);
+          vizReady = true;
+          Visualizer.setPlaying(false);
+          loadingEl.style.display = 'none';
+          topEl.style.display = 'flex';
+          bottomEl.style.display = 'flex';
+          emptyEl.style.display = 'none';
+          // init 完成后预加载第一首
+          if (!firstLoadDone && queue.length > 0) {
+            firstLoadDone = true;
+            loadTrack(currentIndex);
+          }
+        } catch (e) {
+          loadingEl.querySelector('.viz-loading-text').textContent = '3D 初始化失败: ' + e.message;
+          console.error('[Viz] 初始化错误:', e);
+        }
+      }
+
+      // Three.js 可能较大，用 requestAnimationFrame 等它加载完
+      function waitForThree() {
+        if (typeof THREE !== 'undefined') {
+          startVisualizer();
+        } else {
+          setTimeout(waitForThree, 100);
+        }
+      }
+      setTimeout(waitForThree, 200);
+
+      // ===== 封面颜色提取 =====
+      var coverCanvas = document.createElement('canvas');
+      var coverCtx = coverCanvas.getContext('2d');
+
+      function extractCoverColors(url) {
+        // 通过代理加载避免跨域阻止 Canvas getImageData
+        var proxyUrl = '/api/img?url=' + encodeURIComponent(url);
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+          var w = 60, h = 60;
+          coverCanvas.width = w;
+          coverCanvas.height = h;
+          coverCtx.drawImage(img, 0, 0, w, h);
+          var data;
+          try {
+            data = coverCtx.getImageData(0, 0, w, h).data;
+          } catch (e) {
+            console.warn('[Cover] getImageData 失败:', e.message);
+            // 回退色：中性冷暖混合，避免大片蓝色
+            Visualizer.setThemeColors(0.25, 0.45, 0.9, 0.9, 0.3, 0.15, 0.15, 0.75, 0.95);
+            return;
+          }
+          // 采样分区颜色
+          var primaryPixels = [], secondaryPixels = [], highlightPixels = [];
+          for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+              var i = (y * w + x) * 4;
+              var r = data[i], g = data[i + 1], b = data[i + 2];
+              if (r < 15 && g < 15 && b < 15) continue;
+              var brightness = r + g + b;
+              if (brightness > 500) highlightPixels.push([r, g, b]);
+              else if (brightness > 200) primaryPixels.push([r, g, b]);
+              else secondaryPixels.push([r, g, b]);
+            }
+          }
+          function avgColor(pixels, fallback) {
+            if (!pixels.length) return fallback;
+            var sr = 0, sg = 0, sb = 0;
+            for (var j = 0; j < pixels.length; j++) {
+              sr += pixels[j][0]; sg += pixels[j][1]; sb += pixels[j][2];
+            }
+            return [sr / pixels.length, sg / pixels.length, sb / pixels.length];
+          }
+          var primary = avgColor(primaryPixels.length ? primaryPixels : secondaryPixels, [100, 130, 200]);
+          var secondary = avgColor(secondaryPixels.length ? secondaryPixels : primaryPixels, [200, 80, 40]);
+          var highlight = avgColor(highlightPixels.length ? highlightPixels : primaryPixels, [80, 200, 240]);
+
+          console.log('[Cover] 提取颜色:', primary, secondary, highlight);
+          Visualizer.setThemeColors(
+            primary[0] / 255, primary[1] / 255, primary[2] / 255,
+            secondary[0] / 255, secondary[1] / 255, secondary[2] / 255,
+            highlight[0] / 255, highlight[1] / 255, highlight[2] / 255
+          );
+        };
+        img.onerror = function (e) {
+          console.warn('[Cover] 封面图片加载失败:', url);
+          // 中性回退色
+          Visualizer.setThemeColors(0.25, 0.45, 0.9, 0.9, 0.3, 0.15, 0.15, 0.75, 0.95);
+        };
+        img.src = proxyUrl;
+      }
+
+      // ===== 舞台歌词：直接走 Three.js 渲染（照搬 Mineradio）=====
+      // Visualizer.showStageLyric() 在 visualizer.js 中实现
+
+      // ===== 播放控制 =====
+      function loadTrack(index) {
+        if (index < 0 || index >= queue.length) return;
+        var track = queue[index];
+        currentIndex = index;
+        if (track.coverUrl) {
+          coverImg.src = track.coverUrl;
+          coverImg.style.display = '';
+          // 提取封面主色调 → 传给可视化着色器
+          extractCoverColors(track.coverUrl);
+        } else {
+          coverImg.style.display = 'none';
+          // 无封面时用中性色
+          Visualizer.setThemeColors(0.25, 0.45, 0.9, 0.9, 0.3, 0.15, 0.15, 0.75, 0.95);
+        }
+        titleEl.textContent = track.name || track.title || '未知歌曲';
+        artistEl.textContent = track.artist || '未知艺术家';
+        // 舞台歌词浮层（Three.js 3D 渲染，照搬 Mineradio）
+        Visualizer.showStageLyric(track.name || track.title || '');
+        // 使用代理 URL
+        var url = track.url || '';
+        if (url && url.indexOf('/api/audio') !== 0 && url.indexOf('http') === 0) {
+          url = '/api/audio?url=' + encodeURIComponent(url);
+        }
+        if (url) {
+          audio.src = url;
+          audio.play().then(function () {
+            isPlaying = true;
+            updatePlayBtn();
+            Visualizer.setPlaying(true);
+            Visualizer.setAudioSource(audio);
+          }).catch(function (e) {
+            console.warn('[Viz] 播放失败:', e);
+            isPlaying = false;
+            updatePlayBtn();
+          });
+        }
+      }
+
+      function updatePlayBtn() {
+        playBtn.textContent = isPlaying ? '⏸' : '▶';
+      }
+
+      function fmtTime(sec) {
+        if (!sec || !isFinite(sec)) return '0:00';
+        var m = Math.floor(sec / 60);
+        var s = Math.floor(sec % 60);
+        return m + ':' + (s < 10 ? '0' : '') + s;
+      }
+
+      function seek(e) {
+        if (!audio.duration) return;
+        var rect = progressEl.getBoundingClientRect();
+        var pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        audio.currentTime = pct * audio.duration;
+      }
+
+      playBtn.addEventListener('click', function () {
+        if (!queue.length) return;
+        if (!audio.src && currentIndex < queue.length) {
+          loadTrack(currentIndex);
+          return;
+        }
+        if (isPlaying) {
+          audio.pause();
+          isPlaying = false;
+          Visualizer.setPlaying(false);
+        } else {
+          audio.play().then(function () {
+            isPlaying = true;
+            Visualizer.setPlaying(true);
+          }).catch(function () {});
+        }
+        updatePlayBtn();
+      });
+
+      prevBtn.addEventListener('click', function () {
+        var idx = currentIndex;
+        if (playMode === 'random') {
+          idx = Math.floor(Math.random() * queue.length);
+        } else {
+          idx = idx <= 0 ? queue.length - 1 : idx - 1;
+        }
+        loadTrack(idx);
+      });
+
+      nextBtn.addEventListener('click', function () {
+        var idx = currentIndex;
+        if (playMode === 'random') {
+          idx = Math.floor(Math.random() * queue.length);
+        } else {
+          idx = idx >= queue.length - 1 ? 0 : idx + 1;
+        }
+        loadTrack(idx);
+      });
+
+      audio.addEventListener('ended', function () {
+        isPlaying = false;
+        updatePlayBtn();
+        Visualizer.setPlaying(false);
+        nextBtn.click();
+      });
+
+      audio.addEventListener('timeupdate', function () {
+        if (!audio.duration) return;
+        var pct = (audio.currentTime / audio.duration) * 100;
+        progressFill.style.width = pct + '%';
+        progressThumb.style.left = pct + '%';
+        curTimeEl.textContent = fmtTime(audio.currentTime);
+      });
+
+      audio.addEventListener('loadedmetadata', function () {
+        durTimeEl.textContent = fmtTime(audio.duration);
+      });
+
+      audio.addEventListener('error', function () {
+        console.warn('[Viz] 音频错误');
+        nextBtn.click();
+      });
+
+      progressEl.addEventListener('click', seek);
+      // 进度条拖拽
+      var draggingProgress = false;
+      progressEl.addEventListener('mousedown', function (e) {
+        draggingProgress = true;
+        seek(e);
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function (e) {
+        if (!draggingProgress) return;
+        seek(e);
+      });
+      document.addEventListener('mouseup', function () {
+        draggingProgress = false;
+      });
+
+      modeEl.value = playMode;
+      modeEl.addEventListener('change', function () {
+        playMode = modeEl.value;
+      });
+
+      // 音量
+      volFill.style.width = (volume * 100) + '%';
+      function setVolume(e) {
+        var rect = volBar.getBoundingClientRect();
+        volume = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        audio.volume = volume;
+        volFill.style.width = (volume * 100) + '%';
+        volIcon.textContent = volume === 0 ? '🔇' : volume < 0.5 ? '🔉' : '🔊';
+      }
+      volBar.addEventListener('click', setVolume);
+      // 音量条拖拽
+      var draggingVolume = false;
+      volBar.addEventListener('mousedown', function (e) {
+        draggingVolume = true;
+        setVolume(e);
+        e.preventDefault();
+      });
+      document.addEventListener('mousemove', function (e) {
+        if (!draggingVolume) return;
+        setVolume(e);
+      });
+      document.addEventListener('mouseup', function () {
+        draggingVolume = false;
+      });
+
+      volIcon.addEventListener('click', function () {
+        if (audio.volume > 0) { audio.volume = 0; volume = 0; volIcon.textContent = '🔇'; }
+        else { audio.volume = 0.7; volume = 0.7; volIcon.textContent = '🔊'; }
+        volFill.style.width = (volume * 100) + '%';
+      });
+
+      exitBtn.addEventListener('click', function () {
+        // 保存当前播放状态，让音乐盒恢复
+        var resumeState = {
+          queue: queue,
+          currentIndex: currentIndex,
+          playMode: playMode,
+          volume: audio.volume,
+          currentTime: audio.currentTime || 0,
+          isPlaying: isPlaying
+        };
+        sessionStorage.setItem('mnl.viz.resume', JSON.stringify(resumeState));
+        // 设置标记让 index.html 自动切到音乐盒
+        sessionStorage.setItem('mnl.viz.returnToMusic', '1');
+        window.location.href = 'index.html';
+      });
+
+      // 加载由 startVisualizer 在 init 完成后触发
+
+      // ---- 自定义 viz-mode 下拉框 ----
+      (function(){
+        var trigger = document.getElementById('viz-mode-trigger');
+        var menu = document.getElementById('viz-mode-menu');
+        var text = document.getElementById('viz-mode-text');
+        var wrap = document.getElementById('viz-mode-wrap');
+        var items = menu.querySelectorAll('.mnl-select-item');
+        var currentVal = 'list';
+
+        trigger.addEventListener('click', function(e){
+          e.stopPropagation();
+          var isOpen = menu.style.display !== 'none';
+          menu.style.display = isOpen ? 'none' : 'block';
+          wrap.classList.toggle('open', !isOpen);
+        });
+
+        items.forEach(function(item){
+          item.addEventListener('click', function(){
+            var val = item.getAttribute('data-value');
+            currentVal = val;
+            text.textContent = item.textContent;
+            items.forEach(function(i){ i.classList.remove('active'); });
+            item.classList.add('active');
+            menu.style.display = 'none';
+            wrap.classList.remove('open');
+
+            var oldSelect = document.getElementById('viz-mode');
+            if (oldSelect) oldSelect.value = val;
+          });
+        });
+
+        document.addEventListener('click', function(){
+          menu.style.display = 'none';
+          wrap.classList.remove('open');
+        });
+
+        window.getVizMode = function(){ return currentVal; };
+      })();
+
+    })();
+  </script>
+</html>

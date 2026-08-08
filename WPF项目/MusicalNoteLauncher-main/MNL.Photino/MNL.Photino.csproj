@@ -1,0 +1,54 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>MusicalNoteLauncher</AssemblyName>
+    <Version>1.2.2.0</Version>
+    <ApplicationIcon>..\Assets\图标.ico</ApplicationIcon>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);WINDOWS</DefineConstants>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Photino.NET" Version="4.0.16" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- 仅链接必要的纯跨平台 Core 文件 -->
+  <ItemGroup>
+    <Compile Include="..\Core\Logger.cs" Link="Core\Logger.cs" />
+    <Compile Include="..\Core\MNLEnvironment.cs" Link="Core\MNLEnvironment.cs" />
+    <Compile Include="..\Core\ConfigManager.cs" Link="Core\ConfigManager.cs" />
+    <Compile Include="..\Core\SettingsManager.cs" Link="Core\SettingsManager.cs" />
+    <Compile Include="..\Core\ModLoaderDetector.cs" Link="Core\ModLoaderDetector.cs" />
+    <Compile Include="..\Core\SafeHttpClientFactory.cs" Link="Core\SafeHttpClientFactory.cs" />
+    <Compile Include="..\MNL.Backend\PlatformHelper.cs" Link="Core\PlatformHelper.cs" />
+    <Compile Include="..\MNL.Backend\EventBus.cs" Link="Core\EventBus.cs" />
+  </ItemGroup>
+
+  <!-- 复制 WebApp 到输出目录 -->
+  <ItemGroup>
+    <Content Include="..\WebApp\**\*" Exclude="..\WebApp\test-step.html;..\WebApp\test-vue.html;..\WebApp\vue.global.prod.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>WebApp\%(RecursiveDir)%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Assets\图标.ico">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Assets\图标.ico</Link>
+    </Content>
+    <Content Include="..\Assets\Skins\steve.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Assets\steve.png</Link>
+    </Content>
+    <Content Include="..\Assets\Skins\alex.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>Assets\alex.png</Link>
+    </Content>
+  </ItemGroup>
+</Project>

@@ -42,11 +42,11 @@ namespace MusicalNoteLauncher
         /// <summary>当前选中账号的 UUID（用于皮肤加载）</summary>
         public static string CurrentAccountUuid { get; set; }
 
-        /// <summary>青鸟账号唯一数字ID（持久化，首次生成后固定不变）</summary>
-        public static string QingniaoId { get; private set; }
+        /// <summary>青鸟账号唯一数字ID（持久化，首次生成后固定不变，登录后可被服务器数据覆盖）</summary>
+        public static string QingniaoId { get; set; }
 
-        /// <summary>青鸟账号显示名称（可修改）</summary>
-        public static string QingniaoName { get; private set; }
+        /// <summary>青鸟账号显示名称（可修改，登录后可被服务器数据覆盖）</summary>
+        public static string QingniaoName { get; set; }
 
         public static event Action<string, string, bool> AccountChanged;
 

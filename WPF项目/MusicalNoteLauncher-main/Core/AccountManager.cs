@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using MusicalNoteLauncher.Core;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
@@ -77,7 +78,8 @@ namespace PCL.Account
             }
 
             msJson.Remove(oldUserName ?? result.Name);
-            msJson[result.Name] = oAuthRefreshToken;
+            // 存储格式：{ "name": { "token": "xxx", "uuid": "xxx" } }，兼容旧格式 "name": "xxx"
+            msJson[result.Name] = JToken.FromObject(new { token = oAuthRefreshToken, uuid = result.Uuid ?? "" });
             Settings.Set("LoginMsJson", msJson.ToString(Formatting.None));
         }
 
@@ -112,16 +114,32 @@ namespace PCL.Account
                 JObject msJson = JObject.Parse(Settings.Get<string>("LoginMsJson") ?? "{}");
                 foreach (var account in msJson)
                 {
+                    string uuid = "";
+                    string token = "";
+                    // 兼容新格式 { "name": { "token": "...", "uuid": "..." } } 和旧格式 { "name": "token" }
+                    if (account.Value is JObject obj)
+                    {
+                        token = obj["token"]?.ToString() ?? "";
+                        uuid = obj["uuid"]?.ToString() ?? "";
+                    }
+                    else
+                    {
+                        token = account.Value.ToString();
+                    }
+                    // 回退：旧数据无 uuid，尝试从全局缓存读取（CacheMsV2Uuid 存最近一次登录的 UUID）
+                    if (string.IsNullOrEmpty(uuid))
+                        uuid = Settings.Get<string>("CacheMsV2Uuid") ?? "";
                     accounts.Add(new McLoginMs
                     {
                         UserName = account.Key,
-                        OAuthRefreshToken = account.Value.ToString()
+                        OAuthRefreshToken = token,
+                        Uuid = uuid
                     });
                 }
             }
             catch
             {
-                Settings.Set("LoginMsJson", "{}");
+                System.Diagnostics.Debug.WriteLine($"[AccountManager] 解析 LoginMsJson 失败，保留原数据");
             }
             return accounts;
         }
@@ -145,7 +163,7 @@ namespace PCL.Account
             }
             catch
             {
-                Settings.Set("LoginMsJson", "{}");
+                System.Diagnostics.Debug.WriteLine($"[AccountManager] 解析 LoginMsJson 失败，保留原数据");
             }
         }
 
@@ -218,13 +236,14 @@ namespace PCL.Account
             Settings.Set("Cache" + token + "Uuid", result.Uuid);
             Settings.Set("Cache" + token + "Name", result.Name);
             Settings.Set("Cache" + token + "Username", userName);
-            Settings.Set("Cache" + token + "Pass", password);
+            Settings.Set("Cache" + token + "Pass", SecureStorage.Protect(password));
         }
 
         public static bool IsServerCacheValid(string token, string userName, string password)
         {
+            var storedPass = SecureStorage.Unprotect(Settings.Get<string>("Cache" + token + "Pass"));
             return Settings.Get<string>("Cache" + token + "Username") == userName &&
-                   Settings.Get<string>("Cache" + token + "Pass") == password &&
+                   storedPass == password &&
                    !string.IsNullOrEmpty(Settings.Get<string>("Cache" + token + "Access")) &&
                    !string.IsNullOrEmpty(Settings.Get<string>("Cache" + token + "Client")) &&
                    !string.IsNullOrEmpty(Settings.Get<string>("Cache" + token + "Uuid")) &&
@@ -264,7 +283,7 @@ namespace PCL.Account
                 }
 
                 dict.Remove(userName);
-                dict = new Dictionary<string, string> { { userName, password } }
+                dict = new Dictionary<string, string> { { userName, SecureStorage.Protect(password) } }
                     .Concat(dict.Where(kv => kv.Key != userName))
                     .ToDictionary(kv => kv.Key, kv => kv.Value);
 
@@ -290,7 +309,7 @@ namespace PCL.Account
                 string[] passes = passesRaw.Split('¨');
                 for (int i = 0; i < Math.Min(emails.Length, passes.Length); i++)
                 {
-                    records.Add(Tuple.Create(emails[i], passes[i]));
+                    records.Add(Tuple.Create(emails[i], SecureStorage.Unprotect(passes[i])));
                 }
             }
             return records;
@@ -346,7 +365,7 @@ namespace PCL.Account
             {
                 Token = "Nide",
                 UserName = userName ?? Settings.Get<string>("CacheNideUsername"),
-                Password = password ?? Settings.Get<string>("CacheNidePass"),
+                Password = password ?? SecureStorage.Unprotect(Settings.Get<string>("CacheNidePass")),
                 Description = "统一通行证",
                 Type = McLoginType.Nide,
                 BaseUrl = $"https://auth.mc-user.com:233/{server}/authserver"
@@ -380,9 +399,9 @@ namespace PCL.Account
             return new McLoginServer
             {
                 Token = "Auth",
-                BaseUrl = $"{server}/authserver",
+                BaseUrl = $"https://{server}/authserver",
                 UserName = userName ?? Settings.Get<string>("CacheAuthUsername"),
-                Password = password ?? Settings.Get<string>("CacheAuthPass"),
+                Password = password ?? SecureStorage.Unprotect(Settings.Get<string>("CacheAuthPass")),
                 Description = "Authlib-Injector",
                 Type = McLoginType.Auth
             };
@@ -424,8 +443,8 @@ namespace PCL.Account
             {
                 Token = "QingNiao",
                 BaseUrl = $"https://{server}/authserver",
-                UserName = userName ?? Settings.Get<string>("CacheQingNiaoUsername"),
-                Password = password ?? Settings.Get<string>("CacheQingNiaoPass"),
+                UserName = userName ?? Settings.Get<string>("CacheQingNiaoEmail"),
+                Password = password ?? SecureStorage.Unprotect(Settings.Get<string>("CacheQingNiaoPass")),
                 Description = "青鸟账号",
                 Type = McLoginType.Auth
             };

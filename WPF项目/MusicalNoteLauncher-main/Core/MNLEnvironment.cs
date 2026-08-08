@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows;
 
 namespace MusicalNoteLauncher.Core
 {
@@ -72,7 +71,6 @@ namespace MusicalNoteLauncher.Core
         private static readonly string[] RequiredMNLDirectories = new[]
         {
             "skins",
-            "logs",
             "backgrounds"
         };
 
@@ -98,6 +96,38 @@ namespace MusicalNoteLauncher.Core
         };
 
         /// <summary>
+        /// 获取应用程序所在目录。
+        /// Environment.ProcessPath 在所有发布模式下都返回真实的 exe 路径。
+        /// 同时写入诊断文件到 %TEMP%\mnl_path_diag.txt 用于排查。
+        /// </summary>
+        private static string GetAppDirectory()
+        {
+            string exePath = Environment.ProcessPath;
+            string exeDir = !string.IsNullOrEmpty(exePath)
+                ? Path.GetDirectoryName(exePath)
+                : null;
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+
+            // 诊断：写入 %TEMP% 确保无论何种模式都能看到实际路径
+            try
+            {
+                string diagFile = Path.Combine(Path.GetTempPath(), "mnl_path_diag.txt");
+                File.WriteAllText(diagFile,
+                    $"ProcessPath: {exePath ?? "(null)"}\n" +
+                    $"ProcessPathDir: {exeDir ?? "(null)"}\n" +
+                    $"BaseDirectory: {baseDir}\n" +
+                    $"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}\n");
+                Console.WriteLine($"[MNL Diag] 诊断文件: {diagFile}");
+            }
+            catch { }
+
+            if (!string.IsNullOrEmpty(exeDir))
+                return exeDir;
+
+            return baseDir;
+        }
+
+        /// <summary>
         /// 初始化 MNL 环境。在 App.OnStartup 中尽早调用。
         /// 优先扫描官方 .minecraft 文件夹（%appdata%\.minecraft），
         /// 如果存在则直接使用；否则在 MNL 目录下创建新的游戏文件夹。
@@ -109,7 +139,8 @@ namespace MusicalNoteLauncher.Core
 
             try
             {
-                AppDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                AppDirectory = GetAppDirectory();
+                // 参考 PCL：工作目录与程序同级（{exe_dir}\MNL\），而非 %appdata%\MNL
                 MNLFolder = Path.Combine(AppDirectory, "MNL");
                 SkinsPath = Path.Combine(MNLFolder, "skins");
                 LogsPath = Path.Combine(MNLFolder, "logs");
@@ -123,8 +154,28 @@ namespace MusicalNoteLauncher.Core
 
                 if (Directory.Exists(officialMcPath))
                 {
-                    MinecraftPath = officialMcPath;
-                    Logger.Info("[MNL环境] 检测到官方游戏目录，直接使用");
+                    // 检查路径是否含非 ASCII 字符（中文用户名等）
+                    // JDK-8214514: Java @file 对非 ASCII 路径编码处理有历史缺陷
+                    bool hasNonAscii = false;
+                    foreach (char c in officialMcPath)
+                    {
+                        if (c > 127) { hasNonAscii = true; break; }
+                    }
+
+                    if (hasNonAscii)
+                    {
+                        // 官方路径含中文，为避免编码问题，改用 MNL 本地目录
+                        MinecraftPath = Path.Combine(MNLFolder, ".minecraft");
+                        Logger.Warning($"[MNL环境] 官方游戏目录含非ASCII字符（可能是中文用户名），已自动切换到 MNL 本地目录");
+                        Logger.Warning($"[MNL环境] 原始路径: {officialMcPath}");
+                        Logger.Warning($"[MNL环境] 使用路径: {MinecraftPath}");
+                        Logger.Warning($"[MNL环境] 如需使用官方目录，请在设置中手动切换");
+                    }
+                    else
+                    {
+                        MinecraftPath = officialMcPath;
+                        Logger.Info("[MNL环境] 检测到官方游戏目录，直接使用");
+                    }
                 }
                 else
                 {
@@ -136,6 +187,14 @@ namespace MusicalNoteLauncher.Core
                 Logger.Info($"[MNL环境] 应用目录: {AppDirectory}");
                 Logger.Info($"[MNL环境] MNL目录: {MNLFolder}");
                 Logger.Info($"[MNL环境] 游戏目录: {MinecraftPath}");
+
+                // 诊断：控制台输出路径信息（单文件模式下帮助排查）
+                Console.WriteLine("====== MNL 环境初始化 ======");
+                Console.WriteLine($"ProcessPath: {Environment.ProcessPath}");
+                Console.WriteLine($"AppDirectory: {AppDirectory}");
+                Console.WriteLine($"MNLFolder: {MNLFolder}");
+                Console.WriteLine($"MinecraftPath: {MinecraftPath}");
+                Console.WriteLine("============================");
 
                 // 1. 确保所有必需目录存在
                 EnsureDirectories();
@@ -154,7 +213,8 @@ namespace MusicalNoteLauncher.Core
             {
                 Logger.Error($"[MNL环境] 初始化失败: {ex.Message}", ex);
                 // 回退到默认值
-                MNLFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "MNL");
+                AppDirectory = GetAppDirectory();
+                MNLFolder = Path.Combine(AppDirectory, "MNL");
                 MinecraftPath = Path.Combine(MNLFolder, ".minecraft");
                 SkinsPath = Path.Combine(MNLFolder, "skins");
                 LogsPath = Path.Combine(MNLFolder, "logs");
@@ -170,7 +230,24 @@ namespace MusicalNoteLauncher.Core
         /// </summary>
         private static void EnsureDirectories()
         {
-            // 1. 确保 MNL 辅助目录存在（skins、logs）
+            // 0. 显式确保 MNL 根文件夹存在
+            if (!Directory.Exists(MNLFolder))
+            {
+                try
+                {
+                    Directory.CreateDirectory(MNLFolder);
+                    Logger.Info($"[MNL环境] 创建 MNL 根目录: {MNLFolder}");
+                    Console.WriteLine($"[MNL环境] 创建 MNL 根目录: {MNLFolder}");
+                }
+                catch (Exception ex)
+                {
+                    Logger.Error($"[MNL环境] 创建 MNL 根目录失败: {ex.Message}", ex);
+                    Console.WriteLine($"[MNL环境] 创建 MNL 根目录失败: {ex.Message}");
+                    throw;
+                }
+            }
+
+            // 1. 确保 MNL 辅助目录存在（skins、logs、backgrounds）
             foreach (var dir in RequiredMNLDirectories)
             {
                 string fullPath = Path.Combine(MNLFolder, dir);
@@ -268,8 +345,11 @@ namespace MusicalNoteLauncher.Core
 
             // 2. 检查关键程序文件（.NET 运行时依赖）
             // 单文件发布模式下，DLL 和 runtimeconfig 被打包进 EXE 中，磁盘上不存在是正常的
-            bool isSingleFile = string.IsNullOrEmpty(
-                System.Reflection.Assembly.GetExecutingAssembly().Location);
+            // 检测：AppDirectory（EXE实际目录）与 BaseDirectory（.NET运行时目录）不同即为单文件模式
+            bool isSingleFile = !string.Equals(
+                (AppDirectory ?? "").TrimEnd(Path.DirectorySeparatorChar),
+                AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar),
+                StringComparison.OrdinalIgnoreCase);
             
             if (!isSingleFile)
             {

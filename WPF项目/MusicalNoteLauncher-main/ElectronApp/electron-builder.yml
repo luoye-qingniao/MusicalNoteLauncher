@@ -1,0 +1,48 @@
+appId: com.mnl.launcher
+productName: MNL 音符启动器
+copyright: Copyright © 2025 MNL
+directories:
+  output: ../dist-electron
+  buildResources: ../Assets
+
+files:
+  - main.js
+  - preload.js
+  - package.json
+
+extraResources:
+  - from: ../MNL.Backend/bin/Release/net8.0/win-x64/publish/
+    to: backend/
+    filter:
+      - "**/*"
+
+win:
+  icon: ../Assets/图标.ico
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  installerIcon: ../Assets/图标.ico
+  uninstallerIcon: ../Assets/图标.ico
+
+linux:
+  icon: ../Assets/图标.png
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: deb
+      arch: [x64]
+  category: Game
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}
+
+mac:
+  icon: ../Assets/图标.icns
+  target:
+    - target: dmg
+      arch: [x64]
+  category: public.app-category.games
+  artifactName: ${productName}-${version}-${os}-${arch}.${ext}

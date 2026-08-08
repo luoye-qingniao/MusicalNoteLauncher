@@ -16,6 +16,7 @@ namespace MusicalNoteLauncher.Pages
         private readonly JavaConfigManager _javaConfig;
         private readonly VersionManager _versionManager;
         private VersionType _currentVersionType = VersionType.Java;
+        private bool _popupShownForCurrentLaunch = false;
 
         public LaunchPage(string minecraftPath)
         {
@@ -38,9 +39,7 @@ namespace MusicalNoteLauncher.Pages
 
             SetJavaVersionActive();
             Logger.Info("[启动页面] 初始化版本扫描服务");
-            VersionScanService.Instance.ClearCache();
-            Logger.Info("[启动页面] 缓存已清除");
-            _ = VersionScanService.Instance.ScanAsync("启动器初始化");
+            _ = VersionScanService.Instance.InitAsync();
         }
 
         private void SetJavaVersionActive()
@@ -125,7 +124,7 @@ namespace MusicalNoteLauncher.Pages
         }
         private void CboVersions_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
-            _ = VersionScanService.Instance.ScanAsync("点击下拉框刷新");
+            // 不再触发扫描，下拉列表使用已缓存的数据
         }
 
         private async void btnLaunch_Click(object sender, RoutedEventArgs e)
@@ -136,8 +135,7 @@ namespace MusicalNoteLauncher.Pages
                 return;
             }
 
-            await VersionScanService.Instance.ScanAsync($"启动前校验:{versionId}");
-
+            // 直接校验版本是否存在，不触发全量扫描
             if (!ValidateVersionBeforeLaunch(versionId))
             {
                 return;
@@ -220,12 +218,14 @@ namespace MusicalNoteLauncher.Pages
             }
 
             btnLaunch.IsEnabled = false;
+            _popupShownForCurrentLaunch = false;
             txtLog.Clear();
             txtStatus.Text = "准备启动...";
 
+            bool success = false;
             try
             {
-                bool success = await _gameLauncher.LaunchGameAsync(
+                success = await _gameLauncher.LaunchGameAsync(
                     versionId,
                     username,
                     minMemory,
@@ -250,13 +250,19 @@ namespace MusicalNoteLauncher.Pages
             finally
             {
                 btnLaunch.IsEnabled = true;
-                // 显示启动结果弹窗
-                ShowLaunchResultPopup();
+                // 只在启动立即失败时弹窗；游戏运行中崩溃由 LaunchCompleted 触发
+                if (!success)
+                {
+                    ShowLaunchResultPopup();
+                }
             }
         }
 
         private void ShowLaunchResultPopup()
         {
+            if (_popupShownForCurrentLaunch) return;
+            _popupShownForCurrentLaunch = true;
+
             var info = _gameLauncher?.LastLaunchInfo ?? new Core.GameLaunchInfo
             {
                 IsSuccess = false,
@@ -373,12 +379,18 @@ namespace MusicalNoteLauncher.Pages
                 {
                     txtStatus.Text = "启动失败";
                 }
+
+                // ★ 游戏运行中崩溃时弹出详情窗口（模组冲突等延迟崩溃场景）
+                if (!success)
+                {
+                    ShowLaunchResultPopup();
+                }
             });
         }
 
         private void btnRefreshVersions_Click(object sender, RoutedEventArgs e)
         {
-            _ = VersionScanService.Instance.ScanAsync("用户刷新版本");
+            _ = VersionScanService.Instance.ForceScanAsync("用户刷新版本");
         }
     }
 }

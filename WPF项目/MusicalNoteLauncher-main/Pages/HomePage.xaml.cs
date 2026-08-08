@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Management;
 using System.Timers;
+using Timer = System.Timers.Timer;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;

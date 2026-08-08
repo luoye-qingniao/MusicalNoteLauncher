@@ -118,7 +118,7 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/mods/search?gameId=432&classId=16&sortField=2&sortOrder=desc&pageSize={limit}";
+                string url = $"{BaseUrl}/mods/search?gameId=432&classId=12&sortField=2&sortOrder=desc&pageSize={limit}";
                 var response = await _httpClient.GetAsync(url);
 
                 if (!response.IsSuccessStatusCode)
@@ -141,7 +141,7 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/mods/search?gameId=432&classId=15&sortField=2&sortOrder=desc&pageSize={limit}";
+                string url = $"{BaseUrl}/mods/search?gameId=432&classId=4546&sortField=2&sortOrder=desc&pageSize={limit}";
                 var response = await _httpClient.GetAsync(url);
 
                 if (!response.IsSuccessStatusCode)
@@ -287,6 +287,43 @@ namespace MusicalNoteLauncher.Core
             }
             return results;
         }
+
+        /// <summary>
+        /// 批量按 fileId 查询文件信息（用于整合包安装时获取下载地址）
+        /// </summary>
+        public async Task<List<CurseForgeFileInfo>> GetFilesBatchAsync(List<long> fileIds)
+        {
+            var results = new List<CurseForgeFileInfo>();
+            try
+            {
+                if (fileIds == null || fileIds.Count == 0)
+                    return results;
+
+                // 每批最多 250 个 fileId
+                const int batchSize = 250;
+                for (int i = 0; i < fileIds.Count; i += batchSize)
+                {
+                    var batch = fileIds.Skip(i).Take(batchSize).ToList();
+                    var body = new { fileIds = batch };
+                    var json = JsonSerializer.Serialize(body);
+                    var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+
+                    var response = await _httpClient.PostAsync($"{BaseUrl}/mods/files", content);
+                    if (!response.IsSuccessStatusCode)
+                        continue;
+
+                    var respJson = await response.Content.ReadAsStringAsync();
+                    var result = JsonSerializer.Deserialize<CurseForgeBatchFilesResponse>(respJson);
+                    if (result?.Data != null)
+                        results.AddRange(result.Data);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"CurseForge GetFilesBatchAsync Exception: {ex.Message}");
+            }
+            return results;
+        }
     }
 
     public class CurseForgeSearchResult
@@ -311,6 +348,9 @@ namespace MusicalNoteLauncher.Core
     {
         [JsonPropertyName("id")]
         public long Id { get; set; }
+
+        [JsonPropertyName("modId")]
+        public long ModId { get; set; }
 
         [JsonPropertyName("displayName")]
         public string DisplayName { get; set; }
@@ -477,5 +517,41 @@ namespace MusicalNoteLauncher.Core
     {
         [JsonPropertyName("data")]
         public List<CurseForgeModDetail> Data { get; set; }
+    }
+
+    /// <summary>
+    /// CurseForge 批量按 fileId 查询文件的响应
+    /// </summary>
+    public class CurseForgeBatchFilesResponse
+    {
+        [JsonPropertyName("data")]
+        public List<CurseForgeFileInfo> Data { get; set; }
+    }
+
+    /// <summary>
+    /// CurseForge 文件信息（POST /v1/mods/files 返回）
+    /// </summary>
+    public class CurseForgeFileInfo
+    {
+        [JsonPropertyName("id")]
+        public long Id { get; set; }
+
+        [JsonPropertyName("modId")]
+        public long ModId { get; set; }
+
+        [JsonPropertyName("displayName")]
+        public string DisplayName { get; set; }
+
+        [JsonPropertyName("fileName")]
+        public string FileName { get; set; }
+
+        [JsonPropertyName("fileSize")]
+        public long FileSize { get; set; }
+
+        [JsonPropertyName("downloadUrl")]
+        public string DownloadUrl { get; set; }
+
+        [JsonPropertyName("releaseType")]
+        public int ReleaseType { get; set; }
     }
 }

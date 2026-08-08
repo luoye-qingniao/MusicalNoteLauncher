@@ -71,6 +71,11 @@ function listFriends(): void {
     }
 
     $pdo = getDB();
+    // 验证身份：只能查看自己的好友列表
+    $authUser = authenticateRequest($pdo);
+    if (!$authUser || $authUser['qingniao_id'] !== $userId) {
+        jsonResponse(['error' => '无权查看此好友列表'], 403);
+    }
     $stmt = $pdo->prepare('
         SELECT f.friend_id, f.friend_nickname,
                uo.last_heartbeat,
@@ -104,7 +109,8 @@ function searchUsers(): void {
  * 添加好友
  */
 function addFriend(array $body): void {
-    $userId = $body['user_id'] ?? '';
+    checkRateLimit('friends_add');
+    $userId   = $body['user_id'] ?? '';
     $friendId = $body['friend_id'] ?? '';
     $friendNickname = $body['friend_nickname'] ?? $friendId;
 
@@ -116,6 +122,10 @@ function addFriend(array $body): void {
     }
 
     $pdo = getDB();
+    $authUser = requireAuth($pdo);
+    if ($authUser['qingniao_id'] !== $userId) {
+        jsonResponse(['error' => '无权以其他用户身份添加好友'], 403);
+    }
     try {
         $stmt = $pdo->prepare('INSERT INTO friends (user_id, friend_id, friend_nickname) VALUES (?, ?, ?)');
         $stmt->execute([$userId, $friendId, $friendNickname]);
@@ -139,7 +149,8 @@ function addFriend(array $body): void {
  * 删除好友
  */
 function removeFriend(array $body): void {
-    $userId = $body['user_id'] ?? '';
+    checkRateLimit('friends_remove');
+    $userId   = $body['user_id'] ?? '';
     $friendId = $body['friend_id'] ?? '';
 
     if (empty($userId) || empty($friendId)) {
@@ -147,6 +158,10 @@ function removeFriend(array $body): void {
     }
 
     $pdo = getDB();
+    $authUser = requireAuth($pdo);
+    if ($authUser['qingniao_id'] !== $userId) {
+        jsonResponse(['error' => '无权以其他用户身份删除好友'], 403);
+    }
     $stmt = $pdo->prepare('DELETE FROM friends WHERE user_id = ? AND friend_id = ?');
     $stmt->execute([$userId, $friendId]);
 
@@ -161,15 +176,26 @@ function removeFriend(array $body): void {
  * 发送聊天消息
  */
 function sendMessage(array $body): void {
-    $senderId = $body['sender_id'] ?? '';
+    checkRateLimit('friends_send');
+    $senderId   = $body['sender_id'] ?? '';
     $receiverId = $body['receiver_id'] ?? '';
-    $content = $body['content'] ?? '';
+    $content    = $body['content'] ?? '';
 
     if (empty($senderId) || empty($receiverId)) {
         jsonResponse(['error' => 'Missing sender_id or receiver_id'], 400);
     }
+    if (empty($content)) {
+        jsonResponse(['error' => '消息不能为空'], 400);
+    }
+    if (mb_strlen($content) > 2000) {
+        jsonResponse(['error' => '消息长度不能超过2000字'], 400);
+    }
 
     $pdo = getDB();
+    $authUser = requireAuth($pdo);
+    if ($authUser['qingniao_id'] !== $senderId) {
+        jsonResponse(['error' => '无权以其他用户身份发送消息'], 403);
+    }
     $stmt = $pdo->prepare('INSERT INTO friend_messages (sender_id, receiver_id, content, msg_type) VALUES (?, ?, ?, ?)');
     $stmt->execute([$senderId, $receiverId, $content, 'Normal']);
 
@@ -180,17 +206,22 @@ function sendMessage(array $body): void {
  * 发送联机邀请
  */
 function sendInvite(array $body): void {
-    $senderId = $body['sender_id'] ?? '';
-    $receiverId = $body['receiver_id'] ?? '';
-    $networkName = $body['network_name'] ?? '';
+    checkRateLimit('friends_invite');
+    $senderId      = $body['sender_id'] ?? '';
+    $receiverId    = $body['receiver_id'] ?? '';
+    $networkName   = $body['network_name'] ?? '';
     $networkSecret = $body['network_secret'] ?? '';
-    $gameVersion = $body['game_version'] ?? '';
+    $gameVersion   = $body['game_version'] ?? '';
 
     if (empty($senderId) || empty($receiverId)) {
         jsonResponse(['error' => 'Missing sender_id or receiver_id'], 400);
     }
 
     $pdo = getDB();
+    $authUser = requireAuth($pdo);
+    if ($authUser['qingniao_id'] !== $senderId) {
+        jsonResponse(['error' => '无权以其他用户身份发送邀请'], 403);
+    }
     $stmt = $pdo->prepare('
         INSERT INTO friend_messages (sender_id, receiver_id, content, msg_type,
                                      invite_network_name, invite_network_secret, invite_game_version)
@@ -227,13 +258,18 @@ function acceptInvite(array $body): void {
  */
 function pollMessages(): void {
     $userId = $_GET['user_id'] ?? '';
-    $since = intval($_GET['since'] ?? 0);
+    $since  = intval($_GET['since'] ?? 0);
 
     if (empty($userId)) {
         jsonResponse(['error' => 'Missing user_id'], 400);
     }
 
     $pdo = getDB();
+    // 验证身份：只能查看自己的消息
+    $authUser = authenticateRequest($pdo);
+    if (!$authUser || $authUser['qingniao_id'] !== $userId) {
+        jsonResponse(['error' => '无权查看此用户的消息'], 403);
+    }
     $stmt = $pdo->prepare('
         SELECT fm.*, IFNULL(uo.last_heartbeat > DATE_SUB(NOW(), INTERVAL 120 SECOND), 0) AS sender_online
         FROM friend_messages fm
@@ -259,7 +295,8 @@ function pollMessages(): void {
  * 心跳上报
  */
 function heartbeat(array $body): void {
-    $userId = $body['user_id'] ?? '';
+    checkRateLimit('friends_heartbeat');
+    $userId  = $body['user_id'] ?? '';
     $version = $body['launcher_version'] ?? '';
 
     if (empty($userId)) {
@@ -267,6 +304,11 @@ function heartbeat(array $body): void {
     }
 
     $pdo = getDB();
+    // 验证身份
+    $authUser = authenticateRequest($pdo);
+    if (!$authUser || $authUser['qingniao_id'] !== $userId) {
+        jsonResponse(['error' => '无权以其他用户身份上报心跳'], 403);
+    }
     $stmt = $pdo->prepare('
         INSERT INTO user_online (user_id, last_heartbeat, launcher_version)
         VALUES (?, NOW(), ?)
@@ -284,12 +326,13 @@ function heartbeat(array $body): void {
     $onlineFriends = [];
     if (!empty($friendIds)) {
         $placeholders = implode(',', array_fill(0, count($friendIds), '?'));
-        $stmt3 = $pdo->query("
+        $stmt3 = $pdo->prepare("
             SELECT user_id FROM user_online
             WHERE user_id IN ($placeholders)
             AND last_heartbeat > DATE_SUB(NOW(), INTERVAL 120 SECOND)
         ");
-        $onlineFriends = $stmt3 ? $stmt3->fetchAll(PDO::FETCH_COLUMN) : [];
+        $stmt3->execute($friendIds);
+        $onlineFriends = $stmt3->fetchAll(PDO::FETCH_COLUMN);
     }
 
     jsonResponse(['success' => true, 'online_friends' => $onlineFriends]);

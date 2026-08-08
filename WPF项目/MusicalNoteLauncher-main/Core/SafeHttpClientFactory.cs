@@ -22,7 +22,6 @@ namespace MusicalNoteLauncher.Core
                 var handler = new HttpClientHandler
                 {
                     AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
-                    ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
                     AllowAutoRedirect = true,
                     MaxAutomaticRedirections = 5,
                     UseCookies = true

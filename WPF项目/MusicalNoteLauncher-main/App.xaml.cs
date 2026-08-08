@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Threading.Tasks;
 using MusicalNoteLauncher.Controls;
 using MusicalNoteLauncher.Core;
+using MusicalNoteLauncher.Windows;
 
 namespace MusicalNoteLauncher
 {
@@ -15,6 +16,14 @@ namespace MusicalNoteLauncher
         public static BedrockEnhancedDownloadService BedrockDownloadService { get; private set; }
         /// <summary>全局基岩版离线启动器实例（单例，按需初始化）</summary>
         public static BedrockOfflineLauncher BedrockOfflineLauncher { get; private set; }
+
+        /// <summary>WPF 侧是否已弹出更新面板（避免 WebView 侧重复弹窗）</summary>
+        public static bool UpdateDialogShown { get; set; }
+
+        /// <summary>测试模式：是否模拟普通更新检测</summary>
+        private static bool _testUpdateMode;
+        /// <summary>测试模式：是否模拟强制更新检测</summary>
+        private static bool _testForcedUpdateMode;
 
         /// <summary>初始化基岩版服务（在MainWindow初始化后调用）</summary>
         public static void InitializeBedrockServices(string minecraftPath)
@@ -40,6 +49,10 @@ namespace MusicalNoteLauncher
                 RunMemoryOptimizeSubprocess();
                 return;
             }
+
+            // —— 测试模式：模拟更新检测 ——
+            _testUpdateMode = e.Args.Contains("--test-update", StringComparer.OrdinalIgnoreCase);
+            _testForcedUpdateMode = e.Args.Contains("--test-forced-update", StringComparer.OrdinalIgnoreCase);
 
             try
             {
@@ -89,18 +102,57 @@ namespace MusicalNoteLauncher
                 _ = BackgroundConfigService.Instance;
                 Logger.Info("背景配置服务初始化完成");
 
-                // ★ 检查启动器更新（非阻塞，不卡主窗口）
-                _ = Task.Run(async () =>
+                // ★ 检查启动器更新
+                if (!_testUpdateMode && !_testForcedUpdateMode)
                 {
-                    await CheckAndNotifyUpdateAsync();
-                });
+                    // 正常模式：异步检查服务器更新
+                    _ = Task.Run(async () =>
+                    {
+                        await CheckAndNotifyUpdateAsync();
+                    });
+                }
 
                 // 直接打开主窗口，默认使用离线模式登录
                 MainWindow mainWindow = new MainWindow("Player", true);
                 this.MainWindow = mainWindow;
-                
+
+                // 测试模式：主窗口渲染完成后弹出模拟更新面板
+                if (_testUpdateMode || _testForcedUpdateMode)
+                {
+                    Logger.Info("[测试] 测试更新模式已激活，将在窗口显示后弹出面板");
+                }
+
+                // 用户协议弹窗由 WebView2 前端统一处理，不再使用旧 WPF 弹窗
+                // TermsOfServiceDialog 已废弃，保留代码仅供参考
+
                 // 立即显示窗口，避免白屏
                 mainWindow.Show();
+
+                // 测试模式：延迟弹出更新面板
+                if (_testUpdateMode || _testForcedUpdateMode)
+                {
+                    Logger.Info("[测试] 测试更新模式已激活，将在窗口显示后弹出面板");
+
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(1500);
+                        mainWindow.Dispatcher.Invoke(() =>
+                        {
+                            Logger.Info("[测试] 正在弹出测试更新面板...");
+                            try
+                            {
+                                ShowTestUpdatePanel();
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.Error($"[测试] 弹出更新面板失败: {ex}", ex);
+                                MessageBox.Show(
+                                    $"更新面板测试失败:\n{ex.Message}\n\n{ex.StackTrace}",
+                                    "测试错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                            }
+                        });
+                    });
+                }
                 
                 Logger.Info("主窗口显示成功");
                 Logger.Info("应用程序启动流程完成");
@@ -246,7 +298,7 @@ namespace MusicalNoteLauncher
         #region 更新检查
 
         /// <summary>
-        /// 异步检查更新并在有可用更新时通过消息框通知用户
+        /// 异步检查更新并在有可用更新时弹出更新面板
         /// </summary>
         private static async Task CheckAndNotifyUpdateAsync()
         {
@@ -272,65 +324,43 @@ namespace MusicalNoteLauncher
                     return;
                 }
 
-                // 有更新可用，在 UI 线程弹窗
+                // 有更新可用，在 UI 线程弹出更新面板
                 Logger.Info($"[更新检查] 发现新版本: {versionInfo.Version} (当前: {UpdateService.CurrentVersion})");
+
+                UpdateDialogShown = true;
 
                 Application.Current.Dispatcher.Invoke(() =>
                 {
-                    string message = $"发现新版本 {versionInfo.Version}\n\n" +
-                                     $"更新内容:\n{versionInfo.ReleaseNotes}\n\n" +
-                                     $"是否立即更新？";
-
-                    if (versionInfo.IsForced)
-                    {
-                        message = $"【强制更新】发现新版本 {versionInfo.Version}\n\n" +
-                                  $"更新内容:\n{versionInfo.ReleaseNotes}\n\n" +
-                                  $"此版本为强制更新，启动器将自动下载安装。";
-                    }
-
-                    bool userWantsUpdate = versionInfo.IsForced;
-
-                    if (!versionInfo.IsForced)
-                    {
-                        var result = ModernMessageBox.ShowConfirm(message, "版本更新");
-                        userWantsUpdate = result;
-                    }
-                    else
-                    {
-                        ModernMessageBox.ShowInfo(message, "版本更新（强制）");
-                    }
-
-                    if (userWantsUpdate)
-                    {
-                        _ = Task.Run(async () =>
-                        {
-                            bool success = await UpdateService.DownloadAndInstallAsync(
-                                versionInfo,
-                                progress => Logger.Info($"[更新] {progress.Status} ({progress.ProgressPercent}%)"));
-
-                            if (success)
-                            {
-                                // 安装脚本已启动，退出当前进程
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    Application.Current.Shutdown(0);
-                                });
-                            }
-                            else
-                            {
-                                Application.Current.Dispatcher.Invoke(() =>
-                                {
-                                    ModernMessageBox.ShowError("更新安装失败，请稍后重试", "更新失败");
-                                });
-                            }
-                        });
-                    }
+                    var updatePanel = new UpdatePanel(versionInfo);
+                    updatePanel.ShowDialog();
+                    UpdateDialogShown = false;
                 });
             }
             catch (Exception ex)
             {
                 Logger.Warning($"[更新检查] 检查过程出现异常: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 测试用：构造模拟版本数据并弹出更新面板
+        /// </summary>
+        private static void ShowTestUpdatePanel()
+        {
+            Logger.Info("[测试] 模拟更新检测模式已激活");
+            var mockInfo = new UpdateService.VersionInfo
+            {
+                Version = "2.0.0-beta-test",
+                VersionCode = 99,
+                DownloadUrl = "",
+                FileHash = "",
+                FileSize = 15 * 1024 * 1024, // 15 MB
+                ReleaseNotes = "【新功能】\n- 新增音乐盒功能，支持播放本地音乐\n- 新增AI助手对话页面\n- 优化启动速度，提升30%\n- 修复部分用户登录失败的问题\n- 改善UI动画流畅度\n\n【改进】\n- 重构了版本下载模块\n- 增强了错误日志上报\n- 背景图片支持更多格式",
+                IsForced = _testForcedUpdateMode,
+                NeedUpdate = true,
+            };
+            var panel = new UpdatePanel(mockInfo);
+            panel.ShowDialog();
         }
 
         #endregion

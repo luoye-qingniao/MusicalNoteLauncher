@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Step Loading Test</title>
+<style>
+  body { font-family: sans-serif; padding: 20px; background: #1a1a2e; color: #e0e0e0; }
+  .step { padding: 8px 12px; margin: 4px 0; border-radius: 6px; font-size: 14px; }
+  .ok { background: #1b5e20; color: #a5d6a7; }
+  .err { background: #b71c1c; color: #ffcdd2; }
+  h2 { color: #4CAF50; margin-top: 30px; }
+  h3 { color: #FFC107; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h1>Script Loading Test</h1>
+<pre id="output"></pre>
+
+<script>
+var out = document.getElementById('output');
+var steps = [
+  { name: 'vue.js', src: 'vue.js', check: 'Vue' },
+  { name: 'js/bridge.js', src: 'js/bridge.js', check: 'MNL' },
+  { name: 'pages/versions.js', src: 'pages/versions.js?v=3' },
+  { name: 'pages/mods.js', src: 'pages/mods.js?v=3' },
+  { name: 'pages/saves.js', src: 'pages/saves.js?v=3' },
+  { name: 'pages/downloads.js', src: 'pages/downloads.js?v=3' },
+  { name: 'pages/multiplayer.js', src: 'pages/multiplayer.js?v=3' },
+  { name: 'pages/music.js', src: 'pages/music.js?v=3' },
+  { name: 'pages/community.js', src: 'pages/community.js?v=3' },
+  { name: 'pages/store.js', src: 'pages/store.js?v=3' },
+  { name: 'pages/profile.js', src: 'pages/profile.js?v=3' },
+  { name: 'pages/friends.js', src: 'pages/friends.js?v=3' },
+  { name: 'pages/ai.js', src: 'pages/ai.js?v=3' },
+  { name: 'pages/settings.js', src: 'pages/settings.js?v=3' },
+];
+
+function stepOk(name) { out.innerHTML += '<div class="step ok">OK: ' + name + '</div>'; }
+function stepErr(name, msg) { out.innerHTML += '<div class="step err">ERROR: ' + name + ' - ' + msg + '</div>'; }
+
+function loadScript(src) {
+  return new Promise(function(resolve, reject) {
+    var s = document.createElement('script');
+    s.src = src;
+    s.onload = function() { resolve(true); };
+    s.onerror = function() { reject('Failed to load: ' + src); };
+    document.body.appendChild(s);
+  });
+}
+
+window.addEventListener('error', function(e) {
+  if (e.error) {
+    var f = (e.filename||'').replace(/^.*[\\/]/,'') || 'unknown';
+    stepErr(f, e.message || String(e.error));
+  }
+});
+
+// accessor: access const-declared top-level var via new Function (always global scope)
+function getGlobal(name) {
+  try { return (new Function('return ' + name))(); }
+  catch(e) { return undefined; }
+}
+
+async function run() {
+  // Phase 1: Load scripts
+  for (var i = 0; i < steps.length; i++) {
+    var step = steps[i];
+    try {
+      await loadScript(step.src);
+      if (step.check) {
+        var v = getGlobal(step.check);
+        if (v === undefined) stepErr(step.name, 'var "' + step.check + '" not defined');
+        else stepOk(step.name + ' (' + step.check + ' OK)');
+      } else {
+        stepOk(step.name);
+      }
+    } catch(err) {
+      stepErr(step.name, String(err));
+      if (step.name === 'vue.js') { out.innerHTML += '<h3>Vue failed - cannot continue</h3>'; return; }
+    }
+  }
+
+  // Phase 2: Test component mounting
+  out.innerHTML += '<h2>Testing Vue component mounting...</h2>';
+  var { createApp } = Vue;
+  var pageNames = ['VersionsPage','ModsPage','SavesPage','DownloadsPage','MultiplayerPage','MusicPage','CommunityPage','StorePage','ProfilePage','FriendsPage','AiPage','SettingsPage'];
+  var pageKeys = ['versions','mods','saves','downloads','multiplayer','music','community','store','profile','friends','ai','settings'];
+
+  for (var i = 0; i < pageNames.length; i++) {
+    var pageName = pageNames[i];
+    var pageKey = pageKeys[i];
+    var comp = getGlobal(pageName);
+    if (!comp) { stepErr(pageName, 'Component not found'); continue; }
+    try {
+      var app = createApp({ template: '<div style="display:none"><' + pageKey + '-page></' + pageKey + '-page></div>' });
+      app.component(pageKey + '-page', comp);
+      var div = document.createElement('div');
+      div.style.display = 'none';
+      document.body.appendChild(div);
+      app.mount(div);
+      stepOk(pageName + ' mounted');
+      app.unmount();
+      div.remove();
+    } catch(err) {
+      stepErr(pageName + ' mount', err.message || String(err));
+    }
+  }
+  out.innerHTML += '<h2>All done!</h2>';
+}
+
+run();
+</script>
+</body>
+</html>

@@ -1,0 +1,1710 @@
+<!-- ============================================================
+  index.html - MNL 启动器 Web UI (Vue 3 CDN SPA)
+  ============================================================ -->
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MNL 音符启动器</title>
+  <!-- 预加载关键资源，减少启动延迟 -->
+  <link rel="preload" href="css/themes.css?v=11" as="style">
+  <link rel="preload" href="css/style.css?v=40" as="style">
+  <link rel="preload" href="vue.js" as="script">
+  <link rel="stylesheet" href="css/themes.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=41">
+  <!-- 内联 Splash CSS，确保图标在 CSS 加载前就显示 -->
+  <style>
+    #splash{position:fixed;inset:0;z-index:10000;background:rgba(245,245,245,0.92);display:flex;align-items:center;justify-content:center;flex-direction:column;transition:opacity .35s ease}
+    #splash.hide{opacity:0;pointer-events:none}
+    #splash .splash-logo{width:60px;height:60px;margin-bottom:14px;border-radius:14px;overflow:hidden;animation:mnl-splash-pulse 2s ease-in-out infinite;background:rgba(255,255,255,0.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+    #splash .splash-logo img{width:100%;height:100%;object-fit:contain;display:block}
+    #splash .splash-title{font-size:24px;font-weight:800;color:#333;letter-spacing:-0.02em}
+    #splash .splash-status{margin-top:10px;font-size:11px;color:#999;letter-spacing:.05em}
+    @keyframes mnl-splash-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+  </style>
+</head>
+<body data-theme="light">
+
+<!-- ═══ Reactbits 风格玻璃 SVG 滤镜（色散位移 + 模糊） ═══ -->
+<svg width="0" height="0" style="position:absolute;pointer-events:none">
+  <defs>
+    <filter id="mnl-glass-filter" x="-20%" y="-20%" width="140%" height="140%">
+      <!-- 噪声源用于位移映射 -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.03" numOctaves="3" result="noise" />
+      <feColorMatrix in="noise" type="matrix"
+        values="0.5 0 0 0 0
+                0.5 0 0 0 0.039
+                0.5 0 0 0 0.078
+                0   0 0 1 0" result="colorNoise" />
+      <!-- 模糊输入图 -->
+      <feGaussianBlur in="SourceGraphic" stdDeviation="11" result="blur" />
+      <!-- RGB 通道分离色散 -->
+      <feOffset in="blur" dx="-1" dy="0" result="offsetR" />
+      <feOffset in="blur" dx="0" dy="0" result="offsetG" />
+      <feOffset in="blur" dx="1" dy="0" result="offsetB" />
+      <!-- 用噪声位移做边缘色差 -->
+      <feDisplacementMap in="offsetR" in2="noise" scale="-120" xChannelSelector="R" yChannelSelector="G" result="dispR" />
+      <feDisplacementMap in="offsetG" in2="noise" scale="-120" xChannelSelector="R" yChannelSelector="G" result="dispG" />
+      <feDisplacementMap in="offsetB" in2="noise" scale="-120" xChannelSelector="R" yChannelSelector="G" result="dispB" />
+      <!-- 合并 RGB + 微模糊 -->
+      <feMerge result="merged">
+        <feMergeNode in="dispR" />
+        <feMergeNode in="dispG" />
+        <feMergeNode in="dispB" />
+      </feMerge>
+      <feGaussianBlur in="merged" stdDeviation="0.5" result="final" />
+    </filter>
+  </defs>
+</svg>
+
+<!-- Splash 启动页 -->
+<div id="splash">
+  <img class="splash-logo" src="img/icon.png" alt="MNL" onerror="this.style.display='none'">
+  <div class="splash-title">M<span style="color:var(--accent)">NL</span></div>
+  <div class="splash-status" id="splash-status">正在初始化...</div>
+  <div class="splash-error" id="splash-error" style="display:none;"></div>
+</div>
+
+<!-- 超时回退 / 错误处理 -->
+<script>
+(function() {
+  window.__lastScript = '(index.html)';
+  function updateStatus(msg) {
+    var el = document.getElementById('splash-status');
+    if (el) el.textContent = msg;
+  }
+  window._dbg = updateStatus;
+
+  function showError(title, detail, source) {
+    var splash = document.getElementById('splash');
+    var status = document.getElementById('splash-status');
+    var error = document.getElementById('splash-error');
+    if (!splash || !error) return;
+
+    splash.classList.add('has-error');
+    if (status) status.textContent = '❌ ' + title;
+    if (status) status.style.color = '#EF4444';
+
+    var isOpaque = !detail || detail === 'Script error.' || detail.trim() === '';
+    if (isOpaque) {
+      detail = (detail && detail !== 'Script error.' ? detail + '\n\n' : '') +
+               '（浏览器隐藏了详细错误。常见原因：\n• 脚本执行时抛出未捕获异常\n• 跨域加载（CORS）\n• 语法错误）\n\n最后加载的脚本: ' + window.__lastScript;
+    }
+
+    var html = '<div class="splash-error-msg">' + detail.replace(/\n/g, '<br>') + '</div>';
+    if (source) html += '<div class="splash-error-src">📍 ' + source + '</div>';
+    error.innerHTML = html;
+    error.style.display = 'block';
+  }
+  window._showSplashError = showError;
+
+  // 兜底：超过 8 秒强制隐藏（无错误时）
+  var hasError = false;
+  setTimeout(function() {
+    var s = document.getElementById('splash');
+    if (s && !hasError && !s.classList.contains('hide')) {
+      updateStatus('初始化超时（8 秒），强制跳过...');
+      setTimeout(function() { s.classList.add('hide'); }, 1000);
+    }
+  }, 8000);
+
+  // JS 运行时错误
+  window.addEventListener('error', function(e) {
+    if (e.error || e.message) {
+      hasError = true;
+      var msg = e.message || e.error?.message || '未知错误';
+      var src = '';
+      if (e.filename) {
+        var f = e.filename.replace(/^.*[\\\/]/, '');
+        src = f + ':' + e.lineno + ':' + (e.colno || 0);
+      }
+      showError('JavaScript 运行时错误', msg, src);
+      console.error('[JS Error]', msg, e.error);
+    }
+  });
+
+  // Promise 未捕获异常
+  window.addEventListener('unhandledrejection', function(e) {
+    hasError = true;
+    var msg = e.reason?.message || (typeof e.reason === 'object' ? JSON.stringify(e.reason) : String(e.reason)) || '未处理的 Promise 错误';
+    var stack = e.reason?.stack || '';
+    var src = '';
+    if (stack) {
+      var m = stack.match(/at\s+(.+?)\s+\((.+?:(\d+):(\d+))\)/);
+      if (m) src = m[2];
+    }
+    showError('Promise 未捕获异常', msg, src);
+    console.error('[Unhandled Rejection]', e.reason);
+  });
+})();
+</script>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- 背景层 -->
+<div id="wallpaper-bg" style="position:fixed;inset:0;z-index:0;background-size:cover;background-position:center;background-repeat:no-repeat;background-attachment:fixed;"></div>
+<canvas id="wallpaper-canvas-gl" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none;"></canvas>
+<!-- 可视化背景 canvas -->
+<canvas id="visualizer-canvas" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none;"></canvas>
+
+<!-- Vue 应用 -->
+<div id="app" v-cloak>
+  <!-- AI 操作浮动弹窗 -->
+  <div class="ai-floating-bar" :class="{ visible: aiBarVisible }">
+    <div class="ai-bar-body">
+      <span class="ai-bar-icon">🤖</span>
+      <span class="ai-bar-text">{{ aiBarStatus || '准备中...' }}</span>
+    </div>
+    <div class="ai-bar-btns">
+      <button class="ai-bar-btn stop" @click="aiStop" title="停止 AI 操作">⏹ 停止</button>
+      <button class="ai-bar-btn go" @click="aiContinue" title="关闭弹窗">▶ 继续</button>
+    </div>
+  </div>
+  <!-- 主体布局 -->
+  <div id="app-container">
+    <!-- 侧边栏 -->
+    <div id="sidebar">
+      <div class="sidebar-logo">
+        <img src="img/icon.png" alt="MNL" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 36 36%22><rect fill=%22%232196F3%22 width=%2236%22 height=%2236%22 rx=%226%22/><text x=%2218%22 y=%2224%22 text-anchor=%22middle%22 fill=%22white%22 font-size=%2218%22>M</text></svg>'">
+        <div class="logo-text">
+          <h3>MNL</h3>
+          <span>音符启动器</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <button v-for="item in navItems" :key="item.id"
+          class="nav-item"
+          :class="{ active: currentPage === item.id }"
+          @click="navigateTo(item.id)">
+          <span class="nav-icon">{{ item.icon }}</span>
+          <span>{{ item.label }}</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-user">
+        <div class="user-card" @click="navigateTo('profile')">
+          <div class="user-avatar">
+            <img v-if="userAvatarUrl" :src="userAvatarUrl" alt="" class="user-avatar-img" />
+            <span v-else>{{ userAvatar }}</span>
+          </div>
+          <div class="user-info">
+            <div class="user-name">{{ username }}</div>
+            <div class="user-mode">{{ userMode }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主内容区域 -->
+    <div id="main-content">
+      <!-- 首页 -->
+      <div class="page" :class="{ active: currentPage === 'home' }">
+        <home-page></home-page>
+      </div>
+
+      <!-- 下载 -->
+      <div class="page" :class="{ active: currentPage === 'download' }">
+        <download-page></download-page>
+      </div>
+
+      <!-- 模组管理 -->
+      <div class="page" :class="{ active: currentPage === 'modmanager' }">
+        <mod-manager-page></mod-manager-page>
+      </div>
+
+      <!-- 存档管理 -->
+      <div class="page" :class="{ active: currentPage === 'saves' }">
+        <saves-page></saves-page>
+      </div>
+
+      <!-- 联机社交 -->
+      <div class="page" :class="{ active: currentPage === 'multiplayer' }">
+        <multiplayer-page></multiplayer-page>
+      </div>
+
+      <!-- 下载任务 -->
+      <div class="page" :class="{ active: currentPage === 'downloads' }">
+        <downloads-page></downloads-page>
+      </div>
+
+      <!-- 音乐盒 -->
+      <div class="page" :class="{ active: currentPage === 'music' }">
+        <music-page></music-page>
+      </div>
+
+      <!-- 交流社区 -->
+      <div class="page" :class="{ active: currentPage === 'community' }">
+        <community-page></community-page>
+      </div>
+
+      <!-- 组件商店 -->
+      <div class="page" :class="{ active: currentPage === 'store' }">
+        <store-page></store-page>
+      </div>
+
+      <!-- 个人主页 -->
+      <div class="page" :class="{ active: currentPage === 'profile' }">
+        <profile-page></profile-page>
+      </div>
+
+      <!-- 好友列表 -->
+      <div class="page" :class="{ active: currentPage === 'friends' }">
+        <friends-page></friends-page>
+      </div>
+
+      <!-- AI 助手 -->
+      <div class="page" :class="{ active: currentPage === 'ai' }">
+        <ai-page></ai-page>
+      </div>
+
+      <!-- 设置 -->
+      <div class="page" :class="{ active: currentPage === 'settings' }">
+        <settings-page></settings-page>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 用户协议弹窗（首次启动） ═══ -->
+  <div class="modal-overlay terms-modal" v-if="showTermsModal">
+    <div class="terms-dialog">
+      <div class="terms-accent-bar"></div>
+      <div class="terms-body">
+        <div class="terms-header-row">
+          <div class="terms-icon-circle">📜</div>
+          <div class="terms-header-text">
+            <div class="terms-title">用户协议与隐私政策</div>
+            <div class="terms-subtitle">请仔细阅读以下内容后再继续</div>
+          </div>
+        </div>
+        <p class="terms-desc">欢迎使用 MNL 音符启动器！在继续使用之前，请仔细阅读我们的用户协议。</p>
+        <div class="terms-card">
+          <div class="terms-item"><span class="terms-item-icon">📋</span><span>本启动器仅供个人学习交流使用，请勿用于商业用途</span></div>
+          <div class="terms-item"><span class="terms-item-icon">⚖️</span><span>使用本启动器即表示您同意遵守相关法律法规</span></div>
+          <div class="terms-item"><span class="terms-item-icon">🔒</span><span>我们重视您的隐私保护，详情请查看完整协议</span></div>
+          <div class="terms-item" style="color:#E74C3C"><span class="terms-item-icon" style="color:#E74C3C">⚠️</span><span>如不同意本协议，将无法继续使用本启动器</span></div>
+          <a class="terms-link" href="#" @click.prevent="openTermsUrl">🔗 查看完整用户协议</a>
+        </div>
+        <div class="terms-hint">🛈 点击「同意并继续」即表示您已阅读并同意上述用户协议。</div>
+        <div class="terms-buttons">
+          <button class="terms-btn terms-btn-decline" @click="declineTerms">拒绝并退出</button>
+          <button class="terms-btn terms-btn-accept" @click="acceptTerms">同意并继续</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 启动器更新弹窗 ═══ -->
+  <div class="modal-overlay terms-modal" v-if="showUpdateModal">
+    <div class="terms-dialog" style="width:520px">
+      <div class="terms-accent-bar"></div>
+      <div class="terms-body">
+        <!-- 头部：发现新版本 -->
+        <div class="terms-header-row">
+          <div class="terms-icon-circle" style="background:rgba(33,150,243,0.12);border-color:rgba(33,150,243,0.25)">⬆️</div>
+          <div class="terms-header-text">
+            <div class="terms-title">发现新版本<span class="update-forced-tag" v-if="updateInfo && updateInfo.isForced" style="display:inline-block;margin-left:8px;padding:2px 8px;background:#FF5252;border-radius:3px;font-size:10px;color:#fff;vertical-align:middle">强制</span></div>
+            <div class="terms-subtitle" v-if="updateInfo && updateInfo.isForced" style="color:#FF5252">此版本为强制更新，请立即更新以继续使用</div>
+            <div class="terms-subtitle" v-else>您的 MNL 音符启动器有新版本可用</div>
+          </div>
+        </div>
+        <!-- 版本对比 -->
+        <div class="update-ver-compare" v-if="updateInfo && !isUpdating">
+          <div class="update-ver-col"><span class="update-ver-label">当前版本</span><span class="update-ver-val old">{{ updateInfo.currentVersion }}</span></div>
+          <div class="update-ver-arrow">→</div>
+          <div class="update-ver-col"><span class="update-ver-label">最新版本</span><span class="update-ver-val new">{{ updateInfo.version }}</span><span class="update-ver-size" v-if="updateInfo.fileSize > 0">{{ formatFileSize(updateInfo.fileSize) }}</span></div>
+        </div>
+        <!-- 更新日志 -->
+        <div class="update-changelog" v-if="updateInfo && updateInfo.releaseNotes && !isUpdating">
+          <div class="update-cl-title">更新内容</div>
+          <div class="update-cl-body">{{ updateInfo.releaseNotes }}</div>
+        </div>
+        <!-- 下载进度 -->
+        <div class="update-progress" v-if="isUpdating">
+          <div class="update-prog-row">
+            <span class="update-prog-status">{{ updateProgress.status }}</span>
+            <span class="update-prog-percent">{{ updateProgress.percent }}%</span>
+          </div>
+          <div class="update-prog-bar"><div class="update-prog-fill" :style="{width: updateProgress.percent+'%'}"></div></div>
+        </div>
+        <div class="update-error" v-if="updateError" style="color:#FF5252;font-size:13px;margin:4px 0;">⚠️ {{ updateError }}</div>
+        <!-- 按钮 -->
+        <div class="terms-buttons" style="margin-top:14px">
+          <button class="terms-btn terms-btn-decline" v-if="!isUpdating && !(updateInfo && updateInfo.isForced)" @click="showUpdateModal = false">跳过此版本</button>
+          <button class="terms-btn terms-btn-accept" v-if="!isUpdating" @click="startUpdate">立即更新</button>
+          <button class="terms-btn terms-btn-accept" v-if="isUpdating && updateError" @click="startUpdate">重试更新</button>
+          <button class="terms-btn terms-btn-decline" v-if="isUpdating && !updateError" @click="showUpdateModal = false">取消</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 推荐详情弹窗（对齐 WPF RecommendDetailPage） ═══ -->
+  <div class="modal-overlay" v-if="showRecommendDetail" @click.self="closeRecommendDetail">
+    <div class="rec-detail-dialog">
+      <div class="rec-detail-header">
+        <span class="rec-detail-back" @click="closeRecommendDetail">← 返回</span>
+        <span class="rec-detail-title">资源详情</span>
+      </div>
+      <div class="rec-detail-body" v-if="recommendDetailItem">
+        <!-- 信息区 -->
+        <div class="rec-detail-info">
+          <div class="rec-detail-top">
+            <img class="rec-detail-icon" :src="recommendDetailItem.iconUrl" :alt="recommendDetailItem.name" v-if="recommendDetailItem.iconUrl" />
+            <div class="rec-detail-icon-placeholder" v-else>📦</div>
+            <div class="rec-detail-meta">
+              <div class="rec-detail-name">{{ recommendDetailItem.name }}</div>
+              <div class="rec-detail-byline">{{ recommendDetailItem.author }} · {{ recommendDetailItem.source }}</div>
+            </div>
+          </div>
+          <div class="rec-detail-desc">{{ recommendDetailItem.description || '暂无描述' }}</div>
+        </div>
+        <!-- 统计 -->
+        <div class="rec-detail-stats">
+          <div class="rec-detail-stat"><span class="rec-stat-label">下载量</span><span class="rec-stat-val green">{{ recommendDetailItem.downloads }}</span></div>
+          <div class="rec-detail-stat"><span class="rec-stat-label">类型</span><span class="rec-stat-val orange">{{ recommendDetailItem.isMod ? '模组' : '整合包' }}</span></div>
+        </div>
+        <!-- 标签 -->
+        <div class="rec-detail-tags" v-if="recommendDetailItem.tags">
+          <div class="rec-detail-section-title">🏷️ 标签</div>
+          <div class="rec-tag-list">
+            <span class="rec-tag-chip" v-for="tag in recommendDetailItem.tags.split(',').map(t => t.trim()).filter(t => t)" :key="tag">{{ tag }}</span>
+          </div>
+        </div>
+        <!-- 操作按钮 -->
+        <div class="rec-detail-actions">
+          <button class="rec-detail-btn primary" @click="downloadRecommendItem" :disabled="recommendDownloading">{{ recommendDownloading ? '正在添加任务...' : '立即下载' }}</button>
+          <button class="rec-detail-btn secondary" @click="viewMoreRecommend">
+            {{ recommendDetailItem.isMod ? '查看更多模组' : '查看更多整合包' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ 下载确认弹窗（对齐 WPF DownloadConfirmDialog） ═══ -->
+  <div class="modal-overlay" v-if="showDownloadConfirm" @click.self="cancelDownloadConfirm">
+    <div class="download-confirm-dialog">
+      <div class="dl-confirm-header">
+        <span class="dl-confirm-title">下载确认 - {{ downloadConfirmItemName }}</span>
+        <span class="dl-confirm-close" @click="cancelDownloadConfirm">✕</span>
+      </div>
+      <div class="dl-confirm-body" v-if="downloadConfirmInfo">
+        <div class="dl-confirm-ver-name" v-if="downloadConfirmInfo.versionName">
+          推荐版本 · {{ downloadConfirmInfo.versionName }}
+        </div>
+
+        <!-- 模组/整合包版本选择 -->
+        <div class="dl-confirm-field" v-if="downloadConfirmVersionsList.length > 1">
+          <label class="dl-confirm-label">选择版本</label>
+          <div class="dl-dropdown" :class="{ open: dlDropdownOpen === 'modVersion' }">
+            <div class="dl-dropdown-trigger" @click="toggleDlDropdown('modVersion')">
+              <span class="dl-dropdown-text">{{ selectedModVersionInfo ? (selectedModVersionInfo.isBadDisplay ? selectedModVersionInfo.fileName : selectedModVersionInfo.versionName) : '' }}</span>
+              <span class="dl-dropdown-arrow">▾</span>
+            </div>
+            <div class="dl-dropdown-menu" v-if="dlDropdownOpen === 'modVersion'">
+              <div class="dl-dropdown-item"
+                v-for="(v, i) in downloadConfirmVersionsList" :key="i"
+                :class="{ active: i === downloadConfirmSelectedVersionIdx, recommended: v.isRecommended }"
+                @click="selectDlModVersion(i)">
+                <span class="dl-dd-name">{{ v.isBadDisplay ? v.fileName : v.versionName }}</span>
+                <span class="dl-dd-info" v-if="!v.isBadDisplay && v.displayInfo">{{ v.displayInfo }}</span>
+                <span class="dl-dd-tag" v-if="v.isRecommended">推荐</span>
+              </div>
+            </div>
+          </div>
+          <span class="dl-confirm-hint" v-if="selectedModVersionInfo">
+            {{ selectedModVersionInfo.fileName || '' }}
+            <span v-if="selectedModVersionInfo.fileSize"> · {{ formatFileSize(selectedModVersionInfo.fileSize) }}</span>
+          </span>
+        </div>
+
+        <!-- 游戏版本选择 -->
+        <div class="dl-confirm-field">
+          <label class="dl-confirm-label">安装到哪个游戏版本</label>
+          <div class="dl-confirm-row">
+            <div class="dl-dropdown" :class="{ open: dlDropdownOpen === 'gameVersion' }">
+              <div class="dl-dropdown-trigger" @click="toggleDlDropdown('gameVersion')">
+                <span class="dl-dropdown-text">{{ downloadConfirmVersion || '选择版本...' }}</span>
+                <span class="dl-dropdown-arrow">▾</span>
+              </div>
+              <div class="dl-dropdown-menu" v-if="dlDropdownOpen === 'gameVersion'">
+                <div class="dl-dropdown-item"
+                  v-for="v in downloadConfirmVersions" :key="v"
+                  :class="{ active: v === downloadConfirmVersion }"
+                  @click="selectDlGameVersion(v)">{{ v }}</div>
+              </div>
+            </div>
+            <button class="dl-confirm-btn-ghost" @click="onConfirmGlobalMods">全局 {{ downloadConfirmSubDir }}</button>
+          </div>
+          <span class="dl-confirm-hint">选择版本后自动定位到该版本的隔离目录</span>
+        </div>
+
+        <!-- 安装目录 -->
+        <div class="dl-confirm-field">
+          <label class="dl-confirm-label">安装目录</label>
+          <div class="dl-confirm-row">
+            <span class="dl-confirm-dir">{{ downloadConfirmDir }}</span>
+            <button class="dl-confirm-btn-ghost" @click="browseDownloadDir">浏览...</button>
+          </div>
+          <span class="dl-confirm-hint">可点击「浏览...」自定义安装目录</span>
+        </div>
+
+        <!-- 文件名 -->
+        <div class="dl-confirm-field">
+          <label class="dl-confirm-label">文件名</label>
+          <input class="dl-confirm-input" type="text" v-model="downloadConfirmFileName" />
+          <span class="dl-confirm-hint">最终保存路径: {{ downloadConfirmDir }}\{{ downloadConfirmFileName }}</span>
+        </div>
+
+        <!-- 按钮 -->
+        <div class="dl-confirm-actions">
+          <button class="dl-confirm-btn cancel" @click="cancelDownloadConfirm">取消</button>
+          <button class="dl-confirm-btn confirm" @click="confirmDownload" :disabled="downloadConfirmLoading">
+            {{ downloadConfirmLoading ? '正在添加任务...' : '确认下载' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Vue 3 Local -->
+<script src="vue.js"></script>
+<script>window._dbg && _dbg('Vue 3 已加载');</script>
+<!-- MNL 3D 皮肤预览 -->
+<script src="js/mnl-skin3d.js?v=1" defer></script>
+<!-- Three.js (用于全景背景) -->
+<script src="js/three.bundle.js" defer></script>
+<!-- 全景壁纸引擎 -->
+<script src="js/wallpaper-engine.js?v=4" defer></script>
+<!-- IPC Bridge -->
+<script src="js/bridge.js?v=29"></script>
+<script>window._dbg && _dbg('Bridge 已加载');</script>
+<!-- Page Components -->
+<script>window.__lastScript='pages/download.js'</script>
+<script src="pages/download.js?v=7"></script>
+<script>window.__lastScript='pages/modmanager.js'</script>
+<script src="pages/modmanager.js?v=6"></script>
+<script>window.__lastScript='pages/saves.js'</script>
+<script src="pages/saves.js?v=5"></script>
+<script>window.__lastScript='pages/downloads.js'</script>
+<script src="pages/downloads.js?v=4"></script>
+<script>window.__lastScript='pages/multiplayer.js'</script>
+<script src="pages/multiplayer.js?v=8"></script>
+<script>window.__lastScript='pages/music.js'</script>
+<script src="pages/music.js?v=37"></script>
+<script>window.__lastScript='pages/community.js'</script>
+<script src="pages/community.js?v=10"></script>
+<script>window.__lastScript='pages/store.js'</script>
+<script src="pages/store.js?v=6"></script>
+<script>window.__lastScript='pages/profile.js'</script>
+<script src="pages/profile.js?v=27"></script>
+<script>window.__lastScript='pages/friends.js'</script>
+<script src="pages/friends.js?v=4"></script>
+<script>window.__lastScript='pages/ai.js'</script>
+<script src="pages/ai.js?v=4"></script>
+<script>window.__lastScript='pages/settings.js'</script>
+<script src="pages/settings.js?v=8"></script>
+<script>window.__lastScript='(app init)'</script>
+<!-- App -->
+<script>
+window._dbg && _dbg('开始创建 Vue App...');
+try {
+
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+// ====== 全局 Toast ======
+let toastId = 0;
+
+// ====== 导航配置 ======
+const navItems = [
+  { id: 'home', icon: '🏠', label: '主界面' },
+  { id: 'download', icon: '⬇️', label: '下载' },
+  { id: 'modmanager', icon: '🔧', label: '模组管理' },
+  { id: 'saves', icon: '💾', label: '存档管理' },
+  { id: 'multiplayer', icon: '🌐', label: '联机社交' },
+  { id: 'downloads', icon: '📥', label: '下载任务' },
+  { id: 'music', icon: '🎵', label: '音乐盒' },
+  { id: 'community', icon: '💬', label: '交流社区' },
+  { id: 'store', icon: '📦', label: '组件商店' },
+  { id: 'profile', icon: '👤', label: '个人主页' },
+  { id: 'friends', icon: '👥', label: '好友列表' },
+  { id: 'ai', icon: '🤖', label: 'AI 助手' },
+  { id: 'settings', icon: '⚙️', label: '设置' },
+];
+
+// ====== 首页组件 ======
+const HomePage = {
+  template: `
+    <div class="home-page">
+      <!-- ═══ Hero 横条 ═══ -->
+      <div class="hero-banner">
+        <div class="hero-content">
+          <h1 class="hero-title">音符启动器</h1>
+          <p class="hero-sub">选择版本，即刻开启 Minecraft 冒险</p>
+        </div>
+        <div class="hero-recs">
+          <!-- 加载中 -->
+          <div class="rec-row" v-if="hotItemsLoading">
+            <span class="rec-label">⏳ 推荐加载中...</span>
+          </div>
+          <!-- 加载失败 -->
+          <div class="rec-row" v-else-if="hotItemsError">
+            <span class="rec-label">⚠️ 推荐加载失败</span>
+            <span class="rec-view" @click="loadHotItems()">重试</span>
+          </div>
+          <!-- 有数据 -->
+          <template v-else-if="hotItems.length > 0">
+            <div class="rec-row">
+              <span class="rec-label">🔥 热门模组：</span>
+              <span class="rec-name rec-name-mod">{{ currentModName }}</span>
+              <span class="rec-source">{{ currentModSource }}</span>
+              <span class="rec-view" @click="openRecommendDetail('mod')">查看</span>
+            </div>
+            <div class="rec-row">
+              <span class="rec-label">📦 热门整合包：</span>
+              <span class="rec-name rec-name-pack">{{ currentPackName }}</span>
+              <span class="rec-source">{{ currentPackSource }}</span>
+              <span class="rec-view" @click="openRecommendDetail('pack')">查看</span>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- ═══ 启动面板 ═══ -->
+      <div class="launch-panel">
+        <!-- 版本类型 -->
+        <div class="version-tabs">
+          <div class="vtab" :class="{ active: versionType === 'java' }" @click="switchVersionType('java')">
+            <span class="vt-icon">☕</span><span>Java 版</span>
+          </div>
+          <div class="vtab" :class="{ active: versionType === 'bedrock' }" @click="switchVersionType('bedrock')">
+            <span class="vt-icon">🪨</span><span>基岩版</span>
+          </div>
+        </div>
+
+        <!-- 版本卡片选择 -->
+        <div class="version-cards" v-if="availableVersions.length > 0">
+          <div class="vcard" v-for="v in availableVersions" :key="v.id"
+            :class="{ selected: selectedVersion && selectedVersion.id === v.id }" @click="selectedVersion = v">
+            <img class="vc-icon-img" :src="'icons/versions/' + vpIconFor(v)" :alt="v.id" />
+            <div class="vc-name">{{ v.id }}</div>
+          </div>
+        </div>
+        <div class="version-cards-empty" v-else>
+          <span class="vc-empty-icon">📭</span>
+          <span class="vc-empty-text">暂无已安装版本</span>
+        </div>
+
+        <!-- 启动操作行 -->
+        <div class="launch-actions">
+          <button class="btn-launch" @click="launchGame" :disabled="launching || !selectedVersion">
+            <span v-if="launching"><span class="spinner"></span> 启动中...</span>
+            <span v-else>启动游戏</span>
+          </button>
+          <button class="btn-ghost" @click="showSettings = !showSettings" :class="{ active: showSettings }">
+            <span class="cfg-icon">⚙</span> 游戏设置
+          </button>
+        </div>
+
+        <!-- 状态行 -->
+        <div class="launch-meta" v-if="launchStatus">
+          <span class="meta-dot" :style="{ background: statusColor }"></span>
+          <span :style="{ color: statusColor }">{{ launchStatus }}</span>
+          <span class="meta-config" v-if="!launching">
+            {{ accountLabel }} · {{ (selectedMemory / 1024).toFixed(0) }}G · {{ selectedResolution }}{{ fullscreen ? ' 全屏' : '' }}
+          </span>
+        </div>
+
+        <!-- 可折叠设置面板 -->
+        <div class="settings-panel" v-if="showSettings">
+          <div class="sp-row">
+            <div class="sp-field">
+              <label>账号</label>
+              <div class="dropdown sm" @click.stop="showAccountDropdown = !showAccountDropdown" :class="{ disabled: accountOptions.length === 0 }">
+                <div class="dropdown-trigger">
+                  <span class="dt-text" v-if="accountOptions.length > 0">{{ accountOptions.find(o => o.value === selectedAccount)?.label || '选择账号' }}</span>
+                  <span class="dt-text dt-text-muted" v-else>无账号，请先添加</span>
+                  <span class="dt-arrow">▼</span>
+                </div>
+                <div v-if="showAccountDropdown && accountOptions.length > 0" class="dropdown-menu">
+                  <div v-for="opt in accountOptions" :key="opt.value"
+                    class="dropdown-item" :class="{ selected: opt.value === selectedAccount }"
+                    @click="selectedAccount = opt.value; showAccountDropdown = false">
+                    {{ opt.label }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="sp-field">
+              <label>内存</label>
+              <div class="dropdown sm" @click.stop="showMemoryDropdown = !showMemoryDropdown">
+                <div class="dropdown-trigger">
+                  <span class="dt-text">{{ memoryOptions.find(o => o.value === selectedMemory)?.label || '4G' }}</span>
+                  <span class="dt-arrow">▼</span>
+                </div>
+                <div v-if="showMemoryDropdown" class="dropdown-menu">
+                  <div v-for="opt in memoryOptions" :key="opt.value"
+                    class="dropdown-item" :class="{ selected: opt.value === selectedMemory }"
+                    @click="selectedMemory = opt.value; showMemoryDropdown = false">
+                    {{ opt.label }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="sp-field">
+              <label>窗口</label>
+              <div class="dropdown sm" @click.stop="showResolutionDropdown = !showResolutionDropdown">
+                <div class="dropdown-trigger">
+                  <span class="dt-text">{{ resolutionOptions.find(o => o.value === selectedResolution)?.label || '1920x1080' }}</span>
+                  <span class="dt-arrow">▼</span>
+                </div>
+                <div v-if="showResolutionDropdown" class="dropdown-menu">
+                  <div v-for="opt in resolutionOptions" :key="opt.value"
+                    class="dropdown-item" :class="{ selected: opt.value === selectedResolution }"
+                    @click="selectedResolution = opt.value; showResolutionDropdown = false">
+                    {{ opt.label }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="sp-field" style="align-self:flex-end">
+              <label class="sp-toggle-label" @click="fullscreen = !fullscreen">
+                <span class="sp-toggle-box" :class="{ on: fullscreen }">{{ fullscreen ? '☑' : '☐' }}</span>
+                <span>全屏</span>
+              </label>
+            </div>
+          </div>
+          <div class="sp-info">
+            <span>Java: {{ javaStatus }} | GPU: {{ gpuInfo }}</span>
+            <button class="btn-link" @click="navigateTo('settings')">Java 配置 →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 控制台 -->
+      <div class="console-mini" v-if="consoleLines.length > 0">
+        <div class="console-bar">
+          <span>控制台</span>
+          <button class="btn-link" @click="consoleLines = []">清空</button>
+        </div>
+        <div class="console-body" id="console-body">
+          <div v-for="(line, i) in consoleLines" :key="i" class="console-line">{{ line }}</div>
+        </div>
+      </div>
+
+      <!-- ═══ 快捷入口 ═══ -->
+      <div class="quick-grid">
+        <div class="quick-card" v-for="item in featuredItems" :key="item.title" @click="navigateTo(item.page, item.tab ? { tab: item.tab } : null)">
+          <div class="qc-icon-wrap" :style="{ background: item.color + '18' }">
+            <img v-if="item.imgSrc" :src="item.imgSrc" class="qc-icon-img" :alt="item.title">
+            <span v-else class="qc-icon">{{ item.icon }}</span>
+          </div>
+          <div class="qc-title">{{ item.title }}</div>
+          <div class="qc-desc">{{ item.desc }}</div>
+        </div>
+      </div>
+    </div>
+  `,
+  data() {
+    return {
+      versionType: 'java',
+      selectedVersion: '',
+      availableVersions: [],
+      launching: false,
+      launchStatus: '',
+      statusColor: '#3498DB',
+      consoleLines: [],
+      showSettings: false,
+      showAccountDropdown: false,
+      showMemoryDropdown: false,
+      showResolutionDropdown: false,
+      selectedAccount: '',
+      accounts: [],
+      accountOptions: [],
+      selectedMemory: '4096',
+      memoryOptions: [
+        { value: '2048', label: '2G' },
+        { value: '4096', label: '4G' },
+        { value: '8192', label: '8G' },
+        { value: '16384', label: '16G' }
+      ],
+      selectedResolution: '1920x1080',
+      resolutionOptions: [
+        { value: '800x600', label: '800x600' },
+        { value: '1024x768', label: '1024x768' },
+        { value: '1280x720', label: '1280x720' },
+        { value: '1280x1024', label: '1280x1024' },
+        { value: '1920x1080', label: '1920x1080' }
+      ],
+      fullscreen: false,
+      javaStatus: '正常',
+      gpuInfo: '检测中...',
+      hotItems: [],
+      carouselIndex: 0,
+      modCarouselIndex: 0,
+      packCarouselIndex: 0,
+      carouselTimer: null,
+      // 推荐加载状态
+      hotItemsLoading: true,
+      hotItemsError: false,
+      featuredItems: [
+        { icon: '🧩', title: '模组', desc: '安装管理', page: 'modmanager', color: '#8E44AD' },
+        { icon: '📦', title: '整合包', desc: '一键导入', page: 'download', color: '#E67E22', tab: 'packs' },
+        { icon: '✨', title: '光影', desc: '美化世界', page: 'download', color: '#F1C40F', tab: 'shaders' },
+        { icon: '💾', title: '存档', desc: '备份恢复', page: 'saves', color: '#3498DB' },
+        { icon: '🌐', title: '联机', desc: '好友畅玩', page: 'multiplayer', color: '#2ECC71' },
+        { icon: '🤖', title: 'AI 助手', desc: '智能问答', page: 'ai', color: '#E74C3C', imgSrc: 'img/yinlian.png' },
+      ]
+    };
+  },
+  computed: {
+    accountLabel: function() {
+      var opt = this.accountOptions.find(function(o) { return o.value === this.selectedAccount; }, this);
+      return opt ? opt.label : '无账号';
+    },
+    hotMods() {
+      return this.hotItems.filter(function(item) { return item.isMod; });
+    },
+    hotPacks() {
+      return this.hotItems.filter(function(item) { return !item.isMod; });
+    },
+    currentModName() {
+      var mods = this.hotMods;
+      return mods.length > 0 ? mods[this.modCarouselIndex % mods.length].name : '';
+    },
+    currentModSource() {
+      var mods = this.hotMods;
+      return mods.length > 0 ? mods[this.modCarouselIndex % mods.length].source : '';
+    },
+    currentPackName() {
+      var packs = this.hotPacks;
+      return packs.length > 0 ? packs[this.packCarouselIndex % packs.length].name : '';
+    },
+    currentPackSource() {
+      var packs = this.hotPacks;
+      return packs.length > 0 ? packs[this.packCarouselIndex % packs.length].source : '';
+    },
+  },
+  methods: {
+    vpIconFor: function(v) {
+      var t = (v.type || '').toLowerCase();
+      var id = (v.id || '').toLowerCase();
+      if (t === 'bedrock') return 'RedstoneBlock.png';
+      if (id.indexOf('neoforge') >= 0) return 'NeoForge.png';
+      if (id.indexOf('forge') >= 0) return 'Anvil.png';
+      if (id.indexOf('fabric') >= 0) return 'Fabric.png';
+      if (id.indexOf('optifine') >= 0 || id.indexOf('optifabric') >= 0) return 'GrassPath.png';
+      if (id.indexOf('liteloader') >= 0) return 'Egg.png';
+      if (t === 'release' || t === '正式版') return 'Grass.png';
+      if (t === 'snapshot' || t === '预览版') return 'CommandBlock.png';
+      if (t.indexOf('old_') === 0 || t.indexOf('远古版') === 0) return 'CobbleStone.png';
+      if (id.indexOf('fool') >= 0 || id.indexOf('fun') >= 0 || id.indexOf('23w13a') >= 0 || id.indexOf('20w14infinite') >= 0) return 'GoldBlock.png';
+      return 'RedstoneBlock.png';
+    },
+    launchGame: function() {
+      if (!this.selectedVersion) {
+        this.showToast('请先选择一个版本', 'warning');
+        return;
+      }
+      if (!this.selectedAccount) {
+        this.showToast('请先添加游戏账号（个人主页 → 游戏账号）', 'warning');
+        return;
+      }
+      this.launching = true;
+      this.launchStatus = '正在启动...';
+      this.statusColor = '#3498DB';
+      var self = this;
+      var ram = parseInt(this.selectedMemory);
+      if (window.MNL && window.MNL.versions && window.MNL.versions.launch) {
+        var accType = '';
+        var accName = '';
+        if (this.selectedAccount) {
+          var parts = this.selectedAccount.split('|');
+          accType = parts.length > 1 ? parts[1] : parts[0];
+          accName = parts[0];
+        }
+        self.addConsole('正在启动 ' + self.selectedVersion.id + '（账号: ' + accName + ', 内存: ' + (ram/1024).toFixed(0) + 'G）');
+        window.MNL.versions.launch(this.selectedVersion.id, {
+          ram: ram,
+          accountType: accType,
+          accountName: accName,
+          resolution: this.selectedResolution,
+          fullscreen: this.fullscreen,
+          versionType: this.versionType
+        }).then(function(result) {
+          // 检查 C# 返回值
+          if (result === 'launched') {
+            self.launchStatus = '游戏运行中';
+            self.statusColor = '#27AE60';
+          } else if (result === 'java_not_found') {
+            self.launchStatus = '未找到 Java';
+            self.statusColor = '#E74C3C';
+            self.showToast('未找到 Java，请在设置中配置 Java 路径', 'error');
+          } else if (result === 'launch_failed') {
+            self.launchStatus = '启动失败';
+            self.statusColor = '#E74C3C';
+            self.showToast('游戏进程未能启动，请检查控制台日志', 'error');
+          } else {
+            self.launchStatus = '未知结果: ' + result;
+            self.statusColor = '#F39C12';
+          }
+          self.launching = false;
+        })["catch"](function(e) {
+          self.launchStatus = '启动异常';
+          self.statusColor = '#E74C3C';
+          var errMsg = '未知错误';
+          try {
+            if (typeof e === 'string') errMsg = e;
+            else if (e && e.message) errMsg = e.message;
+            else if (e) errMsg = String(e);
+          } catch(ex) { errMsg = '异常信息无法解析'; }
+          self.addConsole('[错误] ' + errMsg);
+          self.showToast('启动失败: ' + errMsg, 'error');
+          self.launching = false;
+        });
+      } else {
+        self.launchStatus = '启动失败';
+        self.statusColor = '#E74C3C';
+        self.showToast('启动接口不可用，请检查 WebView2 桥接', 'error');
+        self.launching = false;
+      }
+    },
+    async installVersion() {
+      this.addConsole('正在安装 ' + this.selectedVersion + '...');
+      this.showToast('正在安装 ' + this.selectedVersion + '...', 'info');
+      setTimeout(() => {
+        this.addConsole(this.selectedVersion + ' 安装完成');
+        this.showToast(this.selectedVersion + ' 安装完成', 'success');
+      }, 1500);
+    },
+    switchVersionType(type) {
+      this.versionType = type;
+      this.selectedVersion = '';
+      this.loadVersions();
+    },
+    loadVersions: function() {
+      var self = this;
+      var isBedrock = this.versionType === 'bedrock';
+      var method = isBedrock
+        ? (window.MNL && window.MNL.versions && window.MNL.versions.getInstalledBedrockJson)
+        : (window.MNL && window.MNL.versions && window.MNL.versions.getInstalledJson);
+      if (method) {
+        method().then(function(raw) {
+          if (raw && raw.length > 0) {
+            var mapped = [];
+            for (var i = 0; i < raw.length; i++) {
+              var v = raw[i];
+              if (v == null) continue;
+              var id = v.id || v.Name || v.name || '';
+              if (id) mapped.push({ id: id, type: v.type || 'release' });
+            }
+            self.availableVersions = mapped;
+          } else {
+            self.availableVersions = [];
+          }
+        })["catch"](function(e) {
+          self.availableVersions = [];
+        });
+      } else {
+        self.availableVersions = [];
+      }
+    },
+    async loadHotItems() {
+      this.hotItemsLoading = true;
+      this.hotItemsError = false;
+      try {
+        if (window.MNL && window.MNL.recommendations) {
+          const data = await window.MNL.recommendations.getRecommendations();
+          if (data && (data.mods || data.packs)) {
+            const items = [];
+            const mods = data.mods || [];
+            const packs = data.packs || [];
+            for (let i = 0; i < Math.max(mods.length, packs.length); i++) {
+              if (mods[i]) items.push({ ...mods[i], isMod: true });
+              if (packs[i]) items.push({ ...packs[i], isMod: false });
+            }
+            if (items.length > 0) { this.hotItems = items; }
+          }
+        }
+      } catch(e) {
+        this.hotItemsError = true;
+        console.error('[rec] loadHotItems failed:', e);
+      } finally {
+        this.hotItemsLoading = false;
+      }
+    },
+    openRecommendDetail: function(type) {
+      var items = type === 'mod' ? this.hotMods : this.hotPacks;
+      var idx = type === 'mod' ? this.modCarouselIndex : this.packCarouselIndex;
+      if (this.hotItemsLoading) {
+        window.dispatchEvent(new CustomEvent('mnl:toast', { detail: { message: '推荐数据加载中，请稍候...', type: 'info' } }));
+        return;
+      }
+      if (this.hotItemsError) {
+        window.dispatchEvent(new CustomEvent('mnl:toast', { detail: { message: '推荐数据加载失败，请检查网络连接', type: 'error' } }));
+        return;
+      }
+      if (!items || items.length === 0) {
+        window.dispatchEvent(new CustomEvent('mnl:toast', { detail: { message: '暂无推荐数据，请稍后重试', type: 'warning' } }));
+        return;
+      }
+      var raw = items[idx % items.length];
+      if (!raw) { console.warn('[rec] no item at index', idx % items.length); return; }
+      var item = JSON.parse(JSON.stringify(raw));
+      item.isMod = (type === 'mod');
+      // 设置到根 Vue 应用（推荐详情弹窗在根模板中）
+      this.$root.recommendDetailItem = item;
+      this.$root.showRecommendDetail = true;
+    },
+    addConsole(line) {
+      const time = new Date().toLocaleTimeString();
+      this.consoleLines.push('[' + time + '] ' + line);
+      if (this.consoleLines.length > 200) this.consoleLines.shift();
+      if (!this._scrollRaf) {
+        this._scrollRaf = requestAnimationFrame(() => {
+          this._scrollRaf = null;
+          var el = document.getElementById('console-body');
+          if (el) el.scrollTop = el.scrollHeight;
+        });
+      }
+    },
+    navigateTo(page) {
+      this.$root.navigateTo(page);
+    },
+    showToast(msg, type) {
+      window.dispatchEvent(new CustomEvent('mnl:toast', { detail: { message: msg, type } }));
+    },
+    loadAccounts: function() {
+      var self = this;
+      if (window.MNL && window.MNL.profile && window.MNL.profile.getProfileJson) {
+        window.MNL.profile.getProfileJson().then(function(profile) {
+          if (profile && profile.accounts && profile.accounts.length > 0) {
+            self.accounts = profile.accounts;
+            var opts = [];
+            for (var i = 0; i < profile.accounts.length; i++) {
+              var acc = profile.accounts[i];
+              var typeLabel = acc.type === 'microsoft' ? '微软' : (acc.type === 'authlib' ? '外置' : (acc.type === 'qingniao' ? '青鸟' : '离线'));
+              opts.push({ value: acc.name + '|' + acc.type, label: acc.name + ' (' + typeLabel + ')' });
+            }
+            self.accountOptions = opts;
+            // 自动选中第一个账号
+            if (opts.length > 0 && !self.selectedAccount) {
+              self.selectedAccount = opts[0].value;
+            }
+          } else {
+            self.accounts = [];
+            self.accountOptions = [];
+          }
+        })["catch"](function() {});
+      }
+    },
+    loadSettings: function() {
+      var self = this;
+      if (window.MNL && window.MNL.settings && window.MNL.settings.getAll) {
+        window.MNL.settings.getAll().then(function(settings) {
+          if (!settings) return;
+          if (settings.resolution && self.resolutionOptions.some(function(o) { return o.value === settings.resolution; })) {
+            self.selectedResolution = settings.resolution;
+          }
+          if (typeof settings.fullscreen === 'boolean') {
+            self.fullscreen = settings.fullscreen;
+          }
+          if (settings.maxMemory) {
+            var mem = String(settings.maxMemory);
+            if (self.memoryOptions.some(function(o) { return o.value === mem; })) {
+              self.selectedMemory = mem;
+            }
+          }
+        })["catch"](function() {});
+      }
+    }
+  },
+  mounted() {
+    this.loadVersions();
+    this.loadHotItems();
+    this.loadAccounts();
+    this.loadSettings();
+    this.carouselTimer = setInterval(() => {
+      if (this.hotMods.length > 0) {
+        this.modCarouselIndex = (this.modCarouselIndex + 1) % this.hotMods.length;
+      }
+      if (this.hotPacks.length > 0) {
+        this.packCarouselIndex = (this.packCarouselIndex + 1) % this.hotPacks.length;
+      }
+    }, 5000);
+    // GPU 检测
+    if (window.MNL && window.MNL.utils && window.MNL.utils.getGpuInfo) {
+      try { window.MNL.utils.getGpuInfo().then(info => { if (info) this.gpuInfo = info; }).catch(function(e) { console.warn('[App] GPU info unavailable:', e); }); } catch(e) {}
+    }
+    // 监听游戏启动状态（后台实时回调）
+    var self = this;
+    this._onLaunchStatus = function(e) {
+      if (!e.detail) return;
+      var d = e.detail;
+      if (d.status === 'preparing') {
+        self.launchStatus = d.message || '准备中...';
+        self.addConsole(d.message || '正在准备启动...');
+      } else if (d.status === 'log') {
+        self.addConsole(d.message || '');
+      } else if (d.status === 'running') {
+        self.launchStatus = '游戏运行中';
+        self.statusColor = '#27AE60';
+        self.addConsole(d.message || '游戏已启动');
+        self.launching = false;
+      } else if (d.status === 'error') {
+        self.launchStatus = '启动失败';
+        self.statusColor = '#E74C3C';
+        self.addConsole('[错误] ' + (d.message || ''));
+        self.launching = false;
+      } else if (d.status === 'crashed') {
+        self.launchStatus = '游戏崩溃';
+        self.statusColor = '#E74C3C';
+        self.addConsole('[崩溃] ' + (d.message || '游戏异常退出'));
+        self.addConsole('[崩溃] 退出码: ' + (d.exitCode || '?'));
+        if (d.reason) self.addConsole('[崩溃] 检测到: ' + d.reason);
+        self.addConsole('[崩溃] 请向上滚动查看完整的崩溃分析');
+        self.launching = false;
+      }
+    };
+    window.addEventListener('mnl:launch-status', this._onLaunchStatus);
+    // 监听版本列表变化（安装/删除后自动刷新）
+    this._onVersionsChanged = function() {
+      self.loadVersions();
+    };
+    window.addEventListener('mnl:versions-changed', this._onVersionsChanged);
+  },
+  unmounted() {
+    if (this.carouselTimer) clearInterval(this.carouselTimer);
+    if (this._onLaunchStatus) {
+      window.removeEventListener('mnl:launch-status', this._onLaunchStatus);
+    }
+    if (this._onVersionsChanged) {
+      window.removeEventListener('mnl:versions-changed', this._onVersionsChanged);
+    }
+  }
+};
+
+// ====== 应用主入口 ======
+const app = createApp({
+  components: {
+    HomePage,
+    DownloadPage,
+    ModManagerPage,
+    SavesPage,
+    MultiplayerPage,
+    DownloadsPage,
+    MusicPage,
+    CommunityPage,
+    StorePage,
+    ProfilePage,
+    FriendsPage,
+    AiPage,
+    SettingsPage,
+  },
+  data() {
+    return {
+      navItems,
+      currentPage: 'home',
+      appVersion: '1.2.2',
+      isMaximized: false,
+      username: 'Player',
+      userMode: '离线模式',
+      userAvatarUrl: '',
+      pageParams: {},
+      isDarkTheme: false,
+      showTermsModal: false,
+      showUpdateModal: false,
+      updateInfo: null,
+      isUpdating: false,
+      updateProgress: { status: '', percent: 0 },
+      updateError: '',
+      _updatePollTimer: null,
+      // 推荐详情弹窗（从 HomePage 提升到根应用，否则 v-if 无法跨组件访问）
+      showRecommendDetail: false,
+      recommendDetailItem: null,
+      recommendDownloading: false,
+      // 下载确认弹窗（对齐 WPF DownloadConfirmDialog）
+      showDownloadConfirm: false,
+      downloadConfirmItemName: '',
+      downloadConfirmItemId: '',
+      downloadConfirmItemType: '',
+      downloadConfirmInfo: null,
+      downloadConfirmVersion: '',
+      downloadConfirmVersions: [],
+      downloadConfirmDir: '',
+      downloadConfirmFileName: '',
+      downloadConfirmSubDir: 'mods',
+      downloadConfirmLoading: false,
+      downloadConfirmMinecraftPath: '',
+      // 模组/整合包版本选择
+      downloadConfirmVersionsList: [],
+      downloadConfirmSelectedVersionIdx: 0,
+      // 自定义下拉
+      dlDropdownOpen: null,
+      // AI 浮动弹窗
+      aiBarVisible: false,
+      aiBarStatus: '',
+    };
+  },
+  computed: {
+    userAvatar() {
+      return this.username.charAt(0).toUpperCase();
+    },
+    /// 当前选中的模组版本信息
+    selectedModVersionInfo: function() {
+      var list = this.downloadConfirmVersionsList;
+      var idx = this.downloadConfirmSelectedVersionIdx;
+      return (list && idx >= 0 && idx < list.length) ? list[idx] : null;
+    }
+  },
+  methods: {
+    navigateTo(pageId, params) {
+      this.currentPage = pageId;
+      if (params) {
+        this.pageParams = params;
+        // 触发自定义事件，让目标页面组件响应参数变化（v-show 不会触发 mounted）
+        var self = this;
+        this.$nextTick(function() {
+          window.dispatchEvent(new CustomEvent('mnl:page-navigate', { detail: { page: pageId, params: params } }));
+        });
+      }
+    },
+    winMinimize() {
+      window.MNL?.window.minimize();
+    },
+    winMaximize() {
+      window.MNL?.window.maximize();
+      this.isMaximized = !this.isMaximized;
+    },
+    winClose() {
+      window.MNL?.window.close();
+    },
+    showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const id = ++toastId;
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = message;
+      toast.setAttribute('data-id', id);
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.animation = 'toastOut 0.3s ease forwards';
+        toast.addEventListener('animationend', () => toast.remove());
+      }, 3000);
+    },
+    aiStop() {
+      if (window.MNL && window.MNL.ai && window.MNL.ai.cancel) {
+        window.MNL.ai.cancel();
+      }
+      this.aiBarVisible = false;
+      this.aiBarStatus = '';
+    },
+    aiContinue() {
+      this.aiBarVisible = false;
+      this.aiBarStatus = '';
+    },
+    toggleTheme() {
+      this.isDarkTheme = !this.isDarkTheme;
+      var theme = this.isDarkTheme ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      document.body.setAttribute('data-theme', theme);
+    },
+    async loadUserInfo() {
+      try {
+        if (window.MNL && window.MNL.profile && window.MNL.profile.getProfileJson) {
+          const profile = await window.MNL.profile.getProfileJson();
+          if (profile) {
+            this.username = profile.username || profile.qingniaoName || 'Player';
+            this.userAvatarUrl = profile.qingniaoAvatar || '';
+            // 存到全局，供 AI 页等子页面通过 JSON 读取（避免 COM 代理不稳定）
+            window.__mnl_profile_json = JSON.stringify(profile);
+            window.dispatchEvent(new CustomEvent('mnl:profile-loaded', { detail: profile }));
+            if (profile.isQingniaoLoggedIn) {
+              this.userMode = '青鸟模式';
+            } else {
+              this.userMode = profile.loginMode || (profile.isOffline ? '离线模式' : '正版模式');
+            }
+          }
+        }
+      } catch (e) { /* 使用默认值 */ }
+    },
+    /// 检查用户协议状态，未接受则弹窗
+    /// 使用轮询等待桥接就绪，确保获取真实的持久化状态
+    async checkAgreementStatus() {
+      try {
+        // 等待桥接就绪（最多等待 5 秒）
+        var bridgeReady = false;
+        var startTime = Date.now();
+        while (Date.now() - startTime < 5000) {
+          var native = window.chrome && window.chrome.webview && window.chrome.webview.hostObjects && window.chrome.webview.hostObjects.mnl;
+          if (native && native.GetAgreementStatusJson) {
+            bridgeReady = true;
+            break;
+          }
+          await new Promise(function(r) { setTimeout(r, 200); });
+        }
+        if (!bridgeReady) {
+          // 桥接始终不可用，默认弹出协议（安全兜底）
+          this.showTermsModal = true;
+          return;
+        }
+        var s = await window.MNL.agreement.getStatus();
+        if (s && !s.termsAccepted) {
+          this.showTermsModal = true;
+        }
+      } catch (e) { /* 检查失败默认弹出协议（安全） */
+        this.showTermsModal = true;
+      }
+    },
+    /// 接受用户协议
+    async acceptTerms() {
+      try {
+        if (window.MNL && window.MNL.agreement && window.MNL.agreement.acceptTerms) {
+          await window.MNL.agreement.acceptTerms();
+        }
+        this.showTermsModal = false;
+        this.showToast('欢迎使用 MNL 音符启动器！', 'success');
+      } catch (e) {
+        this.showToast('保存协议失败，请重试', 'error');
+      }
+    },
+    /// 拒绝用户协议 — 关闭应用
+    declineTerms() {
+      if (window.MNL && window.MNL.agreement && window.MNL.agreement.declineTerms) {
+        window.MNL.agreement.declineTerms();
+      }
+    },
+    /// 打开完整协议链接
+    openTermsUrl() {
+      if (window.MNL && window.MNL.utils && window.MNL.utils.openUrl) {
+        window.MNL.utils.openUrl('https://www.mnl.pub/terms');
+      }
+    },
+    /// 启动时自动检查更新
+    async autoCheckUpdate() {
+      try {
+        if (!window.MNL || !window.MNL.update) return;
+        // 检查自动更新开关
+        var ac = await window.MNL.update.getAutoCheck();
+        if (!ac || !ac.autoCheckUpdate) return;
+        // 拉取版本信息
+        var result = await window.MNL.update.checkForUpdate();
+        if (result && result.success && result.needUpdate) {
+          this.showUpdateDialog(result);
+        }
+      } catch (e) { /* 静默失败 */ }
+    },
+    /// 显示更新弹窗（也可由 settings 页手动调用）
+    showUpdateDialog(info) {
+      this.updateInfo = info;
+      this.isUpdating = false;
+      this.updateProgress = { status: '', percent: 0 };
+      this.updateError = '';
+      this.showUpdateModal = true;
+    },
+    /// 开始下载更新
+    async startUpdate() {
+      if (this.isUpdating) return;
+      this.isUpdating = true;
+      this.updateError = '';
+      this.updateProgress = { status: '正在下载升级包...', percent: 0 };
+      this._startUpdatePoll();
+      try {
+        var result = await window.MNL.update.downloadUpdate();
+        this._stopUpdatePoll();
+        if (result && result.success) {
+          this.updateProgress = { status: '更新完成，即将重启...', percent: 100 };
+        } else {
+          this.updateError = (result && result.error) || '更新失败';
+          this.isUpdating = false;
+        }
+      } catch (e) {
+        this._stopUpdatePoll();
+        this.updateError = '下载异常: ' + (e.message || '未知');
+        this.isUpdating = false;
+      }
+    },
+    /// 轮询更新下载进度
+    _startUpdatePoll() {
+      this._stopUpdatePoll();
+      var self = this;
+      this._updatePollTimer = setInterval(async function() {
+        try {
+          var p = await window.MNL.update.getProgress();
+          if (p) { self.updateProgress = p; }
+        } catch (e) { /* 忽略轮询错误 */ }
+      }, 500);
+    },
+    _stopUpdatePoll() {
+      if (this._updatePollTimer) { clearInterval(this._updatePollTimer); this._updatePollTimer = null; }
+    },
+    /// 格式化文件大小（字节 → 可读字符串）
+    formatFileSize(bytes) {
+      if (!bytes || bytes <= 0) return '';
+      var sizes = ['B', 'KB', 'MB', 'GB'];
+      var order = 0;
+      var size = bytes;
+      while (size >= 1024 && order < sizes.length - 1) { order++; size /= 1024; }
+      return size.toFixed(1) + ' ' + sizes[order];
+    },
+    /// 关闭推荐详情弹窗
+    closeRecommendDetail: function() {
+      this.showRecommendDetail = false;
+      this.recommendDetailItem = null;
+    },
+    /// 下载推荐项目 → 拉取版本选项 → 弹出下载确认弹窗
+    downloadRecommendItem: async function() {
+      var item = this.recommendDetailItem;
+      if (!item || !item.id) { this.showToast('项目信息不完整', 'warning'); return; }
+      this.recommendDownloading = true;
+      try {
+        if (window.MNL && window.MNL.recommendations) {
+          var opts = await window.MNL.recommendations.getDownloadOptions(item.id, item.name, item.type);
+          this.recommendDownloading = false;
+          if (!opts || !opts.success) {
+            this.showToast('获取下载信息失败: ' + ((opts && opts.error) || '未知错误'), 'error');
+            return;
+          }
+          // 初始化下载确认弹窗
+          this.downloadConfirmItemName = item.name;
+          this.downloadConfirmItemId = item.id;
+          this.downloadConfirmItemType = item.type;
+          this.downloadConfirmInfo = opts;
+          this.downloadConfirmMinecraftPath = opts.minecraftPath;
+          this.downloadConfirmSubDir = opts.subDir || (item.type === 'modpack' ? 'modpacks' : 'mods');
+          // 模组版本列表
+          this.downloadConfirmVersionsList = opts.availableVersions || [];
+          this.downloadConfirmSelectedVersionIdx = (opts.recommendedIndex != null && opts.recommendedIndex >= 0)
+            ? opts.recommendedIndex : 0;
+          // 游戏版本列表（当前版本放第一个）
+          var versions = opts.installedVersions || [];
+          if (opts.currentVersion && versions.indexOf(opts.currentVersion) < 0) {
+            versions.unshift(opts.currentVersion);
+          }
+          this.downloadConfirmVersions = versions;
+          this.downloadConfirmVersion = opts.currentVersion || (versions.length > 0 ? versions[0] : '');
+          this.downloadConfirmDir = opts.defaultTargetDir || '';
+          this.downloadConfirmFileName = opts.defaultFileName || '';
+          this.showDownloadConfirm = true;
+        } else {
+          this.recommendDownloading = false;
+          this.showToast('下载功能不可用', 'error');
+        }
+      } catch(e) {
+        this.recommendDownloading = false;
+        this.showToast('下载异常: ' + (e.message || '未知错误'), 'error');
+      }
+    },
+    /// 查看更多推荐 → 跳转下载页对应标签
+    viewMoreRecommend: function() {
+      var tab = (this.recommendDetailItem && this.recommendDetailItem.isMod) ? 'mods' : 'packs';
+      this.showRecommendDetail = false;
+      this.navigateTo('download');
+      var self = this;
+      setTimeout(function() {
+        window.dispatchEvent(new CustomEvent('mnl:switch-tab', { detail: { tab: tab } }));
+      }, 300);
+    },
+    /// 取消下载确认弹窗
+    cancelDownloadConfirm: function() {
+      this.showDownloadConfirm = false;
+      this.downloadConfirmInfo = null;
+      this.dlDropdownOpen = null;
+    },
+    /// 自定义下拉：切换开关
+    toggleDlDropdown: function(key) {
+      this.dlDropdownOpen = (this.dlDropdownOpen === key) ? null : key;
+    },
+    /// 自定义下拉：选择模组版本
+    selectDlModVersion: function(idx) {
+      this.downloadConfirmSelectedVersionIdx = idx;
+      this.dlDropdownOpen = null;
+      this.onModVersionChange();
+    },
+    /// 自定义下拉：选择游戏版本
+    selectDlGameVersion: function(v) {
+      this.downloadConfirmVersion = v;
+      this.dlDropdownOpen = null;
+      this.onConfirmVersionChange();
+    },
+    /// 版本切换 → 重新计算安装目录
+    onConfirmVersionChange: function() {
+      var v = this.downloadConfirmVersion;
+      var mp = this.downloadConfirmMinecraftPath;
+      var sd = this.downloadConfirmSubDir;
+      if (v && mp) {
+        // 默认使用版本隔离目录（与 WPF 逻辑一致）
+        this.downloadConfirmDir = mp + '\\versions\\' + v + '\\game\\' + sd;
+      }
+    },
+    /// 模组/整合包版本切换 → 自动更新文件名
+    onModVersionChange: function() {
+      var info = this.selectedModVersionInfo;
+      if (info && info.fileName) {
+        this.downloadConfirmFileName = info.fileName;
+      }
+    },
+    /// 切换到全局 mods 目录
+    onConfirmGlobalMods: function() {
+      var mp = this.downloadConfirmMinecraftPath;
+      var sd = this.downloadConfirmSubDir;
+      if (mp) {
+        this.downloadConfirmDir = mp + '\\' + sd;
+      }
+    },
+    /// 浏览选择文件夹
+    browseDownloadDir: async function() {
+      try {
+        if (window.MNL && window.MNL.dialog && window.MNL.dialog.openFolder) {
+          var folder = await window.MNL.dialog.openFolder();
+          if (folder) {
+            this.downloadConfirmDir = folder;
+          }
+        }
+      } catch(e) {
+        this.showToast('无法打开文件夹选择对话框', 'warning');
+      }
+    },
+    /// 确认下载
+    confirmDownload: async function() {
+      var fn = (this.downloadConfirmFileName || '').trim();
+      if (!fn) { this.showToast('请输入文件名', 'warning'); return; }
+      // 检查非法字符
+      var invalidChars = /[<>:"/\\|?*]/g;
+      if (invalidChars.test(fn)) {
+        this.showToast('文件名包含无效字符', 'warning');
+        return;
+      }
+      var savePath = this.downloadConfirmDir + '\\' + fn;
+      this.downloadConfirmLoading = true;
+      try {
+        if (window.MNL && window.MNL.recommendations) {
+          var r = await window.MNL.recommendations.downloadRecommend(
+            this.downloadConfirmItemId,
+            this.downloadConfirmItemName,
+            this.downloadConfirmItemType,
+            savePath,
+            fn,
+            this.downloadConfirmSelectedVersionIdx
+          );
+          this.downloadConfirmLoading = false;
+          if (r && r.success) {
+            this.showToast('已添加到下载任务', 'success');
+            this.showDownloadConfirm = false;
+            this.showRecommendDetail = false;
+          } else {
+            this.showToast('下载失败: ' + ((r && r.error) || '未知错误'), 'error');
+          }
+        } else {
+          this.downloadConfirmLoading = false;
+          this.showToast('下载功能不可用', 'error');
+        }
+      } catch(e) {
+        this.downloadConfirmLoading = false;
+        this.showToast('下载异常: ' + (e.message || '未知错误'), 'error');
+      }
+    },
+  },
+  mounted() {
+    // 监听页面导航事件
+    window.addEventListener('mnl:navigate', (e) => {
+      if (e.detail?.page) this.currentPage = e.detail.page;
+    });
+
+    // 监听 Toast 事件
+    window.addEventListener('mnl:toast', (e) => {
+      if (e.detail) this.showToast(e.detail.message, e.detail.type);
+    });
+
+    // 监听 AI 工具进度事件 — 驱动浮动弹窗
+    window.addEventListener('mnl:ai-tool', (e) => {
+      var d = e.detail;
+      if (d.action === 'started') {
+        this.aiBarVisible = true;
+        this.aiBarStatus = d.tool || '正在操作...';
+      } else if (d.action === 'progress') {
+        this.aiBarVisible = true;
+        this.aiBarStatus = (d.tool || '') + ': ' + (d.status || '');
+      } else if (d.action === 'completed') {
+        this.aiBarStatus = (d.success ? '✅ ' : '❌ ') + (d.tool || '') + ': ' + (d.message || '');
+      } else if (d.action === 'done' || d.action === 'error' || d.action === 'cancelled') {
+        var self = this;
+        setTimeout(function() {
+          self.aiBarVisible = false;
+          self.aiBarStatus = '';
+        }, 2500);
+      }
+    });
+
+    // 监听微软登录成功事件
+    window.addEventListener('mnl:ms-login-success', (e) => {
+      if (e.detail) {
+        this.username = e.detail.userName || this.username;
+        this.userMode = '正版模式';
+        this.showToast('微软账号 ' + e.detail.userName + ' 登录成功！', 'success');
+        // 通知个人主页刷新账号列表
+        window.dispatchEvent(new CustomEvent('mnl:profile-reload-accounts'));
+        // 刷新主页账号下拉框
+        this.loadAccounts();
+      }
+    });
+
+    // 监听用户信息更新事件
+    window.addEventListener('mnl:user-update', (e) => {
+      if (e.detail) {
+        this.username = e.detail.username || this.username;
+        this.userMode = e.detail.mode || this.userMode;
+        this.userAvatarUrl = e.detail.avatarUrl || this.userAvatarUrl;
+      }
+    });
+
+    // 隐藏启动页（有错误时延迟 8 秒后也关闭，方便查看错误）
+    window._dbg && _dbg('Vue App 已挂载，隐藏 Splash...');
+    setTimeout(() => {
+      const splash = document.getElementById('splash');
+      if (!splash) return;
+      if (splash.classList.contains('has-error')) {
+        // 有错误：8 秒后再关
+        setTimeout(() => { splash.classList.add('hide'); }, 8000);
+      } else {
+        splash.classList.add('hide');
+      }
+    }, 300);
+
+    // 从可视化页面返回时，自动切到音乐盒
+    try {
+      if (sessionStorage.getItem('mnl.viz.returnToMusic') === '1') {
+        sessionStorage.removeItem('mnl.viz.returnToMusic');
+        // 延迟导航，等 Vue 完全初始化
+        var self = this;
+        setTimeout(function () { self.currentPage = 'music'; }, 100);
+      }
+    } catch (e) {}
+
+    // 加载用户信息
+    this.loadUserInfo();
+
+    // 检查用户协议（首次启动弹窗）
+    this.checkAgreementStatus();
+
+    // 启动时自动检查更新
+    this.autoCheckUpdate();
+
+    // 初始化全景壁纸引擎
+    try {
+      if (window.initMNLWallpaper) {
+        window.initMNLWallpaper();
+        console.log('[App] 全景壁纸引擎已初始化');
+      }
+    } catch(e) { console.warn('[App] 初始化全景壁纸失败:', e); }
+
+    // 恢复已保存的视频背景（确保应用启动时生效，不限于设置页面）
+    setTimeout(async function() {
+      try {
+        if (window.MNL && window.MNL.settings && window.MNL.settings.get) {
+          const bgMode = await window.MNL.settings.get('bgMode');
+          if (bgMode === 'panorama') {
+            console.log('[App] 恢复全景背景');
+            if (window.switchMNLWallpaperMode) {
+              window.switchMNLWallpaperMode('panorama');
+              try {
+                var pTheme = await window.MNL.settings.get('panoramaTheme');
+                var pSpeed = await window.MNL.settings.get('panoramaSpeed');
+                var pFollow = await window.MNL.settings.get('panoramaMouseFollow');
+                if (pTheme && window.setMNLPanoramaTheme) window.setMNLPanoramaTheme(pTheme);
+                if (pSpeed != null && window.setMNLPanoramaSpeed) window.setMNLPanoramaSpeed(parseInt(pSpeed, 10) * 0.001);
+                if (pFollow != null && window.setMNLPanoramaMouseFollow) window.setMNLPanoramaMouseFollow(pFollow === true || pFollow === 'true');
+              } catch(e) {}
+            }
+          } else {
+            const fileName = await window.MNL.settings.get('VideoBgFileName');
+            if (fileName && typeof fileName === 'string' && fileName.length > 0) {
+              console.log('[App] 恢复已保存视频背景:', fileName);
+              window.applyVideoBackground && window.applyVideoBackground(fileName);
+              // 读取已保存的透明度
+              try {
+                var savedOpacity = await window.MNL.settings.get('bgOpacity');
+                if (savedOpacity != null) {
+                  var parsed = parseInt(savedOpacity, 10);
+                  window.updateBgOpacity && window.updateBgOpacity(Number.isNaN(parsed) ? 60 : parsed);
+                } else {
+                  window.updateBgOpacity && window.updateBgOpacity(60);
+                }
+              } catch(e) {}
+            }
+          }
+        }
+      } catch(e) { console.warn('[App] 恢复背景失败:', e); }
+    }, 500);
+  }
+});
+
+// Vue 全局错误处理（捕获组件渲染/监听器错误）
+app.config.errorHandler = function(err, instance, info) {
+  console.error('[Vue Error]', err, info);
+  if (window._showSplashError) {
+    window._showSplashError('Vue 组件错误', err && err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)), info || '');
+  }
+};
+
+// 全局 v-click-outside 指令（点击元素外部时触发回调）
+app.directive('click-outside', {
+  mounted: function(el, binding) {
+    el.__clickOutside = function(e) { if (!el.contains(e.target)) binding.value(); };
+    document.addEventListener('click', el.__clickOutside);
+  },
+  unmounted: function(el) { document.removeEventListener('click', el.__clickOutside); }
+});
+
+app.mount('#app');
+window._dbg && _dbg('mount() 调用完成');
+
+// 暴露 navigateTo 给所有组件使用
+window.navigateTo = (pageId, params) => {
+  if (app._instance && app._instance.proxy) {
+    app._instance.proxy.navigateTo(pageId, params);
+  }
+};
+window.showToast = (msg, type) => {
+  if (app._instance && app._instance.proxy) {
+    app._instance.proxy.showToast(msg, type);
+    return;
+  }
+  // 降级方案：直接 DOM 创建 toast
+  try {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast ' + (type || 'info');
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = 'toastOut 0.3s ease forwards';
+      toast.addEventListener('animationend', () => toast.remove());
+    }, 3000);
+  } catch(e) {
+    console.log('[Toast]', type, msg);
+  }
+};
+
+} catch(err) {
+  // 捕获 App 初始化阶段的错误
+  window._showSplashError && window._showSplashError(
+    'App 启动失败',
+    err && err.message || (typeof err === 'object' ? JSON.stringify(err) : String(err)),
+    (err.stack || '').split('\n').slice(0,3).join('\n')
+  );
+  console.error('[App Init Error]', err);
+}
+</script>
+
+<style>
+[v-cloak] { display: none; }
+</style>
+</body>
+</html>

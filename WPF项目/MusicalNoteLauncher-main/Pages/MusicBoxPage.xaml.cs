@@ -42,9 +42,6 @@ namespace MusicalNoteLauncher.Pages
             _player.PlayStateChanged += OnPlayerPlayStateChanged;
             _account.AccountChanged += OnAccountChanged;
 
-            // 绑定 MediaElement
-            _player.BindPlayer(mediaPlayer);
-
             // 占位符提示联动
             txtSearch.TextChanged += (s, e) =>
             {
@@ -434,27 +431,6 @@ namespace MusicalNoteLauncher.Pages
                 }
             };
             timer.Start();
-        }
-
-        // ──────────── MediaElement 事件 ────────────
-
-        private void MediaPlayer_MediaOpened(object sender, RoutedEventArgs e)
-        {
-            mediaPlayer.Play();
-            btnPlayPause.Content = "⏸";
-            RefreshPlaylistUI();
-        }
-
-        private void MediaPlayer_MediaEnded(object sender, RoutedEventArgs e)
-        {
-            _player.Next();
-        }
-
-        private void MediaPlayer_MediaFailed(object sender, ExceptionRoutedEventArgs e)
-        {
-            Logger.Error($"[MusicBox] 播放失败: {e.ErrorException?.Message}");
-            btnPlayPause.Content = "▶";
-            MessageBox.Show("播放失败，请稍后重试", "错误", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         // ──────────── 账号登录 ────────────

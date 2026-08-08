@@ -1,8 +1,8 @@
 ﻿<UserControl
 	x:Class="MusicalNoteLauncher.Pages.DownloadPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:viewModels="clr-namespace:MusicalNoteLauncher.ViewModels" xmlns:converters="clr-namespace:MusicalNoteLauncher.Converters"
-	Background="{DynamicResource BackgroundBrush}" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
+	Background="Transparent" xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages">
 	<Grid
-		Background="{DynamicResource BackgroundBrush}">
+		Background="Transparent">
 		<Grid.RowDefinitions>
 			<RowDefinition
 				Height="60" />

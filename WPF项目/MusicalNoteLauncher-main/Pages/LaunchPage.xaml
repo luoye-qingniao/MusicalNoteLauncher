@@ -6,7 +6,7 @@
       mc:Ignorable="d"
       Title="游戏启动">
 
-    <Grid Background="{StaticResource BackgroundBrush}">
+    <Grid Background="Transparent">
         <Grid.RowDefinitions>
             <RowDefinition Height="60"/>
             <RowDefinition Height="*"/>

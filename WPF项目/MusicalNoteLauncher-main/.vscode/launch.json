@@ -3,13 +3,36 @@
     "configurations": [
         {
             "name": "MusicalNoteLauncher (Debug)",
-            "type": "clr",
+            "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
-            "program": "${workspaceFolder}/bin/Debug/net8.0-windows/MusicalNoteLauncher.exe",
+            "program": "${workspaceFolder}/bin/Debug/net8.0-windows/MusicalNoteLauncher.dll",
             "args": [],
             "cwd": "${workspaceFolder}",
-            "stopAtEntry": false
+            "stopAtEntry": false,
+            "requireExactSource": false
+        },
+        {
+            "name": "测试: 模拟普通更新",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0-windows/MusicalNoteLauncher.dll",
+            "args": ["--test-update"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "requireExactSource": false
+        },
+        {
+            "name": "测试: 模拟强制更新",
+            "type": "coreclr",
+            "request": "launch",
+            "preLaunchTask": "build",
+            "program": "${workspaceFolder}/bin/Debug/net8.0-windows/MusicalNoteLauncher.dll",
+            "args": ["--test-forced-update"],
+            "cwd": "${workspaceFolder}",
+            "stopAtEntry": false,
+            "requireExactSource": false
         }
     ]
 }

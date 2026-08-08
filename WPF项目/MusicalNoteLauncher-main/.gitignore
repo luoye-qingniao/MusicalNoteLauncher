@@ -118,6 +118,10 @@ settings.local.json
 # 发布脚本
 publish.bat
 publish.ps1
+upload_update.py
+deploy_all.py
+_ssh_test.py
+_ssh_debug_test.py
 
 # 任务配置
 tasks.json
@@ -175,3 +179,17 @@ _pkginfo.txt
 
 # 保留 LICENSE
 !LICENSE
+
+# ========================
+# 额外构建产物 / 发布目录
+# ========================
+node_modules/
+publish/
+publish2/
+dist-electron/
+Release_Package/
+bin_new/
+_backup_ui_upgrade/
+提取的模组加载器图标/
+.dbg/
+*_wpftmp.csproj

@@ -2,7 +2,7 @@
 	x:Class="MusicalNoteLauncher.Pages.ModManagerPage"
 	xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
 	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	Background="{StaticResource BackgroundBrush}">
+	Background="Transparent">
 
 	<UserControl.Resources>
 		<!-- 通用卡片式按钮：使用全局 Surface + 悬浮/按下效果 -->
@@ -118,7 +118,7 @@
 
 	</UserControl.Resources>
 
-	<Grid Background="{DynamicResource BackgroundBrush}">
+	<Grid Background="Transparent">
 		<Grid.RowDefinitions>
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="*" />
@@ -133,8 +133,54 @@
 						<TextBlock Text="模组管理" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
 						<TextBlock Name="txtLoaderInfo" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" FontFamily="Microsoft YaHei UI" />
 					</StackPanel>
+
+					<!-- 内容类型标签 -->
+					<Border CornerRadius="6" Margin="20,0,0,0" Background="#2E2E3E" Padding="3">
+						<StackPanel Orientation="Horizontal">
+							<Button Name="btnTabMod" Content="模组" FontSize="12" Padding="12,5" Margin="0"
+							        Cursor="Hand" BorderThickness="0"
+							        Background="#2196F3" Foreground="White"
+							        Click="BtnTabMod_Click">
+								<Button.Template>
+									<ControlTemplate TargetType="Button">
+										<Border Name="bd" Background="{TemplateBinding Background}" CornerRadius="5"
+										        Padding="{TemplateBinding Padding}">
+											<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+										</Border>
+									</ControlTemplate>
+								</Button.Template>
+							</Button>
+							<Button Name="btnTabShader" Content="光影" FontSize="12" Padding="12,5" Margin="2,0"
+							        Cursor="Hand" BorderThickness="0"
+							        Background="#373741" Foreground="#AAAAAA"
+							        Click="BtnTabShader_Click">
+								<Button.Template>
+									<ControlTemplate TargetType="Button">
+										<Border Name="bd" Background="{TemplateBinding Background}" CornerRadius="5"
+										        Padding="{TemplateBinding Padding}">
+											<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+										</Border>
+									</ControlTemplate>
+								</Button.Template>
+							</Button>
+							<Button Name="btnTabResourcePack" Content="材质" FontSize="12" Padding="12,5" Margin="0"
+							        Cursor="Hand" BorderThickness="0"
+							        Background="#373741" Foreground="#AAAAAA"
+							        Click="BtnTabResourcePack_Click">
+								<Button.Template>
+									<ControlTemplate TargetType="Button">
+										<Border Name="bd" Background="{TemplateBinding Background}" CornerRadius="5"
+										        Padding="{TemplateBinding Padding}">
+											<ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+										</Border>
+									</ControlTemplate>
+								</Button.Template>
+							</Button>
+						</StackPanel>
+					</Border>
+
 					<!-- 版本切换 -->
-					<TextBlock Text="版本:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="20,0,6,0" FontFamily="Microsoft YaHei UI" />
+					<TextBlock Name="txtVersionLabel" Text="版本:" Foreground="{DynamicResource TextSecondaryBrush}" FontSize="12" VerticalAlignment="Center" Margin="20,0,6,0" FontFamily="Microsoft YaHei UI" />
 					<ComboBox Name="cmbVersionSelector" Width="130" Height="30" FontSize="12"
 					          Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI"
 					          SelectionChanged="CmbVersionSelector_SelectionChanged">
@@ -525,8 +571,8 @@
 							<!-- 空状态 -->
 							<Border Name="panelEmptyMods" Background="Transparent" CornerRadius="8" Padding="30" Visibility="Collapsed">
 								<StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-									<TextBlock Text="📦" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10" />
-									<TextBlock Text="暂无模组" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Name="txtEmptyModIcon" Text="📦" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,10" />
+									<TextBlock Name="txtEmptyModTitle" Text="暂无模组" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" FontFamily="Microsoft YaHei UI" />
 									<TextBlock Name="txtEmptyModsHint" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,8,0,0" TextWrapping="Wrap" FontFamily="Microsoft YaHei UI" />
 								</StackPanel>
 							</Border>
@@ -563,8 +609,8 @@
 									<TextBlock Text="＋" FontSize="22" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
 								</Border>
 								<StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-									<TextBlock Text="添加模组" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
-									<TextBlock Text="选择 .jar 文件添加" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Name="btnAddContentTitle" Text="添加模组" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" FontFamily="Microsoft YaHei UI" />
+									<TextBlock Name="btnAddContentHint" Text="选择 .jar 文件添加" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" FontFamily="Microsoft YaHei UI" />
 								</StackPanel>
 							</StackPanel>
 						</Button.Content>

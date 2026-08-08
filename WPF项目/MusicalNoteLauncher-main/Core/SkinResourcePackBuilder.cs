@@ -190,6 +190,8 @@ namespace MusicalNoteLauncher.Core
         /// <summary>
         /// 将 MNL Skin.zip 注入到 options.txt 的资源包列表
         /// 确保启动游戏时自动启用该资源包
+        /// 参考 PCL2 ModLaunch.vb 的实现: 将皮肤包放在列表末尾（最高优先级）,
+        /// 并使用带引号的 JSON 格式。
         /// </summary>
         /// <param name="gameDir">游戏目录</param>
         /// <returns>是否成功</returns>
@@ -215,7 +217,8 @@ namespace MusicalNoteLauncher.Core
                 string[] lines = File.ReadAllLines(optionsPath, Encoding.UTF8);
                 bool modified = false;
                 bool foundResourcePacks = false;
-                string packEntry = $"file/{PackFileName}";
+                // 注意: 必须带引号, Minecraft 的 options.txt 中 resourcePacks 是 JSON 数组
+                string packEntry = $"\"file/{PackFileName}\"";
 
                 for (int i = 0; i < lines.Length; i++)
                 {
@@ -224,38 +227,47 @@ namespace MusicalNoteLauncher.Core
                         foundResourcePacks = true;
                         string value = lines[i].Substring("resourcePacks:".Length).Trim();
 
-                        // 移除旧版本的 "MNL Skin.zip" (不带 file/ 前缀)
-                        if (value.Contains($"\"{PackFileName}\"") && !value.Contains(packEntry))
+                        // 解析 JSON 数组: ["vanilla","file/xxx.zip"] → 提取内部元素列表
+                        if (!value.StartsWith("[") || !value.EndsWith("]"))
                         {
-                            value = value.Replace($"\"{PackFileName}\"", "").Replace("[,", "[").Replace("[,", "[");
+                            // 格式异常, 重置为空列表
+                            value = "[]";
                         }
 
-                        // 如果已存在, 跳过
-                        if (value.Contains(packEntry))
-                        {
-                            Logger.Info("[SkinPack] 资源包已在 options.txt 中, 跳过");
-                            return true;
-                        }
+                        string inner = value.Substring(1, value.Length - 2).Trim();
 
-                        // 插入到资源包列表开头
-                        if (value.StartsWith("[") && value.EndsWith("]"))
+                        // 分割为独立条目（注意条目本身可能不含逗号，但路径可能含空格）
+                        var entries = new List<string>();
+                        if (!string.IsNullOrEmpty(inner))
                         {
-                            string inner = value.Substring(1, value.Length - 2).Trim();
-                            if (!string.IsNullOrEmpty(inner))
+                            // 按 ", 或 ," 模式分割 JSON 数组中的字符串条目
+                            var parts = inner.Split(new[] { "\",\"" }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var part in parts)
                             {
-                                value = $"[{packEntry}, {inner}]";
-                            }
-                            else
-                            {
-                                value = $"[{packEntry}]";
+                                var cleaned = part.Trim().Trim('"');
+                                if (!string.IsNullOrEmpty(cleaned))
+                                    entries.Add($"\"{cleaned}\"");
                             }
                         }
-                        else
+
+                        // 移除旧条目（含带 file/ 前缀和不带的）
+                        entries.RemoveAll(e =>
+                            e == packEntry ||
+                            e == $"\"{PackFileName}\"" ||
+                            string.IsNullOrEmpty(e.Trim('"')));
+
+                        // 空列表补充 "vanilla"（PCL 风格）
+                        if (entries.Count == 0)
                         {
-                            value = $"[{packEntry}]";
+                            entries.Add("\"vanilla\"");
                         }
 
-                        lines[i] = $"resourcePacks:{value}";
+                        // 将皮肤包追加到末尾（最高优先级, 与 PCL 一致）
+                        entries.Add(packEntry);
+
+                        // 重建 JSON 数组
+                        string newValue = "[" + string.Join(",", entries) + "]";
+                        lines[i] = $"resourcePacks:{newValue}";
                         modified = true;
                         break;
                     }
@@ -265,7 +277,7 @@ namespace MusicalNoteLauncher.Core
                 if (!foundResourcePacks)
                 {
                     var newLines = new List<string>(lines);
-                    newLines.Add($"resourcePacks:[{packEntry}]");
+                    newLines.Add($"resourcePacks:[\"vanilla\",{packEntry}]");
                     lines = newLines.ToArray();
                     modified = true;
                     Logger.Info("[SkinPack] options.txt 中未找到 resourcePacks: 行，已追加");
@@ -299,25 +311,42 @@ namespace MusicalNoteLauncher.Core
 
                 string[] lines = File.ReadAllLines(optionsPath, Encoding.UTF8);
                 bool modified = false;
-                string packEntry = $"file/{PackFileName}";
+                string packEntry = $"\"file/{PackFileName}\"";
 
                 for (int i = 0; i < lines.Length; i++)
                 {
                     if (lines[i].StartsWith("resourcePacks:"))
                     {
                         string value = lines[i].Substring("resourcePacks:".Length).Trim();
-                        if (value.Contains(packEntry) || value.Contains($"\"{PackFileName}\""))
+
+                        if (!value.StartsWith("[") || !value.EndsWith("]"))
+                            continue;
+
+                        string inner = value.Substring(1, value.Length - 2).Trim();
+
+                        var entries = new List<string>();
+                        if (!string.IsNullOrEmpty(inner))
                         {
-                            // 移除 MNL Skin.zip
-                            value = value.Replace($"{packEntry}, ", "")
-                                       .Replace($", {packEntry}", "")
-                                       .Replace(packEntry, "")
-                                       .Replace($"\"{PackFileName}\", ", "")
-                                       .Replace($", \"{PackFileName}\"", "")
-                                       .Replace($"\"{PackFileName}\"", "");
-                            // 清理残留的逗号和空格
-                            value = value.Replace("[,", "[").Replace(" ,", ",").Replace(", ]", "]");
-                            lines[i] = $"resourcePacks:{value}";
+                            var parts = inner.Split(new[] { "\",\"" }, StringSplitOptions.RemoveEmptyEntries);
+                            foreach (var part in parts)
+                            {
+                                var cleaned = part.Trim().Trim('"');
+                                if (!string.IsNullOrEmpty(cleaned))
+                                    entries.Add($"\"{cleaned}\"");
+                            }
+                        }
+
+                        // 移除 MNL Skin 相关条目
+                        int removed = entries.RemoveAll(e =>
+                            e == packEntry ||
+                            e == $"\"{PackFileName}\"");
+
+                        if (removed > 0)
+                        {
+                            string newValue = entries.Count > 0
+                                ? "[" + string.Join(",", entries) + "]"
+                                : "[]";
+                            lines[i] = $"resourcePacks:{newValue}";
                             modified = true;
                         }
                     }

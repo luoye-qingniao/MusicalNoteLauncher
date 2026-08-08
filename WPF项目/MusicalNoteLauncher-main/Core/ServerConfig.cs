@@ -33,5 +33,8 @@ namespace MusicalNoteLauncher.Core
 
         /// <summary>聊天社区接口</summary>
         public static string CommunityApiUrl => $"{BaseUrl}/api/community.php";
+
+        /// <summary>加密聊天接口</summary>
+        public static string ChatApiUrl => $"{BaseUrl}/api/chat.php";
     }
 }

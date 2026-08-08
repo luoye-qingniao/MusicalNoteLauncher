@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -30,10 +31,25 @@ namespace MusicalNoteLauncher.Core
         private bool _hasExited = false;
         private string _logFilePath;
         private bool _hasLoggedBadOption = false;
+        /// <summary>崩溃检测标记（实时关键词扫描触发）</summary>
+        private bool _crashDetected = false;
+        /// <summary>崩溃检测原因描述</summary>
+        private string _crashDetectReason = null;
+        /// <summary>最近500行输出日志（供崩溃分析使用，参照PCL LatestLog）</summary>
+        private readonly Queue<string> _latestLogQueue = new Queue<string>(500);
+        /// <summary>游戏加载进度追踪（参照PCL 5阶段进度）</summary>
+        private int _gameProgress = 0;
+        private const int PROGRESS_OUTPUT = 1;       // 有日志输出
+        private const int PROGRESS_AUTH = 2;          // 通过认证
+        private const int PROGRESS_LWJGL = 3;         // LWJGL初始化
+        private const int PROGRESS_AUDIO = 4;         // 音频就绪
+        private const int PROGRESS_WORLD = 5;         // 进入世界/主菜单
         private readonly object _logFileLock = new object();
         private readonly SemaphoreSlim _nativesLock = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim _cpFileLock = new SemaphoreSlim(1, 1);
         private SynchronizationContext _syncContext;
+        /// <summary>版本 JSON（合并 inheritsFrom 后）缓存</summary>
+        private static readonly ConcurrentDictionary<string, string> _versionJsonCache = new();
 
         public GameLauncher(string minecraftPath, string javaPath = null)
         {
@@ -764,6 +780,7 @@ namespace MusicalNoteLauncher.Core
                     Resolution = resolution,
                     JavaPath = _javaPath,
                     LogFilePath = _logFilePath,
+                    MinecraftPath = _minecraftPath,
                 };
 
                 try
@@ -879,6 +896,15 @@ namespace MusicalNoteLauncher.Core
                     else
                     {
                         Log($"[修复] 依赖库完整性校验通过，无需下载");
+                    }
+
+                    // ★ 启动前模组冲突预检（参照PCL）
+                    Log("【步骤3.5】模组冲突预检...");
+                    await PostStatusAsync("正在检查模组兼容性...");
+                    var modCheckResult = await Task.Run(() => PrecheckModConflicts(versionId));
+                    if (modCheckResult != null)
+                    {
+                        Log($"[模组预检] 检测到潜在问题: {modCheckResult}");
                     }
 
                     Log("【步骤4】加载版本信息...");
@@ -1045,7 +1071,17 @@ namespace MusicalNoteLauncher.Core
                     {
                         if (!string.IsNullOrEmpty(e.Data))
                         {
-                            Log(e.Data);
+                            string line = e.Data;
+                            // 保留最近500行日志（供崩溃分析使用，参照PCL LatestLog）
+                            lock (_latestLogQueue)
+                            {
+                                _latestLogQueue.Enqueue(line);
+                                while (_latestLogQueue.Count > 500)
+                                    _latestLogQueue.Dequeue();
+                            }
+                            // 实时崩溃关键词扫描（参照PCL ModWatcher.GameLog）
+                            ScanCrashKeywords(line);
+                            Log(line);
                         }
                     };
 
@@ -1054,6 +1090,16 @@ namespace MusicalNoteLauncher.Core
                         if (!string.IsNullOrEmpty(e.Data))
                         {
                             string errorData = e.Data;
+                            // 保留最近500行日志
+                            lock (_latestLogQueue)
+                            {
+                                _latestLogQueue.Enqueue(errorData);
+                                while (_latestLogQueue.Count > 500)
+                                    _latestLogQueue.Dequeue();
+                            }
+                            // 实时崩溃关键词扫描
+                            ScanCrashKeywords(errorData);
+
                             if (errorData.Contains("401") || errorData.Contains("Unauthorized"))
                             {
                                 Log($"[认证] 离线模式：忽略认证错误");
@@ -1083,7 +1129,14 @@ namespace MusicalNoteLauncher.Core
                         {
                             int exitCode = _gameProcess.ExitCode;
                             Log("═══════════════════════════════════════════════════════════════");
-                            if (exitCode == 0)
+
+                            // ★ 进度追踪判断：没有到达 LWJGL 阶段就退出 = 游戏未能正常启动
+                            bool neverLoaded = _gameProgress < PROGRESS_LWJGL;
+
+                            // ★ 综合判断：崩溃关键词 OR 非零退出码 OR 没完成加载 OR 实时检测到崩溃
+                            bool isCrash = _crashDetected || exitCode != 0 || neverLoaded;
+
+                            if (!isCrash)
                             {
                                 Log("游戏正常关闭");
                                 PostCompleted(true);
@@ -1091,9 +1144,31 @@ namespace MusicalNoteLauncher.Core
                             else
                             {
                                 result.ExitCode = exitCode;
-                                result.ErrorMessage = $"游戏异常退出 (退出码: {exitCode})";
+
+                                // 构建详细的崩溃原因
+                                if (_crashDetected && !string.IsNullOrEmpty(_crashDetectReason))
+                                {
+                                    result.ErrorMessage = $"{_crashDetectReason} (退出码: {exitCode})";
+                                    Log($"游戏异常退出: {_crashDetectReason}");
+                                }
+                                else if (neverLoaded)
+                                {
+                                    result.ErrorMessage = $"游戏在加载阶段退出（进度阶段: {_gameProgress}/5，退出码: {exitCode}）";
+                                    Log($"游戏未完成加载即退出（进度: {_gameProgress}），判定为崩溃");
+                                }
+                                else if (exitCode != 0)
+                                {
+                                    result.ErrorMessage = $"游戏异常退出 (退出码: {exitCode})";
+                                }
+                                else
+                                {
+                                    result.ErrorMessage = "游戏异常退出";
+                                }
+
+                                result.LatestLogs = GetLatestLogs();
+                                LastLaunchInfo = result;
                                 PostStatus($"游戏异常退出 (退出码: {exitCode})");
-                                Log($"游戏进程异常退出，退出码: {exitCode}");
+                                Log($"游戏进程异常退出，退出码: {exitCode}，加载进度: {_gameProgress}/5");
                                 PostCompleted(false);
                             }
                             Log("═══════════════════════════════════════════════════════════════");
@@ -1129,17 +1204,28 @@ namespace MusicalNoteLauncher.Core
 
                     await Task.Delay(3000);
 
-                    if (_gameProcess.HasExited)
+                    if (_gameProcess.HasExited || _crashDetected)
                     {
-                        int exitCode = _gameProcess.ExitCode;
+                        int exitCode = _gameProcess.HasExited ? _gameProcess.ExitCode : -1;
                         result.IsSuccess = false;
                         result.ExitCode = exitCode;
-                        result.ErrorMessage = $"游戏进程在启动后立即退出 (退出码: {exitCode})";
+                        if (_crashDetected && !string.IsNullOrEmpty(_crashDetectReason))
+                        {
+                            result.ErrorMessage = $"游戏崩溃: {_crashDetectReason}";
+                        }
+                        else
+                        {
+                            result.ErrorMessage = $"游戏进程在启动后立即退出 (退出码: {exitCode})";
+                        }
+                        result.LatestLogs = GetLatestLogs();
                         LastLaunchInfo = result;
                         await PostStatusAsync($"游戏启动失败 (退出码: {exitCode})");
-                        Log($"【错误】游戏进程在启动后立即退出");
+                        if (_crashDetected)
+                            Log($"【错误】游戏在启动阶段崩溃: {_crashDetectReason}");
+                        else
+                            Log($"【错误】游戏进程在启动后立即退出");
                         Log($"【错误】退出码: {exitCode}");
-                        Log($"【错误】可能原因: Java版本不兼容、内存不足、缺少依赖库");
+                        Log($"【错误】可能原因: Java版本不兼容、内存不足、缺少依赖库、模组冲突");
                         PostCompleted(false);
                         return false;
                     }
@@ -1198,6 +1284,230 @@ namespace MusicalNoteLauncher.Core
             else
             {
                 LaunchStatusChanged?.Invoke(status);
+            }
+        }
+
+        /// <summary>
+        /// 实时扫描游戏输出中的崩溃关键词 + 追踪加载进度（参照PCL ModWatcher.GameLog）
+        /// </summary>
+        private void ScanCrashKeywords(string line)
+        {
+            if (string.IsNullOrEmpty(line)) return;
+
+            // 排除聊天消息（[CHAT] 前缀）
+            if (line.Contains("[CHAT]")) return;
+
+            // ══════════ 进度追踪（参照PCL 5阶段） ══════════
+            if (_gameProgress < PROGRESS_AUTH && (
+                line.Contains("Setting user:") ||
+                line.Contains("Logged in") ||
+                line.Contains("UUID of player") ||
+                line.Contains("Successfully authenticated")))
+            {
+                _gameProgress = PROGRESS_AUTH;
+            }
+            if (_gameProgress < PROGRESS_LWJGL && (
+                line.Contains("LWJGL Version") || line.Contains("lwjgl version") ||
+                line.Contains("GLFW initialized") || line.Contains("Loading GLFW")))
+            {
+                _gameProgress = PROGRESS_LWJGL;
+            }
+            if (_gameProgress < PROGRESS_AUDIO && (
+                line.Contains("OpenAL initialized") || line.Contains("Audio Library initialized") ||
+                line.Contains("sound engine started")))
+            {
+                _gameProgress = PROGRESS_AUDIO;
+            }
+            if (_gameProgress < PROGRESS_WORLD && (
+                line.Contains("Created:") || line.Contains("Loading world") ||
+                line.Contains("Preparing start region") || line.Contains("Loading GUI") ||
+                line.Contains("Render thread") || line.Contains("Game joined") ||
+                line.Contains("Stitching texture atlas") || line.Contains("ModelLoader")))
+            {
+                _gameProgress = PROGRESS_WORLD;
+            }
+
+            // ══════════ 正常关闭检测 ══════════
+            if (line.Contains("Someone is closing me!"))
+            {
+                _crashDetectReason = "游戏正常关闭";
+                return;
+            }
+
+            // 已检测到崩溃时不再重复扫描
+            if (_crashDetected) return;
+
+            // ══════════ 崩溃关键词（参照PCL ModWatcher + ModCrash 完整列表） ══════════
+
+            // ★ Minecraft 标准崩溃（参照PCL）
+            if (line.Contains("Crash report saved to") || line.Contains("#@!@# Game crashed! Crash report saved to"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Minecraft 崩溃报告已生成";
+                Log($"[崩溃检测] 检测到游戏崩溃: {line.Trim()}");
+                return;
+            }
+
+            if (line.Contains("Could not save crash report to"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Minecraft 崩溃（无法保存报告）";
+                return;
+            }
+
+            // ★ Forge/NeoForge 加载失败（参照PCL）
+            if (line.Contains("/ERROR]: Unable to launch") ||
+                line.Contains("[main/ERROR]") && (line.Contains("Failed to start") || line.Contains("game crashed")) ||
+                line.Contains("LoadingFailedException") ||
+                line.Contains("net.minecraftforge.fml.LoadingFailedException") ||
+                line.Contains("The game crashed whilst") ||
+                line.Contains("The game crashed while") ||
+                line.Contains("Exit Code:") && !line.Contains("Exit Code: 0"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Forge 加载器报告游戏崩溃";
+                Log($"[崩溃检测] Forge 崩溃: {line.Trim()}");
+                return;
+            }
+
+            if (line.Contains("This crash report has been saved to"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Minecraft 崩溃报告已保存";
+                return;
+            }
+
+            // ★ 通用异常抛出（参照PCL）
+            if (line.Contains("An exception was thrown, the game will display an error screen and halt.") ||
+                line.Contains("An unexpected issue occurred") ||
+                line.Contains("java.lang.RuntimeException") ||
+                line.Contains("Uncaught exception in thread") ||
+                line.Contains("Caught exception from") ||
+                line.Contains("A critical error occurred"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "游戏抛出未处理异常";
+                Log($"[崩溃检测] 游戏异常: {line.Trim()}");
+                return;
+            }
+
+            if (line.Contains("Suspected Mods:") || line.Contains("Suspected Mod"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Forge 标记了可疑模组导致崩溃";
+                return;
+            }
+
+            // ★ Mod 加载失败（参照PCL CrashReason.Mod相关）
+            if (line.Contains("Incompatible mods found!") ||
+                line.Contains("Missing or unsupported mandatory dependencies") ||
+                line.Contains("Mod resolution failed") ||
+                line.Contains("Failed to create mod instance") ||
+                line.Contains("File mods.toml not found") ||
+                line.Contains("Currently missing or unresolved mods") ||
+                line.Contains("Missing Mods:") ||
+                line.Contains("The mods listed below could not be found") ||
+                line.Contains("Could not find required mod:"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "模组加载失败（依赖/冲突）";
+                Log($"[崩溃检测] 模组错误: {line.Trim()}");
+                return;
+            }
+
+            if (line.Contains("Duplicate mods found") ||
+                line.Contains("DuplicateModsFoundException") ||
+                line.Contains("Duplicate mod") ||
+                line.Contains("already present") ||
+                line.Contains("Found a duplicate mod"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "检测到重复模组";
+                Log($"[崩溃检测] 模组重复: {line.Trim()}");
+                return;
+            }
+
+            if (line.Contains("Failed loading config file") ||
+                line.Contains("Error loading config"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "模组配置文件加载失败";
+                Log($"[崩溃检测] 配置文件错误: {line.Trim()}");
+                return;
+            }
+
+            if (line.Contains("has been compiled by a more recent version of the Java Runtime") ||
+                line.Contains("class file version") && line.Contains("Unsupported"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "模组需要更高版本 Java";
+                return;
+            }
+
+            if (line.Contains("maximum id range exceeded") ||
+                line.Contains("maximum id range"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "模组过多超出 ID 限制";
+                return;
+            }
+
+            // ★ Fabric Loader 崩溃
+            if (line.Contains("Fabric Loader has crashed") ||
+                line.Contains("A critical problem occurred preventing the game from starting") ||
+                line.Contains("net.fabricmc.loader.impl.launch.FabricLauncher") && line.Contains("ERROR") ||
+                line.Contains("[fabric-loader]") && line.Contains("ERROR"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Fabric Loader 崩溃";
+                Log($"[崩溃检测] Fabric Loader 崩溃: {line.Trim()}");
+                return;
+            }
+
+            // ★ Mixin 注入失败
+            if (line.Contains("Mixin prepare failed") ||
+                line.Contains("Mixin apply failed") ||
+                line.Contains("MixinApplyError") ||
+                line.Contains("MixinTransformerError") ||
+                (line.Contains("Mixin config") && line.Contains("failed")) ||
+                line.Contains("Mixin transformation") && line.Contains("failed"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "Mixin 注入失败（模组兼容性问题）";
+                Log($"[崩溃检测] Mixin 注入失败: {line.Trim()}");
+                return;
+            }
+
+            // ★ 通用进程崩溃信号（参照PCL）
+            if (line.Contains("Process crashed with exit code") ||
+                line.Contains("The game exited unexpectedly") ||
+                line.Contains("Unexpected error") ||
+                line.Contains("FATAL ERROR") ||
+                line.Contains("Exiting with FAILURE"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "游戏进程异常退出";
+                Log($"[崩溃检测] 进程异常: {line.Trim()}");
+                return;
+            }
+
+            // ★ NoClassDefFoundError / ClassNotFoundException（经常是模组依赖问题）
+            if ((line.Contains("NoClassDefFoundError") || line.Contains("ClassNotFoundException")) &&
+                !line.Contains("com.mojang") && !line.Contains("net.minecraft"))
+            {
+                _crashDetected = true;
+                _crashDetectReason = "类加载失败（模组依赖缺失）";
+                Log($"[崩溃检测] 类加载错误: {line.Trim()}");
+                return;
+            }
+        }
+
+        /// <summary>获取启动器实时捕获的最近日志（供崩溃分析使用）</summary>
+        public IReadOnlyList<string> GetLatestLogs()
+        {
+            lock (_latestLogQueue)
+            {
+                return _latestLogQueue.ToList();
             }
         }
 
@@ -1960,6 +2270,15 @@ namespace MusicalNoteLauncher.Core
 
         private JsonElement LoadVersionInfo(string versionId)
         {
+            // 检查缓存
+            if (_versionJsonCache.TryGetValue(versionId, out var cachedJson))
+            {
+                var doc = JsonDocument.Parse(cachedJson);
+                var result = doc.RootElement.Clone();
+                doc.Dispose();
+                return result;
+            }
+
             try
             {
                 // 收集继承链上的所有版本 JSON（从当前版本到最顶层的父版本）
@@ -2009,6 +2328,10 @@ namespace MusicalNoteLauncher.Core
                     var result = chain[0].RootElement.Clone();
                     chain[0].Dispose();
                     Log($"[版本] 版本 JSON 加载成功（无继承）");
+                    // 缓存：直接从文件读回原始 JSON 字符串
+                    string jsonPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.json");
+                    if (File.Exists(jsonPath))
+                        _versionJsonCache[versionId] = File.ReadAllText(jsonPath);
                     return result;
                 }
 
@@ -2239,6 +2562,10 @@ namespace MusicalNoteLauncher.Core
                     }
 
                     Log($"[版本] 版本 JSON 加载并合并成功（继承链共 {chain.Count} 层）");
+                    // 缓存合并后的 JSON 字符串
+                    mergedStream.Position = 0;
+                    using (var reader = new StreamReader(mergedStream, Encoding.UTF8))
+                        _versionJsonCache[versionId] = reader.ReadToEnd();
                     return mergedDoc.RootElement.Clone();
                 }
             }
@@ -2501,19 +2828,48 @@ namespace MusicalNoteLauncher.Core
             AddArg("-Duser.language=zh");
             AddArg("-Duser.country=CN");
 
-            AddArg("-XX:+UnlockExperimentalVMOptions");
-            AddArg("-XX:+UseG1GC");
-            AddArg("-XX:G1NewSizePercent=20");
-            AddArg("-XX:G1ReservePercent=20");
-            AddArg("-XX:MaxGCPauseMillis=50");
-            AddArg("-XX:G1HeapRegionSize=32M");
-            AddArg("-XX:+DisableExplicitGC");
-            AddArg("-XX:+AlwaysPreTouch");
-            AddArg("-XX:+ParallelRefProcEnabled");
+            // 用户自定义 JVM 参数（从设置页面读取，替换内置默认值）
+            string userJvmArgs = SettingsManager.Settings.JavaArgs;
+            if (!string.IsNullOrWhiteSpace(userJvmArgs))
+            {
+                // 按空格拆分参数，保留引号中的参数整体
+                var userArgs = SplitJvmArgs(userJvmArgs);
+                foreach (var arg in userArgs)
+                {
+                    if (!string.IsNullOrWhiteSpace(arg))
+                        AddArg(arg.Trim());
+                }
+            }
+            else
+            {
+                // 无自定义参数时的兜底默认值
+                AddArg("-XX:+UnlockExperimentalVMOptions");
+                AddArg("-XX:+UseG1GC");
+                AddArg("-XX:G1NewSizePercent=20");
+                AddArg("-XX:G1ReservePercent=20");
+                AddArg("-XX:MaxGCPauseMillis=50");
+                AddArg("-XX:G1HeapRegionSize=32M");
+                AddArg("-XX:+DisableExplicitGC");
+                AddArg("-XX:+AlwaysPreTouch");
+                AddArg("-XX:+ParallelRefProcEnabled");
+            }
 
-            // 主 JAR 路径：优先使用当前版本的 jar；如果不存在且有 inheritsFrom，使用父版本的 jar
-            string jarPath = FindMainJarPath(versionId, "[JVM]");
-            AddArg($"-Dminecraft.client.jar={jarPath}");
+            // -Dminecraft.client.jar：必须指向原版 Minecraft jar（并非加载器 jar）
+            // Fabric/Forge/NeoForge 用这个定位原版 jar 来做运行时 patching
+            string clientJarPath = null;
+            if (versionInfo.TryGetProperty("inheritsFrom", out JsonElement clientInh))
+            {
+                string parentId = clientInh.GetString();
+                if (!string.IsNullOrEmpty(parentId))
+                {
+                    string parentJar = Path.Combine(_minecraftPath, "versions", parentId, $"{parentId}.jar");
+                    if (File.Exists(parentJar))
+                        clientJarPath = parentJar;
+                }
+            }
+            if (clientJarPath == null)
+                clientJarPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
+            AddArg($"-Dminecraft.client.jar={clientJarPath}");
             AddArg("-Dminecraft.launcher.brand=MusicalNoteLauncher");
             AddArg("-Dminecraft.launcher.version=1.0");
 
@@ -2530,7 +2886,7 @@ namespace MusicalNoteLauncher.Core
                 {
                     if (arg.ValueKind == JsonValueKind.String)
                     {
-                        string argStr = arg.GetString();
+                        string argStr = arg.GetString()?.Trim();
                         
                         if (argStr.Contains("${natives_directory}"))
                         {
@@ -2617,6 +2973,27 @@ namespace MusicalNoteLauncher.Core
                     }
                 }
             }
+        }
+
+        /// <summary>按空格拆分 JVM 参数字符串，支持引号包裹的参数整体</summary>
+        private static List<string> SplitJvmArgs(string args)
+        {
+            var result = new List<string>();
+            bool inQuote = false;
+            int start = 0;
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] == '"') { inQuote = !inQuote; continue; }
+                if (!inQuote && args[i] == ' ')
+                {
+                    if (i > start)
+                        result.Add(args.Substring(start, i - start));
+                    start = i + 1;
+                }
+            }
+            if (start < args.Length)
+                result.Add(args.Substring(start));
+            return result;
         }
 
         // 评估一个带 rules 的参数对象，返回是否应被包含
@@ -2808,7 +3185,7 @@ namespace MusicalNoteLauncher.Core
                 {
                     if (arg.ValueKind == JsonValueKind.String)
                     {
-                        string argStr = arg.GetString();
+                        string argStr = arg.GetString()?.Trim();
                         argStr = ReplaceArgumentPlaceholders(argStr, versionId, cleanUsername, uuid, accessToken, assetIndexId);
 
                         if (argStr.StartsWith("--"))
@@ -3104,21 +3481,45 @@ namespace MusicalNoteLauncher.Core
         {
             List<string> classpathList = new List<string>();
 
-            // 主 JAR 路径：优先使用当前版本的 jar；如果不存在且有 inheritsFrom，使用父版本的 jar
-            string jarPath = FindMainJarPath(versionId, "[CP]");
-
-            if (jarPath != null)
+            // 主 JAR 路径：当前版本 jar + 继承的父版本 jar
+            // Fabric/Forge/NeoForge 等加载器版本需要两者同时在 classpath 上
+            string currentJar = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
+            if (File.Exists(currentJar))
             {
-                classpathList.Add(jarPath);
-                Log($"[CP] 添加主JAR: {jarPath}");
+                classpathList.Add(currentJar);
+                Log($"[CP] 添加当前版本JAR: {currentJar}");
             }
-            else
+
+            if (versionInfo.TryGetProperty("inheritsFrom", out JsonElement inh))
+            {
+                string parentId = inh.GetString();
+                if (!string.IsNullOrEmpty(parentId))
+                {
+                    string parentJar = Path.Combine(_minecraftPath, "versions", parentId, $"{parentId}.jar");
+                    if (File.Exists(parentJar))
+                    {
+                        classpathList.Add(parentJar);
+                        Log($"[CP] 添加父版本JAR (inheritsFrom={parentId}): {parentJar}");
+                    }
+                }
+            }
+
+            // 纯原版（无 inheritsFrom）且当前 jar 不存在时，兜底扫描
+            if (classpathList.Count == 0)
+            {
+                string fallback = FindMainJarPath(versionId, "[CP]");
+                if (fallback != null)
+                {
+                    classpathList.Add(fallback);
+                    Log($"[CP] 添加兜底JAR: {fallback}");
+                }
+            }
+
+            if (classpathList.Count == 0)
             {
                 string expectedJar = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.jar");
                 Log($"[CP] 错误: 主JAR不存在: {expectedJar}");
-                Log($"[CP]   如果这是 Fabric/Forge/NeoForge 等继承版本，请确保父版本（如 1.21）的 jar 文件存在。");
-                Log($"[CP]   解决方法：先下载原版 {versionId} 基础版本（即 inheritsFrom 指向的版本），再启动本版本。");
-                throw new FileNotFoundException($"游戏主JAR文件不存在: {expectedJar}。如果这是加载器版本（Fabric/Forge/NeoForge），请先安装原版 {versionId} 版本。");
+                throw new FileNotFoundException($"游戏主JAR文件不存在: {expectedJar}。如果这是加载器版本（Fabric/Forge/NeoForge），请先安装原版基础版本。");
             }
 
             if (versionInfo.TryGetProperty("libraries", out JsonElement libraries))
@@ -3140,6 +3541,15 @@ namespace MusicalNoteLauncher.Core
                     string libPath = GetLibraryPath(library);
                     if (!string.IsNullOrEmpty(libPath))
                     {
+                        // 过滤所有 native classifier jar（只含 DLL，无 Java 类）
+                        // 如 natives-windows / natives-windows-x86 / natives-windows-arm64
+                        // DLL 由 ExtractNativesAsync 单独处理，通过 -Djava.library.path 加载
+                        if (libPath.Contains("natives-"))
+                        {
+                            Log($"[CP] 过滤 Native jar (不在classpath): {libPath}");
+                            filteredCount++;
+                            continue;
+                        }
                         string fullPath = Path.Combine(_minecraftPath, "libraries", libPath);
                         if (File.Exists(fullPath))
                         {
@@ -3180,112 +3590,72 @@ namespace MusicalNoteLauncher.Core
             return classpath;
         }
 
+        /// <summary>判断库是否适用于当前平台（Windows x64），使用 MC 标准的 rules 系统</summary>
         private bool IsLibraryApplicable(JsonElement library)
         {
-            // 获取库名称用于日志和过滤
-            string libName = library.TryGetProperty("name", out var name) ? name.GetString() : "unknown";
+            string libName = library.TryGetProperty("name", out var name) ? name.GetString() : "";
 
-            // 过滤 linux、macos 相关库
-            if (libName.Contains("linux") || libName.Contains("macos"))
+            // 检查 name 中的 Maven classifier：过滤非 amd64 的 native（x86 / arm64）
+            // MC 1.19+ 格式：classifier 嵌入 name 如 org.lwjgl:lwjgl:3.3.1:natives-windows-x86
+            if (libName != null)
             {
-                return false;
+                if (libName.EndsWith(":natives-windows-x86") || libName.EndsWith(":natives-windows-arm64"))
+                    return false;
             }
 
-            // 过滤 ca.weblite:java-objc-bridge 相关库
-            if (libName.Contains("ca.weblite:java-objc-bridge"))
-            {
-                return false;
-            }
-
-            // 新增：过滤名称包含 windows-x86 的所有LWJGL依赖包
-            if (libName.Contains("windows-x86"))
-            {
-                return false;
-            }
-
-            // 新增：过滤名称包含 windows-arm64 的所有LWJGL依赖包
-            if (libName.Contains("windows-arm64"))
-            {
-                return false;
-            }
-
-            if (library.TryGetProperty("rules", out JsonElement rules))
-            {
-                bool allow = true;
-                foreach (JsonElement rule in rules.EnumerateArray())
-                {
-                    if (rule.TryGetProperty("action", out JsonElement action))
-                    {
-                        string actionStr = action.GetString();
-                        if (actionStr == "disallow")
-                        {
-                            if (rule.TryGetProperty("os", out JsonElement os))
-                            {
-                                if (os.TryGetProperty("name", out JsonElement osName))
-                                {
-                                    string osNameStr = osName.GetString();
-                                    if (osNameStr == "windows")
-                                    {
-                                        allow = false;
-                                    }
-                                }
-                            }
-                        }
-                        else if (actionStr == "allow")
-                        {
-                            if (rule.TryGetProperty("os", out JsonElement os))
-                            {
-                                if (os.TryGetProperty("name", out JsonElement osName))
-                                {
-                                    string osNameStr = osName.GetString();
-                                    if (osNameStr != "windows" && osNameStr != null)
-                                    {
-                                        return false;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                if (!allow) return false;
-            }
-
+            // 检查旧格式的 natives 属性（MC < 1.19）：natives.windows 含 x86/arm64 则过滤
             if (library.TryGetProperty("natives", out JsonElement natives))
             {
-                JsonElement windowsNative;
-                if (natives.TryGetProperty("windows", out windowsNative))
+                if (natives.TryGetProperty("windows", out JsonElement w))
                 {
-                    string nativeKey = windowsNative.GetString();
-                    if (nativeKey != null && nativeKey.Contains("x86"))
-                    {
-                        Log($"[CP] 过滤32位Windows库: {nativeKey}");
+                    string key = w.GetString();
+                    if (key != null && (key.Contains("x86") || key.Contains("arm64")))
                         return false;
-                    }
                 }
             }
 
-            if (library.TryGetProperty("downloads", out JsonElement downloads) &&
-                downloads.TryGetProperty("classifiers", out JsonElement classifiers))
+            // 使用 rules 判断平台兼容性（MC 1.13+ 标准方式，参照 HMCL 实现）
+            if (library.TryGetProperty("rules", out JsonElement rules))
             {
-                bool hasAmd64 = classifiers.TryGetProperty("natives-windows-amd64", out _);
-                bool hasX64 = classifiers.TryGetProperty("natives-windows-x64", out _);
-                bool hasX86 = classifiers.TryGetProperty("natives-windows-x86", out _);
-                bool hasArm64 = classifiers.TryGetProperty("natives-windows-arm64", out _);
-
-                // 1.21+ 使用 natives-windows-x64，之前版本使用 natives-windows-amd64
-                // 只要存在 amd64 或 x64 的 classifier，就允许该库进入类路径
-                if (hasAmd64 || hasX64)
+                bool allowed = true; // 无规则匹配时默认允许
+                foreach (JsonElement rule in rules.EnumerateArray())
                 {
-                    return true;
-                }
+                    if (!RuleMatchesCurrentPlatform(rule)) continue;
 
-                // 只有 x86 或 arm64 的 natives，则在 64 位 Windows 上过滤
-                if (hasX86 || hasArm64)
-                {
-                    return false;
+                    string action = rule.TryGetProperty("action", out var a) ? a.GetString() : "";
+                    if (action == "disallow") return false;
+                    if (action == "allow") allowed = true;
                 }
+                return allowed;
             }
 
+            return true;
+        }
+
+        /// <summary>判断 rule 的条件是否匹配当前平台（Windows x64）</summary>
+        private static bool RuleMatchesCurrentPlatform(JsonElement rule)
+        {
+            // 检查 features（is_demo_user、has_custom_resolution 等 → 不适用）
+            if (rule.TryGetProperty("features", out JsonElement features))
+            {
+                foreach (var f in features.EnumerateObject())
+                    return false; // 任何 feature 要求 → 不匹配（正常启动无这些 feature）
+            }
+
+            // 检查 os
+            if (rule.TryGetProperty("os", out JsonElement os))
+            {
+                // name 必须为 "windows"
+                if (os.TryGetProperty("name", out JsonElement osName) && osName.GetString() != "windows")
+                    return false;
+                // arch 如果指定了 x86 或 arm64 → 当前 x64 平台不匹配
+                if (os.TryGetProperty("arch", out JsonElement osArch))
+                {
+                    string arch = osArch.GetString();
+                    if (arch == "x86" || arch == "arm64")
+                        return false;
+                }
+            }
             return true;
         }
 
@@ -3747,6 +4117,118 @@ namespace MusicalNoteLauncher.Core
                 Log($"终止游戏进程失败: {ex.Message}");
             }
         }
+
+        /// <summary>
+        /// 启动前模组冲突预检（参照PCL：仅做基本检查，不试图完全模拟模组加载器）
+        /// </summary>
+        private string PrecheckModConflicts(string versionId)
+    {
+        try
+        {
+            string modsDir = Path.Combine(_minecraftPath, "mods");
+            if (!Directory.Exists(modsDir)) return null;
+
+            var modFiles = Directory.GetFiles(modsDir, "*.jar")
+                .Concat(Directory.GetFiles(modsDir, "*.zip"))
+                .Select(f => Path.GetFileName(f))
+                .ToList();
+
+            if (modFiles.Count == 0) return null;
+
+            var warnings = new List<string>();
+
+            // 检查1：OptiFine + Forge 已知不兼容组合
+            bool hasOptifine = modFiles.Any(f =>
+                f.StartsWith("OptiFine", StringComparison.OrdinalIgnoreCase) ||
+                f.StartsWith("optifine", StringComparison.OrdinalIgnoreCase));
+
+            // 检查2：ShadersMod + OptiFine 同时存在
+            bool hasShadersMod = modFiles.Any(f =>
+                f.StartsWith("ShadersMod", StringComparison.OrdinalIgnoreCase));
+
+            if (hasOptifine && hasShadersMod)
+            {
+                warnings.Add("同时安装了 ShadersMod 和 OptiFine，这将导致游戏崩溃。请删除 ShadersModCore.jar（OptiFine 已内置光影功能）。");
+            }
+
+            // 检查3：检测明显重复的模组（同一模组的不同版本）
+            var modNameGroups = modFiles
+                .Where(f => !f.StartsWith("OptiFine", StringComparison.OrdinalIgnoreCase) && !f.StartsWith("forge-", StringComparison.OrdinalIgnoreCase))
+                .Select(f =>
+                {
+                    // 提取模组名称（去掉版本号）
+                    string name = f;
+                    int lastDash = name.LastIndexOf('-');
+                    if (lastDash > 0)
+                    {
+                        string afterLastDash = name.Substring(lastDash + 1);
+                        // 如果最后一段像是版本号（含数字和点），则去掉它
+                        if (afterLastDash.Any(c => char.IsDigit(c)) && afterLastDash.Contains('.'))
+                        {
+                            name = name.Substring(0, lastDash);
+                        }
+                    }
+                    return new { FullName = f, BaseName = name.ToLowerInvariant() };
+                })
+                .GroupBy(x => x.BaseName)
+                .Where(g => g.Count() > 1)
+                .ToList();
+
+            foreach (var group in modNameGroups)
+            {
+                var names = group.Select(x => x.FullName).ToList();
+                warnings.Add($"检测到可能重复的模组: {string.Join(", ", names)}。建议只保留最新版本。");
+            }
+
+            // 检查4：检测 Fabric API 是否存在（如果检测到Fabric Loader版本）
+            string versionJsonPath = Path.Combine(_minecraftPath, "versions", versionId, $"{versionId}.json");
+            if (File.Exists(versionJsonPath))
+            {
+                string jsonContent = File.ReadAllText(versionJsonPath);
+                bool isFabric = jsonContent.Contains("fabric-loader") ||
+                               jsonContent.Contains("net.fabricmc");
+
+                if (isFabric)
+                {
+                    bool hasFabricApi = modFiles.Any(f =>
+                        f.StartsWith("fabric-api", StringComparison.OrdinalIgnoreCase));
+
+                    if (!hasFabricApi)
+                    {
+                        warnings.Add("检测到 Fabric 版本但未安装 Fabric API。大多数 Fabric 模组需要 Fabric API 才能运行，请从 Modrinth 下载安装。");
+                    }
+                }
+            }
+
+            // 检查5：检测被解压的模组文件夹
+            if (Directory.Exists(modsDir))
+            {
+                var extractedDirs = Directory.GetDirectories(modsDir)
+                    .Where(d =>
+                    {
+                        string dirName = Path.GetFileName(d);
+                        // 检查是否有 META-INF 子目录（解压后的JAR标志）
+                        return Directory.Exists(Path.Combine(d, "META-INF"));
+                    })
+                    .ToList();
+
+                if (extractedDirs.Any())
+                {
+                    warnings.Add($"检测到被解压的模组文件夹: {string.Join(", ", extractedDirs.Select(d => Path.GetFileName(d)))}。模组不应被解压，请删除这些文件夹。");
+                }
+            }
+
+            if (warnings.Count > 0)
+            {
+                return string.Join(" | ", warnings);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log($"[模组预检] 预检过程出错: {ex.Message}");
+        }
+        return null;
+    }
     }
 
     internal class LaunchInfo

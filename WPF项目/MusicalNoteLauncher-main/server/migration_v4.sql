@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS `chat_messages` (
   `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   `channel_id` INT UNSIGNED NOT NULL COMMENT '频道ID',
   `sender_id` VARCHAR(64) NOT NULL COMMENT '发送者青鸟ID',
+  `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '帖子标题',
   `content` TEXT NOT NULL COMMENT '消息内容',
   `msg_type` VARCHAR(16) NOT NULL DEFAULT 'Normal' COMMENT '消息类型: Normal / System / Image',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -103,3 +104,7 @@ ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
 ALTER TABLE `whitelist` 
   ADD COLUMN IF NOT EXISTS `qingniao_id` VARCHAR(64) NOT NULL DEFAULT '' COMMENT '关联的青鸟ID' AFTER `client_id`,
   ADD INDEX IF NOT EXISTS `idx_qingniao_id` (`qingniao_id`);
+
+-- 为 chat_messages 表添加帖子标题字段（兼容已有安装）
+ALTER TABLE `chat_messages`
+  ADD COLUMN IF NOT EXISTS `title` VARCHAR(128) NOT NULL DEFAULT '' COMMENT '帖子标题' AFTER `sender_id`;

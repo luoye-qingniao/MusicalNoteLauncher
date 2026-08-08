@@ -72,13 +72,21 @@ namespace MusicalNoteLauncher.Pages
         }
 
         /// <summary>
-        /// 根据当前用户名 + 已保存的 UUID 生成/加载玩家头部立雕，显示在右上角圆形头像位置。
-        /// 优先从 skins/{uuid}.png 加载（内层+外层叠加），否则使用默认 Steve/Alex 皮肤。
+        /// 更新左侧栏用户头像和名称。青鸟登录时显示青鸟昵称，否则显示游戏账号。
         /// </summary>
         private void UpdateCurrentUserAvatar()
         {
             try
             {
+                // 优先显示青鸟账号信息
+                string qingNiaoName = AppContext.QingniaoName;
+                if (!string.IsNullOrEmpty(AppContext.QingniaoId) && !string.IsNullOrEmpty(qingNiaoName))
+                {
+                    txtCurrentUser.Text = qingNiaoName;
+                    imgCurrentUser.Source = BuildDefaultHead(isSlim: false);
+                    return;
+                }
+
                 string username = AppContext.Username;
                 if (string.IsNullOrWhiteSpace(username))
                 {

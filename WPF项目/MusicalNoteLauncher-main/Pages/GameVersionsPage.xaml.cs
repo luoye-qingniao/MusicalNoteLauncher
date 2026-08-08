@@ -68,31 +68,32 @@ namespace MusicalNoteLauncher.Pages
                 UpdateDownloadButtonStates(result);
                 if (VersionTabControl.SelectedIndex == 1)
                 {
-                    LoadInstalledVersionsAsync();
+                    // 扫描已完成，直接从缓存加载 UI 数据，不触发二次扫描
+                    LoadInstalledVersionsFromCache(result);
                 }
             });
         }
 
         private void VersionsContainer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            VersionScanService.Instance.ScanAsync("点击下载页面版本列表刷新");
+            // 不再触发扫描，使用已缓存的数据
         }
 
         private void InstalledVersionsContainer_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            VersionScanService.Instance.ScanAsync("点击已安装版本列表刷新");
+            // 不再触发扫描，使用已缓存的数据
         }
 
         private void OnDownloadTaskCompleted(IDownloadTask task)
         {
             Logger.Info("[下载任务回调] 任务完成: " + task.VersionId + "，触发版本扫描");
-            VersionScanService.Instance.ScanAsync("下载完成:" + task.VersionId);
+            _ = VersionScanService.Instance.ForceScanAsync("下载完成:" + task.VersionId);
         }
 
         private void OnDownloadTaskFailed(IDownloadTask task)
         {
             Logger.Info("[下载任务回调] 任务失败: " + task.VersionId + "，触发版本扫描");
-            VersionScanService.Instance.ScanAsync("下载失败:" + task.VersionId);
+            _ = VersionScanService.Instance.ScanAsync("下载失败:" + task.VersionId);
         }
 
         private void UpdateDownloadButtonStates(VersionScanResult result)
@@ -133,7 +134,6 @@ namespace MusicalNoteLauncher.Pages
         private async void GameVersionsPage_Loaded(object sender, RoutedEventArgs e)
         {
             Loaded -= GameVersionsPage_Loaded;
-            VersionScanService.Instance.ClearCache();
 
             // 后台预加载基岩版缓存（不阻塞UI）
             _isBedrockCacheInitialized = true;
@@ -160,7 +160,7 @@ namespace MusicalNoteLauncher.Pages
             if (tasks.Count > 0)
                 await Task.WhenAll(tasks);
 
-            VersionScanService.Instance.ScanAsync("GameVersionsPage 初始化");
+            _ = VersionScanService.Instance.ScanAsync("GameVersionsPage 初始化");
         }
 
         private void Page_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
@@ -351,13 +351,13 @@ namespace MusicalNoteLauncher.Pages
             if (VersionTabControl.SelectedIndex == 0 && !_isLatestLoaded)
             {
                 _isLatestLoaded = true;
-                VersionScanService.Instance.ScanAsync("切换到下载页");
+                _ = VersionScanService.Instance.ScanAsync("切换到下载页");
                 LoadVersionListAsync();
             }
             else if (VersionTabControl.SelectedIndex == 1 && !_isInstalledLoaded)
             {
                 _isInstalledLoaded = true;
-                VersionScanService.Instance.ScanAsync("切换到已安装页");
+                _ = VersionScanService.Instance.ScanAsync("切换到已安装页");
                 LoadInstalledVersionsAsync();
             }
             else if (VersionTabControl.SelectedIndex == 2 && !_isBedrockLoaded)
@@ -375,14 +375,26 @@ namespace MusicalNoteLauncher.Pages
             try
             {
                 var result = await VersionScanService.Instance.ScanAsync("加载已安装版本");
-                var items = await CreateVersionItemsFromScanResult(result);
-                BindInstalledVersionData(items);
+                await LoadInstalledVersionsFromCacheAsync(result);
                 loadingInstalled.Visibility = Visibility.Collapsed;
             }
             finally
             {
                 _isInstalledLoading = false;
             }
+        }
+
+        /// <summary>直接从扫描结果加载 UI（不触发二次扫描）</summary>
+        private void LoadInstalledVersionsFromCache(VersionScanResult result)
+        {
+            _ = LoadInstalledVersionsFromCacheAsync(result);
+        }
+
+        private async Task LoadInstalledVersionsFromCacheAsync(VersionScanResult result)
+        {
+            var items = await CreateVersionItemsFromScanResult(result);
+            BindInstalledVersionData(items);
+            loadingInstalled.Visibility = Visibility.Collapsed;
         }
 
         /// <summary>从扫描结果创建版本列表（纯内存操作，无磁盘I/O）</summary>
@@ -554,9 +566,8 @@ namespace MusicalNoteLauncher.Pages
                 // 2. 更新下载页版本状态
                 RefreshDownloadPageStatus(versionId);
 
-                // 3. 清除扫描缓存并重新扫描（确保状态同步）
-                VersionScanService.Instance.ClearCache();
-                await VersionScanService.Instance.ScanAsync("删除版本后刷新");
+                // 3. 强制重新扫描（确保状态同步）
+                _ = VersionScanService.Instance.ForceScanAsync("删除版本后刷新");
 
                 // 4. 重新加载已安装版本列表，确保UI完全同步
                 LoadInstalledVersionsAsync();

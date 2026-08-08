@@ -25,7 +25,7 @@ namespace MusicalNoteLauncher.Core
 
         public SkinServer(string minecraftPath)
         {
-            _skinsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
+            _skinsDir = MNLEnvironment.SkinsPath;
             Directory.CreateDirectory(_skinsDir);
             _port = FindFreePort();
         }
@@ -206,7 +206,7 @@ namespace MusicalNoteLauncher.Core
                 Directory.CreateDirectory(skinsDir);
 
                 // 将 skins 目录下的皮肤同步到 CustomSkinLoader 目录
-                string sourceSkinsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "skins");
+                string sourceSkinsDir = MNLEnvironment.SkinsPath;
                 if (Directory.Exists(sourceSkinsDir))
                 {
                     foreach (string file in Directory.GetFiles(sourceSkinsDir, "*.png"))

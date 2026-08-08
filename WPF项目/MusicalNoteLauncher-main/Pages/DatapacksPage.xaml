@@ -1,7 +1,7 @@
-<UserControl
+﻿<UserControl
 	x:Class="MusicalNoteLauncher.Pages.DatapacksPage" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:MusicalNoteLauncher.Pages" xmlns:core="clr-namespace:MusicalNoteLauncher.Core"
-	Background="{DynamicResource BackgroundBrush}">
-	<Grid Background="{DynamicResource BackgroundBrush}">
+	Background="Transparent">
+	<Grid Background="Transparent">
 		<Grid.RowDefinitions>
 			<RowDefinition Height="60" />
 			<RowDefinition Height="*" />

@@ -11,6 +11,9 @@ define('DB_USER', 'mnl_user');
 define('DB_PASS', 'MNL@2024#QingNiao!Db');
 define('DB_CHARSET', 'utf8mb4');
 
+// 加载统一安全模块
+require_once __DIR__ . '/security.php';
+
 /**
  * 获取 PDO 数据库连接
  */
@@ -36,7 +39,7 @@ function jsonResponse(array $data, int $httpCode = 200): void {
     header('Content-Type: application/json; charset=utf-8');
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-MNL-Sign, X-MNL-TS');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit;
 }
@@ -55,11 +58,15 @@ function getClientIP(): string {
     return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 }
 
+// 安全防护：最先执行
+setSecurityHeaders();
+checkBlacklist();
+
 // 处理 OPTIONS 预检请求
 if (isset($_SERVER['REQUEST_METHOD']) && $_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header('Access-Control-Allow-Origin: *');
     header('Access-Control-Allow-Methods: POST, GET, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-MNL-Sign, X-MNL-TS');
     http_response_code(204);
     exit;
 }

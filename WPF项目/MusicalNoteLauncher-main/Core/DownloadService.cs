@@ -70,8 +70,7 @@ namespace MusicalNoteLauncher.Core
                 Timeout = TimeSpan.FromMilliseconds(_options.TimeoutMs)
             };
 
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
             ServicePointManager.Expect100Continue = false;
 
             ConfigureHeaders(_httpClient);

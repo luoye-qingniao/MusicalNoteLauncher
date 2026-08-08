@@ -42,13 +42,11 @@ namespace MusicalNoteLauncher.Core
         private HttpClient CreateHttpClient()
         {
             // 设置安全协议
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
             ServicePointManager.Expect100Continue = false;
 
             var handler = new HttpClientHandler
             {
-                ServerCertificateCustomValidationCallback = (sender, cert, chain, sslPolicyErrors) => true,
                 AllowAutoRedirect = true,
                 MaxAutomaticRedirections = 15,
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate

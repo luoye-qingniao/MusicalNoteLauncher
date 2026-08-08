@@ -46,6 +46,12 @@ namespace MusicalNoteLauncher.Core
 
     public class LauncherSettings
     {
+        // 用户协议
+        public bool TermsOfServiceAccepted { get; set; } = false;
+
+        // 陶瓦联机用户协议
+        public bool TerracottaAgreementAccepted { get; set; } = false;
+
         // 启动设置
         public bool AutoLogin { get; set; } = false;
         public bool MinimizeToTray { get; set; } = false;
@@ -58,6 +64,9 @@ namespace MusicalNoteLauncher.Core
         // 游戏设置 - 文件夹列表
         public List<GameFolderEntry> GameFolders { get; set; } = new List<GameFolderEntry>();
         public int SelectedGameFolderIndex { get; set; } = 0;
+
+        // 自定义下载保存路径（空 = 默认 Downloads 目录）
+        public string CustomDownloadPath { get; set; } = "";
 
         public string GamePath
         {
@@ -321,6 +330,80 @@ namespace MusicalNoteLauncher.Core
         // 3 = 隔离Mod版本+非正式版, 4 = 隔离所有版本(默认)
         public int VersionIsolationLevel { get; set; } = 4;
 
+        // 个性化设置
+        /// <summary>是否启用毛玻璃效果</summary>
+        public bool GlassEnabled { get; set; } = true;
+
+        /// <summary>是否启用聚光灯效果</summary>
+        public bool SpotlightEnabled { get; set; } = false;
+
+        /// <summary>主题模式 (light / dark)</summary>
+        public string ThemeMode { get; set; } = "light";
+
+        // 青鸟账号持久化
+        /// <summary>已登录青鸟用户 ID</summary>
+        public string QingniaoId { get; set; } = "";
+        /// <summary>已登录青鸟用户名</summary>
+        public string QingniaoName { get; set; } = "";
+        /// <summary>青鸟登录邮箱</summary>
+        public string QingniaoEmail { get; set; } = "";
+        /// <summary>青鸟登录密码</summary>
+        public string QingniaoPass { get; set; } = "";
+        /// <summary>青鸟服务器地址</summary>
+        public string QingniaoServer { get; set; } = "";
+        /// <summary>青鸟客户端令牌</summary>
+        public string QingniaoClientToken { get; set; } = "";
+        /// <summary>青鸟用户头像</summary>
+        public string QingniaoAvatar { get; set; } = "";
+
+        // 壁纸设置
+        /// <summary>背景模式 (mica/image/video)</summary>
+        public string BgMode { get; set; } = "mica";
+
+        /// <summary>背景透明度 (0-100)</summary>
+        public int BgOpacity { get; set; } = 60;
+
+        /// <summary>背景高斯模糊强度 (0-20)</summary>
+        public int BgBlur { get; set; } = 0;
+
+        /// <summary>背景覆盖层强度 (0-100)</summary>
+        public int BgOverlay { get; set; } = 0;
+
+        /// <summary>背景文件路径（显示用）</summary>
+        public string BgFilePath { get; set; } = string.Empty;
+
+        /// <summary>当前选中的壁纸 ID</summary>
+        public string SelectedWallpaperId { get; set; } = string.Empty;
+
+        /// <summary>当前选择的壁纸文件名</summary>
+        public string WallpaperFileName { get; set; } = string.Empty;
+
+        /// <summary>当前选择的视频背景文件名</summary>
+        public string VideoBgFileName { get; set; } = string.Empty;
+
+        // AI 助手设置
+        /// <summary>AI 接口地址</summary>
+        public string AiEndpoint { get; set; } = string.Empty;
+
+        /// <summary>AI API Key</summary>
+        public string AiApiKey { get; set; } = string.Empty;
+
+        /// <summary>AI 模型名称</summary>
+        public string AiModel { get; set; } = string.Empty;
+
+        /// <summary>AI 预设服务 ID</summary>
+        public string AiPreset { get; set; } = string.Empty;
+
+        // 全景背景设置
+        /// <summary>全景主题 (overworld/nether/end/wild/...)</summary>
+        public string PanoramaTheme { get; set; } = "overworld";
+
+        /// <summary>全景旋转速度 (0-20, 默认5)</summary>
+        public int PanoramaSpeed { get; set; } = 5;
+
+        /// <summary>全景鼠标跟随</summary>
+        public bool PanoramaMouseFollow { get; set; } = false;
+
         // 内存优化设置 (PCL风格)
         public bool LaunchArgumentRam { get; set; } = false;
 
@@ -487,6 +570,84 @@ namespace MusicalNoteLauncher.Core
         public static void ResetSettings()
         {
             _settings = new LauncherSettings();
+            SaveSettings();
+        }
+
+        /// <summary>便捷方法：获取指定键的字符串值</summary>
+        public static string? Get(string key)
+        {
+            return key switch
+            {
+                "GamePath" => Settings.GamePath,
+                "JavaPath" => Settings.JavaPath,
+                "JavaArgs" => Settings.JavaArgs,
+                "CustomDownloadPath" => Settings.CustomDownloadPath,
+                "Resolution" => Settings.Resolution,
+                "BgMode" => Settings.BgMode,
+                "ThemeMode" => Settings.ThemeMode,
+                "AiEndpoint" => Settings.AiEndpoint,
+                "AiApiKey" => Settings.AiApiKey,
+                "AiModel" => Settings.AiModel,
+                "PanoramaTheme" => Settings.PanoramaTheme,
+                "WallpaperFileName" => Settings.WallpaperFileName,
+                "VideoBgFileName" => Settings.VideoBgFileName,
+                "SelectedWallpaperId" => Settings.SelectedWallpaperId,
+                "QingniaoId" => Settings.QingniaoId,
+                "QingniaoName" => Settings.QingniaoName,
+                "QingniaoEmail" => Settings.QingniaoEmail,
+                "QingniaoPass" => Settings.QingniaoPass,
+                "QingniaoServer" => Settings.QingniaoServer,
+                "QingniaoClientToken" => Settings.QingniaoClientToken,
+                _ => null,
+            };
+        }
+
+        /// <summary>便捷方法：设置指定键的值</summary>
+        public static void Set(string key, object? value)
+        {
+            var s = Settings;
+            switch (key)
+            {
+                case "GamePath": s.GamePath = value?.ToString() ?? ""; break;
+                case "JavaPath": s.JavaPath = value?.ToString() ?? ""; break;
+                case "JavaArgs": s.JavaArgs = value?.ToString() ?? ""; break;
+                case "CustomDownloadPath": s.CustomDownloadPath = value?.ToString() ?? ""; break;
+                case "Resolution": s.Resolution = value?.ToString() ?? "1920x1080"; break;
+                case "BgMode": s.BgMode = value?.ToString() ?? "mica"; break;
+                case "ThemeMode": s.ThemeMode = value?.ToString() ?? "light"; break;
+                case "AiEndpoint": s.AiEndpoint = value?.ToString() ?? ""; break;
+                case "AiApiKey": s.AiApiKey = value?.ToString() ?? ""; break;
+                case "AiModel": s.AiModel = value?.ToString() ?? ""; break;
+                case "PanoramaTheme": s.PanoramaTheme = value?.ToString() ?? "overworld"; break;
+                case "WallpaperFileName": s.WallpaperFileName = value?.ToString() ?? ""; break;
+                case "VideoBgFileName": s.VideoBgFileName = value?.ToString() ?? ""; break;
+                case "SelectedWallpaperId": s.SelectedWallpaperId = value?.ToString() ?? ""; break;
+                case "QingniaoId": s.QingniaoId = value?.ToString() ?? ""; break;
+                case "QingniaoName": s.QingniaoName = value?.ToString() ?? ""; break;
+                case "QingniaoEmail": s.QingniaoEmail = value?.ToString() ?? ""; break;
+                case "QingniaoPass": s.QingniaoPass = value?.ToString() ?? ""; break;
+                case "QingniaoServer": s.QingniaoServer = value?.ToString() ?? ""; break;
+                case "QingniaoClientToken": s.QingniaoClientToken = value?.ToString() ?? ""; break;
+                case "AutoLogin": s.AutoLogin = Convert.ToBoolean(value); break;
+                case "CheckUpdate": s.CheckUpdate = Convert.ToBoolean(value); break;
+                case "GlassEnabled": s.GlassEnabled = Convert.ToBoolean(value); break;
+                case "SpotlightEnabled": s.SpotlightEnabled = Convert.ToBoolean(value); break;
+                case "HardwareAcceleration": s.HardwareAcceleration = Convert.ToBoolean(value); break;
+                case "BgOpacity": s.BgOpacity = Convert.ToInt32(value); break;
+                case "BgBlur": s.BgBlur = Convert.ToInt32(value); break;
+                case "BgOverlay": s.BgOverlay = Convert.ToInt32(value); break;
+                case "MaxMemory": s.MaxMemory = Convert.ToInt32(value); break;
+                case "MinMemory": s.MinMemory = Convert.ToInt32(value); break;
+                case "DownloadThreads": s.DownloadThreads = Convert.ToInt32(value); break;
+                case "Fullscreen": s.Fullscreen = Convert.ToBoolean(value); break;
+                case "PanoramaSpeed": s.PanoramaSpeed = Convert.ToInt32(value); break;
+                case "PanoramaMouseFollow": s.PanoramaMouseFollow = Convert.ToBoolean(value); break;
+            }
+        }
+
+        /// <summary>便捷方法：保存设置</summary>
+        public static void Save()
+        {
             SaveSettings();
         }
     }

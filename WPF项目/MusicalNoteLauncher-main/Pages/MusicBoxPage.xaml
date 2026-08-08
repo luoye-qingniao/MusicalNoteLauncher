@@ -1,9 +1,9 @@
-<UserControl
+﻿<UserControl
     x:Class="MusicalNoteLauncher.Pages.MusicBoxPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:pages="clr-namespace:MusicalNoteLauncher.Pages"
-    Background="{DynamicResource BackgroundBrush}">
+    Background="Transparent">
 
     <UserControl.Resources>
         <!-- 缓存状态转换器 -->
@@ -517,11 +517,5 @@
             </Grid>
         </Border>
 
-        <!-- ── 隐藏的 MediaElement 用于音频播放 ── -->
-        <MediaElement x:Name="mediaPlayer" Visibility="Collapsed"
-                      LoadedBehavior="Manual" UnloadedBehavior="Stop"
-                      MediaOpened="MediaPlayer_MediaOpened"
-                      MediaEnded="MediaPlayer_MediaEnded"
-                      MediaFailed="MediaPlayer_MediaFailed"/>
     </Grid>
 </UserControl>

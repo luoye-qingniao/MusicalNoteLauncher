@@ -106,6 +106,7 @@ function authenticate(): array {
  * Body: { qingniao_id, password, nickname?, email? }
  */
 function register(array $body): void {
+    checkRateLimit('auth_register');
     $password       = $body['password'] ?? '';
     $nickname       = trim($body['nickname'] ?? '');
     $email          = trim($body['email'] ?? '');
@@ -217,6 +218,7 @@ function register(array $body): void {
  * Body: { email }
  */
 function sendVerificationCode(array $body): void {
+    checkRateLimit('auth_code');
     $email = trim($body['email'] ?? '');
 
     if (empty($email)) {
@@ -272,48 +274,61 @@ function sendVerificationCode(array $body): void {
     $headers = [
         'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=UTF-8',
-        'From: MusicalNote Launcher <noreply@mnl.launcher>',
+        'From: MusicalNote Launcher <3976261500@qq.com>',
         'X-Mailer: PHP/' . phpversion(),
     ];
 
     $sent = mail($email, $subject, $mailBody, implode("\r\n", $headers));
 
     if (!$sent) {
-        // 邮件发送失败但仍记录验证码（可通过数据库查看）
-        // 在生产环境中应配置 SMTP
+        jsonResponse(['error' => '邮件发送失败，请稍后重试或联系管理员'], 500);
     }
 
     jsonResponse([
         'success' => true,
-        'message' => '验证码已发送到 ' . $email,
+        'message' => '验证码已发送到 ' . $email . '，如未收到请检查垃圾邮件箱',
     ]);
 }
 
 /**
- * 用户登录
+ * 用户登录（支持邮箱或青鸟ID）
  * POST /api/auth.php?action=login
- * Body: { qingniao_id, password, client_id? }
+ * Body: { email?, qingniao_id?, password, client_id? }
  */
 function login(array $body): void {
+    checkRateLimit('auth_login');
+    $email      = trim($body['email'] ?? '');
     $qingniaoId = trim($body['qingniao_id'] ?? '');
     $password   = $body['password'] ?? '';
     $clientId   = trim($body['client_id'] ?? '');
 
-    if (empty($qingniaoId) || empty($password)) {
-        jsonResponse(['error' => '青鸟ID和密码不能为空'], 400);
+    if (empty($email) && empty($qingniaoId)) {
+        jsonResponse(['error' => '邮箱不能为空'], 400);
+    }
+    if (empty($password)) {
+        jsonResponse(['error' => '密码不能为空'], 400);
     }
 
     $pdo = getDB();
-    $stmt = $pdo->prepare('
-        SELECT id, qingniao_id, nickname, email, avatar_url, signature,
-               password_hash, role, is_banned
-        FROM users WHERE qingniao_id = ?
-    ');
-    $stmt->execute([$qingniaoId]);
+    if (!empty($email)) {
+        $stmt = $pdo->prepare('
+            SELECT id, qingniao_id, nickname, email, avatar_url, signature,
+                   password_hash, role, is_banned
+            FROM users WHERE email = ?
+        ');
+        $stmt->execute([$email]);
+    } else {
+        $stmt = $pdo->prepare('
+            SELECT id, qingniao_id, nickname, email, avatar_url, signature,
+                   password_hash, role, is_banned
+            FROM users WHERE qingniao_id = ?
+        ');
+        $stmt->execute([$qingniaoId]);
+    }
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user['password_hash'])) {
-        jsonResponse(['error' => '青鸟ID或密码错误'], 401);
+        jsonResponse(['error' => '邮箱或密码错误'], 401);
     }
 
     if ($user['is_banned']) {
@@ -513,6 +528,7 @@ function updateProfile(array $body): void {
  * Body: { old_password, new_password }
  */
 function changePassword(array $body): void {
+    checkRateLimit('auth_password');
     $auth = authenticate();
     $oldPassword = $body['old_password'] ?? '';
     $newPassword = $body['new_password'] ?? '';

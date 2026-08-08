@@ -13,11 +13,14 @@ namespace MusicalNoteLauncher.Pages
 {
     public partial class ModManagerPage : UserControl
     {
+        private enum ContentType { Mod, Shader, ResourcePack }
+
         private readonly ConfigManager _config;
         private List<ModLoaderDetector.LoaderInfo> _detectedLoaders = new List<ModLoaderDetector.LoaderInfo>();
         private List<ModLoaderDetector.LoaderInfo> _allLoaders = new List<ModLoaderDetector.LoaderInfo>();
         private string _selectedVersion;
         private bool _suppressVersionChangeEvent;
+        private ContentType _currentContentType = ContentType.Mod;
 
         public ModManagerPage()
         {
@@ -84,7 +87,7 @@ namespace MusicalNoteLauncher.Pages
             {
                 if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Collapsed;
                 if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Visible;
-                if (txtLoaderInfo != null) txtLoaderInfo.Text = "（全局 mods 目录）";
+                if (txtLoaderInfo != null) txtLoaderInfo.Text = "全局";
                 LoadMods();
                 return;
             }
@@ -93,7 +96,7 @@ namespace MusicalNoteLauncher.Pages
             {
                 if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Visible;
                 if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Collapsed;
-                if (txtLoaderInfo != null) txtLoaderInfo.Text = "（无模组加载器）";
+                if (txtLoaderInfo != null) txtLoaderInfo.Text = "无加载器";
                 return;
             }
 
@@ -102,7 +105,7 @@ namespace MusicalNoteLauncher.Pages
             if (txtLoaderInfo != null)
             {
                 List<string> names = _detectedLoaders.ConvertAll(l => l.DisplayName);
-                txtLoaderInfo.Text = "（已检测到：" + string.Join(", ", names) + "）";
+                txtLoaderInfo.Text = string.Join(" / ", names);
             }
             LoadMods();
         }
@@ -212,15 +215,15 @@ namespace MusicalNoteLauncher.Pages
                 if (_detectedLoaders.Count > 0)
                 {
                     List<string> names = _detectedLoaders.ConvertAll(l => l.DisplayName);
-                    txtLoaderInfo.Text = "（已检测到：" + string.Join(", ", names) + "）";
+                    txtLoaderInfo.Text = string.Join(" / ", names);
                 }
                 else if (!string.IsNullOrEmpty(_selectedVersion))
                 {
-                    txtLoaderInfo.Text = "（无模组加载器）";
+                    txtLoaderInfo.Text = "无加载器";
                 }
                 else
                 {
-                    txtLoaderInfo.Text = "（全局 mods 目录）";
+                    txtLoaderInfo.Text = "全局";
                 }
             }
 
@@ -251,19 +254,103 @@ namespace MusicalNoteLauncher.Pages
             }
         }
 
-        private string GetModsDirectory()
+        private string GetTargetDirectory()
         {
             string minecraftPath = _config.GetMinecraftPath();
 
-            // 全局模式直接返回全局路径
-            if (string.IsNullOrEmpty(_selectedVersion))
-                return Path.Combine(minecraftPath, "mods");
+            switch (_currentContentType)
+            {
+                case ContentType.Mod:
+                    if (string.IsNullOrEmpty(_selectedVersion))
+                        return Path.Combine(minecraftPath, "mods");
+                    if (SettingsManager.Settings.ShouldIsolateVersionForVersion(minecraftPath, _selectedVersion))
+                        return Path.Combine(minecraftPath, "versions", _selectedVersion, "game", "mods");
+                    return Path.Combine(minecraftPath, "mods");
+                case ContentType.Shader:
+                    return Path.Combine(minecraftPath, "shaderpacks");
+                case ContentType.ResourcePack:
+                    return Path.Combine(minecraftPath, "resourcepacks");
+                default:
+                    return Path.Combine(minecraftPath, "mods");
+            }
+        }
 
-            // 版本隔离模式：需要经过 game/ 子目录（与 GameLauncher 保持一致）
-            if (SettingsManager.Settings.ShouldIsolateVersionForVersion(minecraftPath, _selectedVersion))
-                return Path.Combine(minecraftPath, "versions", _selectedVersion, "game", "mods");
+        private string GetFileExtension() => _currentContentType == ContentType.Mod ? "*.jar" : "*.zip";
 
-            return Path.Combine(minecraftPath, "mods");
+        private string GetContentTypeLabel() => _currentContentType switch
+        {
+            ContentType.Mod => "模组",
+            ContentType.Shader => "光影包",
+            ContentType.ResourcePack => "材质包",
+            _ => "模组"
+        };
+
+        private string GetContentTypeIcon() => _currentContentType switch
+        {
+            ContentType.Mod => "📦",
+            ContentType.Shader => "✨",
+            ContentType.ResourcePack => "🖼️",
+            _ => "📦"
+        };
+
+        private void BtnTabMod_Click(object sender, RoutedEventArgs e) => SwitchContentType(ContentType.Mod);
+        private void BtnTabShader_Click(object sender, RoutedEventArgs e) => SwitchContentType(ContentType.Shader);
+        private void BtnTabResourcePack_Click(object sender, RoutedEventArgs e) => SwitchContentType(ContentType.ResourcePack);
+
+        private void SwitchContentType(ContentType newType)
+        {
+            if (_currentContentType == newType) return;
+            _currentContentType = newType;
+            UpdateTabButtonStyles();
+            RefreshContent();
+        }
+
+        private void UpdateTabButtonStyles()
+        {
+            var tabs = new[] {
+                (btn: btnTabMod, type: ContentType.Mod),
+                (btn: btnTabShader, type: ContentType.Shader),
+                (btn: btnTabResourcePack, type: ContentType.ResourcePack)
+            };
+
+            foreach (var (btn, type) in tabs)
+            {
+                if (btn == null) continue;
+                bool isActive = type == _currentContentType;
+                btn.Foreground = isActive
+                    ? new SolidColorBrush(Color.FromRgb(255, 255, 255))
+                    : new SolidColorBrush(Color.FromRgb(170, 170, 170));
+                btn.Background = isActive
+                    ? new SolidColorBrush(Color.FromRgb(33, 150, 243))
+                    : new SolidColorBrush(Color.FromRgb(55, 55, 65));
+            }
+
+            // 非模组类型隐藏版本选择器
+            bool isMod = _currentContentType == ContentType.Mod;
+        }
+
+        private void RefreshContent()
+        {
+            string minecraftPath = _config.GetMinecraftPath();
+
+            if (_currentContentType == ContentType.Mod)
+            {
+                // 模组类型：沿用原有加载器检测逻辑
+                CheckModLoaderAndUpdateUI();
+                return;
+            }
+
+            // 光影/材质类型：不需要加载器，直接显示列表
+            if (gridNoLoader != null) gridNoLoader.Visibility = Visibility.Collapsed;
+            if (gridHasLoader != null) gridHasLoader.Visibility = Visibility.Visible;
+            if (txtLoaderInfo != null) txtLoaderInfo.Text = GetContentTypeLabel();
+            if (txtHintVersion != null) txtHintVersion.Text = "";
+            LoadMods();
+        }
+
+        private string GetModsDirectory()
+        {
+            return GetTargetDirectory();
         }
 
         private void LoadMods()
@@ -272,22 +359,20 @@ namespace MusicalNoteLauncher.Pages
 
             lstMods.Items.Clear();
 
-            string modsDirectory = GetModsDirectory();
-            if (!Directory.Exists(modsDirectory))
+            string targetDirectory = GetTargetDirectory();
+            string filePattern = GetFileExtension();
+            string contentTypeLabel = GetContentTypeLabel();
+            string contentTypeIcon = GetContentTypeIcon();
+
+            if (!Directory.Exists(targetDirectory))
             {
-                try
-                {
-                    Directory.CreateDirectory(modsDirectory);
-                }
-                catch
-                {
-                    // ignore
-                }
+                try { Directory.CreateDirectory(targetDirectory); }
+                catch { }
             }
 
-            if (Directory.Exists(modsDirectory))
+            if (Directory.Exists(targetDirectory))
             {
-                foreach (string filePath in Directory.GetFiles(modsDirectory, "*.jar"))
+                foreach (string filePath in Directory.GetFiles(targetDirectory, filePattern))
                 {
                     string fileName = Path.GetFileName(filePath);
                     bool isEnabled = !fileName.StartsWith(".");
@@ -320,19 +405,26 @@ namespace MusicalNoteLauncher.Pages
                 if (txtEmptyModsHint != null)
                 {
                     txtEmptyModsHint.Text =
-                        "当前 mods 目录：" + (modsDirectory ?? "(未知)") + "\n"
-                        + "点击下方 “添加模组” 按钮，选择 .jar 文件即可添加。";
+                        "点击下方 \"添加" + contentTypeLabel + "\" 按钮，选择 "
+                        + (_currentContentType == ContentType.Mod ? ".jar" : ".zip")
+                        + " 文件即可添加。";
                 }
             }
 
             if (txtModListTitle != null)
-            {
-                txtModListTitle.Text = "已安装模组";
-            }
+                txtModListTitle.Text = "已安装" + contentTypeLabel;
             if (txtModCountBadge != null)
-            {
                 txtModCountBadge.Text = "共 " + lstMods.Items.Count + " 个";
-            }
+
+            if (btnAddContentTitle != null)
+                btnAddContentTitle.Text = "添加" + contentTypeLabel;
+            if (btnAddContentHint != null)
+                btnAddContentHint.Text = "选择 " + (_currentContentType == ContentType.Mod ? ".jar" : ".zip") + " 文件添加";
+
+            if (txtEmptyModIcon != null)
+                txtEmptyModIcon.Text = contentTypeIcon;
+            if (txtEmptyModTitle != null)
+                txtEmptyModTitle.Text = "暂无" + contentTypeLabel;
         }
 
         private string GetVersionFromFileName(string fileName)
@@ -351,22 +443,28 @@ namespace MusicalNoteLauncher.Pages
 
         private void BtnAddMod_Click(object sender, RoutedEventArgs e)
         {
+            string contentTypeLabel = GetContentTypeLabel();
+            bool isJar = _currentContentType == ContentType.Mod;
+            string filter = isJar
+                ? "模组文件 (*.jar)|*.jar|所有文件 (*.*)|*.*"
+                : (contentTypeLabel + " (*.zip)|*.zip|所有文件 (*.*)|*.*");
+
             OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                Filter = "模组文件 (*.jar)|*.jar|所有文件 (*.*)|*.*",
+                Filter = filter,
                 Multiselect = true,
-                Title = "选择模组文件"
+                Title = "选择" + contentTypeLabel
             };
 
             if (openFileDialog.ShowDialog().GetValueOrDefault())
             {
-                string modsDirectory = GetModsDirectory();
-                if (!Directory.Exists(modsDirectory))
+                string targetDirectory = GetTargetDirectory();
+                if (!Directory.Exists(targetDirectory))
                 {
-                    try { Directory.CreateDirectory(modsDirectory); }
+                    try { Directory.CreateDirectory(targetDirectory); }
                     catch (Exception ex)
                     {
-                        ModernMessageBox.ShowError("无法创建 mods 目录：" + ex.Message, "错误");
+                        ModernMessageBox.ShowError("无法创建目录：" + ex.Message, "错误");
                         return;
                     }
                 }
@@ -378,7 +476,7 @@ namespace MusicalNoteLauncher.Pages
                 {
                     try
                     {
-                        string destPath = Path.Combine(modsDirectory, Path.GetFileName(filePath));
+                        string destPath = Path.Combine(targetDirectory, Path.GetFileName(filePath));
                         if (!File.Exists(destPath))
                         {
                             File.Copy(filePath, destPath);
@@ -391,14 +489,14 @@ namespace MusicalNoteLauncher.Pages
                     }
                     catch (Exception ex)
                     {
-                        Logger.Warning("添加模组失败: " + ex.Message);
+                        Logger.Warning("添加" + contentTypeLabel + "失败: " + ex.Message);
                     }
                 }
 
                 LoadMods();
 
-                string msg = "已添加 " + added + " 个模组。";
-                if (skipped > 0) msg += " 跳过 " + skipped + " 个已存在的模组。";
+                string msg = "已添加 " + added + " 个" + contentTypeLabel + "。";
+                if (skipped > 0) msg += " 跳过 " + skipped + " 个已存在的" + contentTypeLabel + "。";
                 ModernMessageBox.ShowInfo(msg, "提示");
             }
         }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -11,71 +12,78 @@ namespace MusicalNoteLauncher.Core
     public class ModrinthApiService
     {
         private readonly HttpClient _httpClient;
-        private const string BaseUrl = "https://api.modrinth.com/v2";
+        private readonly string _baseUrl;
 
-        public ModrinthApiService()
+        private static HttpClient CreateHttpClient()
         {
-            _httpClient = new HttpClient
+            var handler = new HttpClientHandler
+            {
+                AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate,
+                AllowAutoRedirect = true,
+                MaxConnectionsPerServer = 10
+            };
+
+            // 强制使用 TLS 1.2 / 1.3（兼容旧 .NET 运行时）
+            ServicePointManager.SecurityProtocol =
+                SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
+
+            var client = new HttpClient(handler)
             {
                 Timeout = TimeSpan.FromSeconds(30)
             };
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "MusicalNoteLauncher/1.0");
+
+            // 更真实的 User-Agent，避免被 API 限流
+            client.DefaultRequestHeaders.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36 MusicalNoteLauncher/1.2");
+            client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+            client.DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate");
+
+            return client;
+        }
+
+        public ModrinthApiService(string baseUrl = null)
+        {
+            _baseUrl = baseUrl ?? "https://api.modrinth.com/v2";
+            _httpClient = CreateHttpClient();
         }
 
         public async Task<List<ModrinthMod>> SearchMods(string query, string gameVersion = "", int limit = 10, int offset = 0)
         {
             try
             {
-                string url = $"{BaseUrl}/search?query={Uri.EscapeDataString(query)}&limit={limit}&offset={offset}";
+                string url = $"{_baseUrl}/search?query={Uri.EscapeDataString(query)}&limit={limit}&offset={offset}";
                 if (!string.IsNullOrEmpty(gameVersion))
                 {
                     url += $"&version={Uri.EscapeDataString(gameVersion)}";
                 }
-                
-                System.Diagnostics.Debug.WriteLine($"Searching mods: {url}");
+
+                Logger.Info($"[Modrinth] SearchMods: {url}");
 
                 var response = await _httpClient.GetAsync(url);
-                System.Diagnostics.Debug.WriteLine($"Response status: {response.StatusCode}");
-                
-                response.EnsureSuccessStatusCode();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    string errorContent = await response.Content.ReadAsStringAsync();
+                    Logger.Warning($"[Modrinth] SearchMods 返回 {response.StatusCode}: {errorContent}");
+                    return new List<ModrinthMod>();
+                }
 
                 var content = await response.Content.ReadAsStringAsync();
-                System.Diagnostics.Debug.WriteLine($"Response length: {content.Length}");
-                
-                // 打印响应预览
-                if (content.Length > 0)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Response preview: {content.Substring(0, Math.Min(500, content.Length))}...");
-                }
 
                 var result = JsonSerializer.Deserialize<ModrinthSearchResult>(content);
-                
-                if (result == null)
+
+                if (result?.Hits == null)
                 {
-                    System.Diagnostics.Debug.WriteLine("Deserialization returned null");
+                    Logger.Warning("[Modrinth] SearchMods 反序列化返回 null");
                     return new List<ModrinthMod>();
-                }
-                
-                if (result.Hits == null)
-                {
-                    System.Diagnostics.Debug.WriteLine("Hits is null");
-                    return new List<ModrinthMod>();
-                }
-                
-                System.Diagnostics.Debug.WriteLine($"Found {result.Hits.Count} items");
-                
-                // 打印前几个mod的信息
-                for (int i = 0; i < Math.Min(3, result.Hits.Count); i++)
-                {
-                    var mod = result.Hits[i];
-                    System.Diagnostics.Debug.WriteLine($"Mod {i}: Name={mod.Name ?? "null"}, Id={mod.Id ?? "null"}");
                 }
 
+                Logger.Info($"[Modrinth] SearchMods 找到 {result.Hits.Count} 个结果");
                 return result.Hits;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"SearchMods Exception: {ex.Message}");
+                Logger.Error($"[Modrinth] SearchMods 异常: {ex.Message}");
                 return new List<ModrinthMod>();
             }
         }
@@ -89,7 +97,7 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/search?facets=[[\"project_type:modpack\"]]&limit={limit}";
+                string url = $"{_baseUrl}/search?facets=[[\"project_type:modpack\"]]&limit={limit}";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -108,7 +116,7 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/search?facets=[[\"project_type:resourcepack\"]]&limit={limit}";
+                string url = $"{_baseUrl}/search?facets=[[\"project_type:resourcepack\"]]&limit={limit}";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -127,7 +135,7 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/search?facets=[[\"project_type:shader\"]]&limit={limit}";
+                string url = $"{_baseUrl}/search?facets=[[\"project_type:shader\"]]&limit={limit}";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -146,7 +154,26 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/search?facets=[[\"project_type:datapack\"]]&limit={limit}";
+                string url = $"{_baseUrl}/search?facets=[[\"project_type:datapack\"]]&limit={limit}";
+                var response = await _httpClient.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+
+                var content = await response.Content.ReadAsStringAsync();
+                var result = JsonSerializer.Deserialize<ModrinthSearchResult>(content);
+
+                return result?.Hits ?? new List<ModrinthMod>();
+            }
+            catch
+            {
+                return new List<ModrinthMod>();
+            }
+        }
+
+        public async Task<List<ModrinthMod>> GetMods(int limit = 10)
+        {
+            try
+            {
+                string url = $"{_baseUrl}/search?facets=[[\"project_type:mod\"]]&limit={limit}";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
 
@@ -165,53 +192,39 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/project/{projectId}/version";
-                System.Diagnostics.Debug.WriteLine($"Requesting URL: {url}");
+                string url = $"{_baseUrl}/project/{projectId}/version";
+                Logger.Info($"[Modrinth] GetDownloadUrl: {url}");
 
                 var response = await _httpClient.GetAsync(url);
-                System.Diagnostics.Debug.WriteLine($"Response status: {response.StatusCode}");
 
                 if (!response.IsSuccessStatusCode)
                 {
                     string errorContent = await response.Content.ReadAsStringAsync();
-                    System.Diagnostics.Debug.WriteLine($"Modrinth API Error: {response.StatusCode} - {errorContent}");
+                    Logger.Warning($"[Modrinth] GetDownloadUrl 返回 {response.StatusCode}: {errorContent}");
                     return null;
                 }
 
                 var content = await response.Content.ReadAsStringAsync();
-                System.Diagnostics.Debug.WriteLine($"Response content length: {content.Length} characters");
-
-                // 打印前500个字符用于调试
-                if (content.Length > 0)
-                {
-                    System.Diagnostics.Debug.WriteLine($"Response preview: {content.Substring(0, Math.Min(500, content.Length))}...");
-                }
-
                 var versions = JsonSerializer.Deserialize<List<ModrinthVersion>>(content);
 
                 if (versions != null && versions.Count > 0)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Found {versions.Count} versions");
                     var latestVersion = versions[0];
                     if (latestVersion.Files != null && latestVersion.Files.Count > 0)
                     {
-                        System.Diagnostics.Debug.WriteLine($"Found {latestVersion.Files.Count} files, URL: {latestVersion.Files[0].Url}");
+                        Logger.Info($"[Modrinth] GetDownloadUrl: {latestVersion.Files[0].Url}");
                         return latestVersion.Files[0].Url;
                     }
-                    else
-                    {
-                        System.Diagnostics.Debug.WriteLine("No files found in version");
-                    }
+                    Logger.Warning("[Modrinth] GetDownloadUrl: 版本无文件");
                 }
                 else
                 {
-                    System.Diagnostics.Debug.WriteLine("No versions found or deserialization failed");
+                    Logger.Warning("[Modrinth] GetDownloadUrl: 未找到版本");
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"GetDownloadUrl Exception: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"Exception stack: {ex.StackTrace}");
+                Logger.Error($"[Modrinth] GetDownloadUrl 异常: {ex.Message}");
             }
 
             return null;
@@ -224,19 +237,19 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/project/{projectId}/version";
+                string url = $"{_baseUrl}/project/{projectId}/version";
                 if (!string.IsNullOrEmpty(gameVersion))
                 {
                     url += $"?game_versions={Uri.EscapeDataString("[\"" + gameVersion + "\"]")}";
                 }
 
-                System.Diagnostics.Debug.WriteLine($"GetProjectVersions URL: {url}");
+                Logger.Info($"[Modrinth] GetProjectVersions: {url}");
 
                 var response = await _httpClient.GetAsync(url);
                 if (!response.IsSuccessStatusCode)
                 {
                     string errorContent = await response.Content.ReadAsStringAsync();
-                    System.Diagnostics.Debug.WriteLine($"Modrinth API Error: {response.StatusCode} - {errorContent}");
+                    Logger.Warning($"[Modrinth] GetProjectVersions 返回 {response.StatusCode}: {errorContent}");
                     return new List<ModrinthVersion>();
                 }
 
@@ -245,6 +258,7 @@ namespace MusicalNoteLauncher.Core
 
                 if (versions == null || versions.Count == 0)
                 {
+                    Logger.Warning($"[Modrinth] GetProjectVersions: 项目 {projectId} 无可用版本");
                     return new List<ModrinthVersion>();
                 }
 
@@ -257,12 +271,12 @@ namespace MusicalNoteLauncher.Core
                     _ => 0
                 }).ThenByDescending(v => v.DatePublished ?? DateTime.MinValue).ToList();
 
-                System.Diagnostics.Debug.WriteLine($"GetProjectVersions: Found {sortedVersions.Count} versions");
+                Logger.Info($"[Modrinth] GetProjectVersions: 找到 {sortedVersions.Count} 个版本");
                 return sortedVersions;
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"GetProjectVersions Exception: {ex.Message}");
+                Logger.Error($"[Modrinth] GetProjectVersions 异常: {ex.Message}");
                 return new List<ModrinthVersion>();
             }
         }
@@ -274,7 +288,7 @@ namespace MusicalNoteLauncher.Core
         {
             try
             {
-                string url = $"{BaseUrl}/project/{projectId}";
+                string url = $"{_baseUrl}/project/{projectId}";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();
@@ -282,7 +296,7 @@ namespace MusicalNoteLauncher.Core
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"GetProject Exception: {ex.Message}");
+                Logger.Error($"[Modrinth] GetProject 异常 ({projectId}): {ex.Message}");
                 return null;
             }
         }
@@ -298,7 +312,7 @@ namespace MusicalNoteLauncher.Core
                     return new List<ModrinthProject>();
 
                 string idsParam = "[" + string.Join(",", projectIds.Select(id => $"\"{id}\"")) + "]";
-                string url = $"{BaseUrl}/projects?ids={Uri.EscapeDataString(idsParam)}";
+                string url = $"{_baseUrl}/projects?ids={Uri.EscapeDataString(idsParam)}";
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 var content = await response.Content.ReadAsStringAsync();
@@ -396,7 +410,25 @@ namespace MusicalNoteLauncher.Core
         [JsonPropertyName("dependencies")]
         public List<ModrinthDependency> Dependencies { get; set; }
 
-        public string DisplayName => !string.IsNullOrEmpty(VersionNumber) ? VersionNumber : Name ?? "未知版本";
+        public string DisplayVersionName
+        {
+            get
+            {
+                var display = (Name ?? "").Replace("\t", "").Trim();
+                if (!string.IsNullOrEmpty(display))
+                {
+                    IsBadDisplay = false;
+                    return display;
+                }
+                IsBadDisplay = true;
+                return VersionNumber ?? "未知版本";
+            }
+        }
+
+        public bool IsBadDisplay { get; private set; }
+
+        /// 显示名（对齐 PCL：name 为主，version_number 降级）
+        public string DisplayName => DisplayVersionName;
 
         public string DisplayGameVersions => GameVersions != null && GameVersions.Count > 0
             ? string.Join(", ", GameVersions.Take(3))

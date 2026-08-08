@@ -10,7 +10,23 @@ namespace PCL.Account
     /// </summary>
     public static class Settings
     {
-        private static readonly string FilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "accounts.json");
+        /// <summary>
+        /// 获取数据存储目录（参考 PCL：{exe}\MNL\）
+        /// </summary>
+        private static string GetAppDirectory()
+        {
+            // 参考 PCL：数据与程序同级目录
+            string exePath = Environment.ProcessPath;
+            string dir = !string.IsNullOrEmpty(exePath)
+                ? Path.GetDirectoryName(exePath)
+                : AppDomain.CurrentDomain.BaseDirectory;
+
+            if (!string.IsNullOrEmpty(dir))
+                return Path.Combine(dir, "MNL");
+            return AppDomain.CurrentDomain.BaseDirectory;
+        }
+
+        private static readonly string FilePath = System.IO.Path.Combine(GetAppDirectory(), "accounts.json");
         private static Dictionary<string, object> _store;
         private static readonly object _lock = new object();
 

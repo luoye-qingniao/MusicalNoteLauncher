@@ -1,0 +1,1 @@
+ = Get-Content 'f:\MCMNL\MNL\UnoApp\MNL.Uno\WebApp\pages\music.html' -Raw -Encoding UTF8; Write-Host 'UnoApp template read: ' + .Length + ' chars'; 

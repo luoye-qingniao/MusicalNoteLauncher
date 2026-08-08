@@ -47,8 +47,7 @@ namespace MusicalNoteLauncher.Core
 
         private void ConfigureSslAndProtocol()
         {
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-            ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
             ServicePointManager.Expect100Continue = false;
         }
 
@@ -70,12 +69,14 @@ namespace MusicalNoteLauncher.Core
                 var missingLibraries = await CheckLibrariesAsync(versionId, versionInfo, cancellationToken);
                 var missingNatives = await CheckNativesAsync(versionId, versionInfo, cancellationToken);
                 var missingJar = await CheckMainJarAsync(versionId, versionInfo, cancellationToken);
+                var missingAssets = await CheckAssetsAsync(versionId, versionInfo, cancellationToken);
 
                 result.MissingLibraries = missingLibraries;
                 result.MissingNatives = missingNatives;
                 result.MissingJar = missingJar;
+                result.MissingAssets = missingAssets;
 
-                int totalMissing = missingLibraries.Count + missingNatives.Count + (missingJar ? 1 : 0);
+                int totalMissing = missingLibraries.Count + missingNatives.Count + (missingJar ? 1 : 0) + missingAssets.Count;
                 if (totalMissing > 0)
                 {
                     StatusChanged?.Invoke($"发现 {totalMissing} 个缺失文件，开始修复...");
@@ -116,6 +117,18 @@ namespace MusicalNoteLauncher.Core
                             ProgressChanged?.Invoke(overallProgress);
                             DownloadProgressChanged?.Invoke(overallProgress, $"下载游戏JAR: {progress:F1}%");
                         }, cancellationToken);
+                    }
+
+                    if (missingAssets.Count > 0)
+                    {
+                        StatusChanged?.Invoke($"[修复] 正在下载 {missingAssets.Count} 个缺失的资产文件...");
+                        await DownloadAssetsAsync(missingAssets, (completed, totalAssets) =>
+                        {
+                            int overallProgress = (int)((repaired + completed) * 1.0 / total * 100);
+                            ProgressChanged?.Invoke(overallProgress);
+                            DownloadProgressChanged?.Invoke(overallProgress, $"下载资产: {completed}/{totalAssets}");
+                        }, cancellationToken);
+                        repaired += missingAssets.Count;
                     }
 
                     StatusChanged?.Invoke("[修复] 正在重新提取natives文件...");
@@ -715,6 +728,136 @@ namespace MusicalNoteLauncher.Core
 
             Logger.Info($"[校验] natives完整性校验通过 ({dllFiles.Length} 个dll文件)");
             return await Task.FromResult(true);
+        }
+
+        /// <summary>检查缺失的 assets 文件</summary>
+        private async Task<List<string>> CheckAssetsAsync(string versionId, JsonElement versionInfo, CancellationToken cancellationToken)
+        {
+            var missingAssetUrls = new List<string>();
+
+            try
+            {
+                // 获取 asset index ID 和 assets 路径
+                string assetIndexId = GetAssetIndexId(versionInfo);
+                if (string.IsNullOrEmpty(assetIndexId))
+                    return missingAssetUrls;
+
+                string assetsPath = Path.Combine(_minecraftPath, "assets");
+                string indexFile = Path.Combine(assetsPath, "indexes", $"{assetIndexId}.json");
+
+                if (!File.Exists(indexFile))
+                {
+                    Logger.Warning($"[资产校验] 找不到 asset index 文件: {indexFile}");
+                    return missingAssetUrls;
+                }
+
+                string indexJson = File.ReadAllText(indexFile);
+                using (JsonDocument doc = JsonDocument.Parse(indexJson))
+                {
+                    if (doc.RootElement.TryGetProperty("objects", out JsonElement objects))
+                    {
+                        foreach (var obj in objects.EnumerateObject())
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+
+                            if (!obj.Value.TryGetProperty("hash", out JsonElement hashElem))
+                                continue;
+
+                            string hash = hashElem.GetString();
+                            if (string.IsNullOrEmpty(hash))
+                                continue;
+
+                            string objPath = Path.Combine(assetsPath, "objects", hash.Substring(0, 2), hash);
+                            if (!File.Exists(objPath))
+                            {
+                                // 资源下载 URL 格式
+                                string url = $"https://resources.download.minecraft.net/{hash.Substring(0, 2)}/{hash}";
+                                missingAssetUrls.Add(url);
+                                Logger.Warning($"[资产校验] 缺失: {obj.Name} (hash: {hash})");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"[资产校验] 失败: {ex.Message}");
+            }
+
+            return missingAssetUrls;
+        }
+
+        /// <summary>下载缺失的 assets 文件</summary>
+        private async Task DownloadAssetsAsync(List<string> assetUrls, Action<int, int> progressCallback, CancellationToken cancellationToken)
+        {
+            if (assetUrls.Count == 0) return;
+
+            string assetsPath = Path.Combine(_minecraftPath, "assets", "objects");
+            int total = assetUrls.Count;
+            int completed = 0;
+
+            var semaphore = new SemaphoreSlim(5); // 5 个并发下载
+
+            var tasks = new List<Task>();
+            foreach (string url in assetUrls)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await semaphore.WaitAsync(cancellationToken);
+
+                tasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        // URL 格式: https://resources.download.minecraft.net/XX/HASH
+                        string fileName = Path.GetFileName(url);
+                        string subDir = Path.GetFileName(Path.GetDirectoryName(url));
+                        string saveDir = Path.Combine(assetsPath, subDir);
+                        string savePath = Path.Combine(saveDir, fileName);
+
+                        if (!Directory.Exists(saveDir))
+                            Directory.CreateDirectory(saveDir);
+
+                        bool success = await DownloadFileWithRetryAsync(url, savePath, 0, 100, cancellationToken);
+                        if (success)
+                        {
+                            Interlocked.Increment(ref completed);
+                            progressCallback?.Invoke(completed, total);
+                        }
+                        else
+                        {
+                            Logger.Warning($"[资产下载] 下载失败: {url}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.Error($"[资产下载] 异常: {ex.Message}");
+                    }
+                    finally
+                    {
+                        semaphore.Release();
+                    }
+                }, cancellationToken));
+            }
+
+            await Task.WhenAll(tasks);
+        }
+
+        /// <summary>从 merged version info 获取 asset index ID</summary>
+        private string GetAssetIndexId(JsonElement versionInfo)
+        {
+            // 尝试 assetIndex.id
+            if (versionInfo.TryGetProperty("assetIndex", out JsonElement ai) &&
+                ai.TryGetProperty("id", out JsonElement idElem))
+            {
+                return idElem.GetString();
+            }
+            // 尝试 assets 字段（旧版格式）
+            if (versionInfo.TryGetProperty("assets", out JsonElement assets) &&
+                assets.ValueKind == JsonValueKind.String)
+            {
+                return assets.GetString();
+            }
+            return null;
         }
 
         private async Task DownloadLibrariesAsync(List<LibraryInfo> libraries, Action<double> progressCallback, CancellationToken cancellationToken)

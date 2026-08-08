@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 
 namespace MusicalNoteLauncher.Controls
 {
@@ -181,7 +182,9 @@ namespace MusicalNoteLauncher.Controls
         private Color _redHoverColor;
 
         private Border _rootBorder;
-        private const double CornerRadiusValue = 14;
+        private const double CornerRadiusValue = 16;
+
+        private Brush _glassBackground;
 
         public ModernDialogWindow(string message, string title,
             MessageBoxButton button, ModernMessageIcon icon)
@@ -271,16 +274,36 @@ namespace MusicalNoteLauncher.Controls
 
         private void SetupContent()
         {
+            _glassBackground = new LinearGradientBrush
+            {
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(0, 1),
+                GradientStops = new GradientStopCollection
+                {
+                    new GradientStop(Color.FromArgb(180, 45, 45, 52), 0),
+                    new GradientStop(Color.FromArgb(160, 35, 35, 42), 0.5),
+                    new GradientStop(Color.FromArgb(190, 30, 30, 38), 1)
+                },
+                Opacity = 0.9
+            };
+
             _rootBorder = new Border
             {
-                Background = new SolidColorBrush(_cardBgColor),
+                Background = _glassBackground,
                 CornerRadius = new CornerRadius(CornerRadiusValue),
-                BorderBrush = new SolidColorBrush(_borderColor),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)),
                 BorderThickness = new Thickness(1),
                 Padding = new Thickness(28, 24, 28, 20),
                 SnapsToDevicePixels = true,
                 RenderTransformOrigin = new Point(0.5, 0.5),
                 RenderTransform = new ScaleTransform(0.85, 0.85),
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 20,
+                    ShadowDepth = 8,
+                    Color = Color.FromArgb(120, 0, 0, 0),
+                    Opacity = 0.6
+                }
             };
             RenderOptions.SetEdgeMode(_rootBorder, EdgeMode.Aliased);
 
@@ -334,8 +357,8 @@ namespace MusicalNoteLauncher.Controls
             var closeBtn = new Button
             {
                 Content = "✕",
-                Width = 30,
-                Height = 30,
+                Width = 32,
+                Height = 32,
                 FontSize = 14,
                 Foreground = new SolidColorBrush(_textSecondary),
                 Background = Brushes.Transparent,
@@ -344,15 +367,27 @@ namespace MusicalNoteLauncher.Controls
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 FontFamily = new FontFamily("Microsoft YaHei"),
-                Template = CreateTransparentButtonTemplate()
+                Template = CreateTransparentButtonTemplate(),
+                RenderTransformOrigin = new Point(0.5, 0.5),
+                RenderTransform = new ScaleTransform(1, 1)
             };
             closeBtn.Click += (s, e) =>
             {
                 Result = MessageBoxResult.Cancel;
                 AnimateAndClose();
             };
-            closeBtn.MouseEnter += (s, e) => closeBtn.Foreground = new SolidColorBrush(_textPrimary);
-            closeBtn.MouseLeave += (s, e) => closeBtn.Foreground = new SolidColorBrush(_textSecondary);
+            closeBtn.MouseEnter += (s, e) =>
+            {
+                closeBtn.Foreground = new SolidColorBrush(_textPrimary);
+                closeBtn.Background = new SolidColorBrush(Color.FromArgb(40, 255, 255, 255));
+                closeBtn.RenderTransform = new ScaleTransform(1.1, 1.1);
+            };
+            closeBtn.MouseLeave += (s, e) =>
+            {
+                closeBtn.Foreground = new SolidColorBrush(_textSecondary);
+                closeBtn.Background = Brushes.Transparent;
+                closeBtn.RenderTransform = new ScaleTransform(1, 1);
+            };
             Grid.SetColumn(closeBtn, 1);
             titleBar.Children.Add(closeBtn);
 
@@ -391,46 +426,58 @@ namespace MusicalNoteLauncher.Controls
             string iconText;
             Color iconBgColor;
             Color iconFgColor;
+            Color glowColor;
 
             switch (_icon)
             {
                 case ModernMessageIcon.Success:
                     iconText = "✓";
-                    iconBgColor = Color.FromArgb(30, 76, 175, 80);
+                    iconBgColor = Color.FromArgb(40, 76, 175, 80);
                     iconFgColor = Color.FromRgb(76, 175, 80);
+                    glowColor = Color.FromRgb(76, 175, 80);
                     break;
                 case ModernMessageIcon.Warning:
                     iconText = "⚠";
-                    iconBgColor = Color.FromArgb(30, 255, 152, 0);
+                    iconBgColor = Color.FromArgb(40, 255, 152, 0);
                     iconFgColor = Color.FromRgb(255, 183, 77);
+                    glowColor = Color.FromRgb(255, 152, 0);
                     break;
                 case ModernMessageIcon.Error:
                     iconText = "✕";
-                    iconBgColor = Color.FromArgb(30, 244, 67, 54);
+                    iconBgColor = Color.FromArgb(40, 244, 67, 54);
                     iconFgColor = Color.FromRgb(239, 83, 80);
+                    glowColor = Color.FromRgb(244, 67, 54);
                     break;
                 case ModernMessageIcon.Question:
                     iconText = "?";
-                    iconBgColor = Color.FromArgb(30, 33, 150, 243);
+                    iconBgColor = Color.FromArgb(40, 33, 150, 243);
                     iconFgColor = _primaryColor;
+                    glowColor = _primaryColor;
                     break;
                 default: // Info
                     iconText = "ℹ";
-                    iconBgColor = Color.FromArgb(30, 33, 150, 243);
+                    iconBgColor = Color.FromArgb(40, 33, 150, 243);
                     iconFgColor = _primaryColor;
+                    glowColor = _primaryColor;
                     break;
             }
 
             return new Border
             {
-                Width = 42,
-                Height = 42,
-                CornerRadius = new CornerRadius(21),
+                Width = 48,
+                Height = 48,
+                CornerRadius = new CornerRadius(24),
                 Background = new SolidColorBrush(iconBgColor),
+                Effect = new DropShadowEffect
+                {
+                    BlurRadius = 12,
+                    Color = glowColor,
+                    Opacity = 0.4
+                },
                 Child = new TextBlock
                 {
                     Text = iconText,
-                    FontSize = 20,
+                    FontSize = 22,
                     Foreground = new SolidColorBrush(iconFgColor),
                     FontFamily = new FontFamily("Microsoft YaHei"),
                     HorizontalAlignment = HorizontalAlignment.Center,
@@ -499,23 +546,23 @@ namespace MusicalNoteLauncher.Controls
             }
             else
             {
-                normalBg = _buttonBgColor;
-                hoverBg = _buttonHoverColor;
+                normalBg = Color.FromArgb(100, 60, 60, 68);
+                hoverBg = Color.FromArgb(140, 75, 75, 85);
                 normalFg = _textPrimary;
             }
 
             var btn = new Button
             {
                 Content = text,
-                Width = 80,
-                Height = 34,
+                Width = 88,
+                Height = 36,
                 FontSize = 13,
                 Foreground = new SolidColorBrush(normalFg),
                 Background = new SolidColorBrush(normalBg),
                 BorderThickness = isPrimary ? new Thickness(0) : new Thickness(1),
-                BorderBrush = new SolidColorBrush(_borderColor),
+                BorderBrush = new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)),
                 Cursor = Cursors.Hand,
-                Margin = new Thickness(parent.Children.Count > 0 ? 8 : 0, 0, 0, 0),
+                Margin = new Thickness(parent.Children.Count > 0 ? 10 : 0, 0, 0, 0),
                 FontFamily = new FontFamily("Microsoft YaHei"),
                 Template = CreateButtonTemplate(normalBg, hoverBg, normalFg, isPrimary)
             };
@@ -532,11 +579,13 @@ namespace MusicalNoteLauncher.Controls
             var template = new ControlTemplate(typeof(Button));
             var border = new FrameworkElementFactory(typeof(Border));
             border.Name = "border";
-            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(6));
+            border.SetValue(Border.CornerRadiusProperty, new CornerRadius(8));
             border.SetValue(Border.BackgroundProperty, new SolidColorBrush(normalBg));
             if (!isPrimary)
-                border.SetValue(Border.BorderBrushProperty, new SolidColorBrush(_borderColor));
+                border.SetValue(Border.BorderBrushProperty, new SolidColorBrush(Color.FromArgb(60, 255, 255, 255)));
             border.SetValue(Border.BorderThicknessProperty, new Thickness(isPrimary ? 0 : 1));
+            border.SetValue(Border.RenderTransformOriginProperty, new Point(0.5, 0.5));
+            border.SetValue(Border.RenderTransformProperty, new ScaleTransform(1, 1));
 
             var content = new FrameworkElementFactory(typeof(ContentPresenter));
             content.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
@@ -557,7 +606,13 @@ namespace MusicalNoteLauncher.Controls
                 (byte)Math.Max(0, hoverBg.G - 15),
                 (byte)Math.Max(0, hoverBg.B - 15));
             pressedTrigger.Setters.Add(new Setter(Border.BackgroundProperty, new SolidColorBrush(pressedBg), "border"));
+            pressedTrigger.Setters.Add(new Setter(Border.RenderTransformProperty, new ScaleTransform(0.96, 0.96), "border"));
             template.Triggers.Add(pressedTrigger);
+
+            // Normal 状态恢复缩放
+            var normalTrigger = new Trigger { Property = Button.IsPressedProperty, Value = false };
+            normalTrigger.Setters.Add(new Setter(Border.RenderTransformProperty, new ScaleTransform(1, 1), "border"));
+            template.Triggers.Add(normalTrigger);
 
             return template;
         }

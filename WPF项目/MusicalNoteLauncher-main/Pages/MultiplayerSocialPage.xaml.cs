@@ -33,6 +33,8 @@ namespace MusicalNoteLauncher.Pages
 		{
 			this.InitializeComponent();
 			this._easyTier = new EasyTierManager();
+			this._easyTier.OnRoomCodeReady += OnRoomCodeReady;
+			this._easyTier.OnStateChanged += OnTaoWaStateChanged;
 			this._mctierManager = new MCTierManager();
 			LoadServerVersions();
 		}
@@ -122,6 +124,31 @@ namespace MusicalNoteLauncher.Pages
 			this.MainPage.Visibility = Visibility.Collapsed;
 			this.TaoWaPage.Visibility = Visibility.Visible;
 			RefreshTaoWaCoreStatus();
+
+			if (!SettingsManager.Settings.TerracottaAgreementAccepted)
+			{
+				SetTaoWaControlsEnabled(false);
+
+				Dispatcher.BeginInvoke(new Action(() =>
+				{
+					bool accepted = TerracottaAgreementDialog.ShowDialog();
+					if (accepted)
+					{
+						SetTaoWaControlsEnabled(true);
+					}
+					else
+					{
+						BtnBack_Click(null, null);
+					}
+				}), System.Windows.Threading.DispatcherPriority.Loaded);
+			}
+		}
+
+		private void SetTaoWaControlsEnabled(bool enabled)
+		{
+			btnHost.IsEnabled = enabled;
+			btnClient.IsEnabled = enabled;
+			btnDownloadTaoWaCore.IsEnabled = enabled;
 		}
 
 		private void Card_MCTier_Click(object sender, RoutedEventArgs e)
@@ -409,54 +436,76 @@ namespace MusicalNoteLauncher.Pages
 					return;
 				}
 
-				// 检查互联网连接
-				bool hasInternet = await CheckInternetAsync();
-				if (!hasInternet)
+				// 禁用按钮防止重复点击
+				IsEnabled = false;
+
+				// 1. 启动陶瓦核心 (HMCL --hmcl 模式)
+				bool launched = await _easyTier.LaunchAsync();
+				if (!launched)
 				{
-					ModernMessageBox.ShowWarning("未检测到互联网连接\n\n陶瓦联机需要互联网才能创建房间\n请检查网络连接后重试", "网络不可用");
+					ModernMessageBox.ShowError("陶瓦核心启动失败", "创建失败");
+					IsEnabled = true;
 					return;
 				}
 
-				// 检测 Minecraft 是否已开放局域网世界及端口号
-				int detectedPort = this.DetectMinecraftLanPort();
-				if (detectedPort <= 0)
+				// 2. 等待房主模式就绪 → 通过 /state/hosting 触发
+				bool hosting = await _easyTier.StartHostAsync();
+				if (!hosting)
 				{
-					ModernMessageBox.ShowWarning(
-						"未检测到已开放的 Minecraft 局域网世界\n\n" +
-						"请先在 Minecraft 中:\n" +
-						"1. 进入单人存档\n" +
-						"2. 按 ESC →\"对局域网开放\"\n" +
-						"3. 点击\"创建一个局域网世界\"\n\n" +
-						"开放后再回来创建陶瓦房间",
-						"未检测到局域网世界");
+					ModernMessageBox.ShowError("创建房间失败", "创建失败");
+					_easyTier.Stop();
+					IsEnabled = true;
 					return;
-				}
-
-				int taoWaPort = detectedPort;
-				string networkName = this.GenerateRandomCode();
-				string networkSecret = this.GenerateRandomCode();
-				if (this._easyTier.StartHost(networkName, networkSecret, taoWaPort))
-				{
-					this._currentInviteCode = string.Format("P{0:X4}-{1}-{2}-02000", taoWaPort, networkName, networkSecret);
-					this.txtInviteCodeDisplay.Text = this._currentInviteCode;
-					this.txtPortDisplay.Text = taoWaPort.ToString();
-
-					// 检测端口可访问性, 提示端口转发
-					string portInfo = CheckPortAccessibility(taoWaPort);
-					this.txtPortInfo.Text = portInfo;
-					this.txtPortInfo.Text += $"\n\n检测到 Minecraft 局域网已开放，端口: {taoWaPort}";
-
-					this.RoomInfoPanel.Visibility = Visibility.Visible;
-				}
-				else
-				{
-					ModernMessageBox.ShowError("创建房间失败，请检查网络连接", "创建失败");
 				}
 			}
 			catch (Exception ex)
 			{
 				ModernMessageBox.ShowError("创建房间时发生错误：" + ex.Message, "错误");
+				IsEnabled = true;
 			}
+		}
+
+		private void OnRoomCodeReady(string roomCode)
+		{
+			Dispatcher.Invoke(() =>
+			{
+				_currentInviteCode = roomCode;
+				txtInviteCodeDisplay.Text = roomCode;
+				txtPortDisplay.Text = "（由陶瓦自动管理）";
+				RoomInfoPanel.Visibility = Visibility.Visible;
+				IsEnabled = true;
+			});
+		}
+
+		private void OnTaoWaStateChanged(string state, string roomCode)
+		{
+			Dispatcher.Invoke(() =>
+			{
+				switch (state)
+				{
+					case "host-ok":
+						if (!string.IsNullOrEmpty(roomCode))
+						{
+							_currentInviteCode = roomCode;
+							txtInviteCodeDisplay.Text = roomCode;
+							txtPortDisplay.Text = "（由陶瓦自动管理）";
+							RoomInfoPanel.Visibility = Visibility.Visible;
+							IsEnabled = true;
+						}
+						break;
+					case "guest-ok":
+						JoinStatusPanel.Visibility = Visibility.Visible;
+						IsEnabled = true;
+						break;
+					case "exception":
+						ModernMessageBox.ShowError("陶瓦联机出错，请重试", "联机错误");
+						_easyTier.Stop();
+						RoomInfoPanel.Visibility = Visibility.Collapsed;
+						JoinStatusPanel.Visibility = Visibility.Collapsed;
+						IsEnabled = true;
+						break;
+				}
+			});
 		}
 
 		// Token: 0x06000329 RID: 809 RVA: 0x0001087C File Offset: 0x0000EA7C
@@ -470,62 +519,36 @@ namespace MusicalNoteLauncher.Pages
 					return;
 				}
 
-				// 检查互联网连接
-				bool hasInternet = await CheckInternetAsync();
-				if (!hasInternet)
+				string roomCode = this.txtInviteCode.Text.Trim();
+				if (string.IsNullOrEmpty(roomCode))
 				{
-					ModernMessageBox.ShowWarning("未检测到互联网连接\n\n陶瓦联机需要互联网才能加入房间\n请检查网络连接后重试", "网络不可用");
+					ModernMessageBox.ShowWarning("请输入房间码", "提示");
 					return;
 				}
 
-				string text = this.txtInviteCode.Text.Trim();
-				if (string.IsNullOrEmpty(text))
+				IsEnabled = false;
+
+				bool launched = await _easyTier.LaunchAsync();
+				if (!launched)
 				{
-					ModernMessageBox.ShowWarning("请输入邀请码", "提示");
+					ModernMessageBox.ShowError("陶瓦核心启动失败", "加入失败");
+					IsEnabled = true;
+					return;
 				}
-				else
+
+				bool joined = await _easyTier.JoinRoomAsync(roomCode);
+				if (!joined)
 				{
-					string text2 = this.FixCodeFormat(text);
-					if (text2.Length < 14 || text2[0] != 'P' || text2[5] != '-' || text2[11] != '-')
-					{
-						ModernMessageBox.ShowWarning("邀请码格式不正确\n\n请使用 PCL 创建的房间邀请码 (格式：PXXXX-XXXXX-XXXXX)", "邀请码无效");
-					}
-					else
-					{
-						// 邀请码格式: P{Port:X4}-{Name}-{Secret}-02000
-						// 正确提取端口(第 1 组去掉 P 前缀)、房间名(第 2 组)、密码(第 3 组)
-						string[] parts = text2.Split('-');
-						if (parts.Length < 3)
-						{
-							ModernMessageBox.ShowWarning("邀请码格式不正确", "邀请码无效");
-							return;
-						}
-						string networkName = parts[1];
-						string networkSecret = parts[2];
-						int port;
-						try
-						{
-							port = int.Parse(parts[0].Substring(1), NumberStyles.HexNumber);
-						}
-						catch
-						{
-							ModernMessageBox.ShowWarning("邀请码中的端口号无效", "邀请码无效");
-							return;
-						}
-						if (this._easyTier.StartClient(networkName, networkSecret, port))
-						{
-							this.JoinStatusPanel.Visibility = Visibility.Visible;
-						}
-						else
-						{
-							ModernMessageBox.ShowError("加入房间失败，请检查网络连接或邀请码是否正确", "加入失败");
-						}
-					}
+					ModernMessageBox.ShowError("加入房间失败，请检查房间码是否正确", "加入失败");
+					_easyTier.Stop();
+					IsEnabled = true;
+					return;
 				}
 			}
 			catch (Exception ex)
 			{
 				ModernMessageBox.ShowError("加入房间时发生错误：" + ex.Message, "错误");
+				IsEnabled = true;
 			}
 		}
 
@@ -1231,23 +1254,6 @@ namespace MusicalNoteLauncher.Pages
 			}
 		}
 
-		/// 共享随机数生成器, 避免连续调用时因 TickCount 种子相同而产生相同输出
-		private static readonly Random _rng = new Random();
-
-		// Token: 0x06000343 RID: 835 RVA: 0x000115F8 File Offset: 0x0000F7F8
-		private string GenerateRandomCode()
-		{
-			char[] array = new char[5];
-			lock (_rng)
-			{
-				for (int i = 0; i < 5; i++)
-				{
-					array[i] = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ"[_rng.Next("0123456789ABCDEFGHJKLMNPQRSTUVWXYZ".Length)];
-				}
-			}
-			return new string(array);
-		}
-
 		// Token: 0x06000344 RID: 836 RVA: 0x00011644 File Offset: 0x0000F844
 		private int DetectMinecraftLanPort()
 		{
@@ -1308,48 +1314,6 @@ namespace MusicalNoteLauncher.Pages
 			{
 			}
 			return 0;
-		}
-
-		// Token: 0x06000345 RID: 837 RVA: 0x000117B0 File Offset: 0x0000F9B0
-		private string FixCodeFormat(string code)
-		{
-			if (string.IsNullOrEmpty(code))
-			{
-				return code;
-			}
-			code = this.ExtractCodeFromMessage(code);
-			code = code.ToUpper().Replace("O", "0").Replace("I", "1").Replace("L", "1").Replace("S", "5");
-			if (code.Length >= 17 && (code.Length < 23 || (code.Length >= 18 && code[17] != '-')))
-			{
-				code = code.Substring(0, 17) + "-02000";
-			}
-			return code;
-		}
-
-		// Token: 0x06000346 RID: 838 RVA: 0x00011854 File Offset: 0x0000FA54
-		private string ExtractCodeFromMessage(string message)
-		{
-			if (string.IsNullOrEmpty(message))
-			{
-				return message;
-			}
-			int num = message.IndexOf("[");
-			if (num < 0)
-			{
-				num = message.IndexOf("【");
-			}
-			int num2 = message.IndexOf("]");
-			if (num >= 0 && num2 > num)
-			{
-				return message.Substring(num + 1, num2 - num - 1);
-			}
-			num = message.IndexOf("(");
-			num2 = message.IndexOf(")");
-			if (num >= 0 && num2 > num)
-			{
-				return message.Substring(num + 1, num2 - num - 1);
-			}
-			return message.Trim();
 		}
 
 		private EasyTierManager _easyTier;

@@ -244,8 +244,7 @@ namespace MyMCLauncher
         {
             try
             {
-                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls;
-                ServicePointManager.ServerCertificateValidationCallback = (sender, cert, chain, sslPolicyErrors) => true;
+                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12 | SecurityProtocolType.Tls13;
                 ServicePointManager.Expect100Continue = false;
 
                 Logger.Info($"正在发送请求到: {url}");

@@ -7,13 +7,14 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using MusicalNoteLauncher.Core;
 using Newtonsoft.Json.Linq;
 using PCL.Account;
 
 namespace MusicalNoteLauncher.Windows
 {
     /// <summary>
-    /// 青鸟账号登录弹窗 —— 基于 Authlib-Injector 协议的第三方认证，支持邮箱验证码辅助登录
+    /// 青鸟账号登录弹窗 —— 使用邮箱 + 密码登录
     /// </summary>
     public class QingNiaoLoginResult
     {
@@ -26,24 +27,21 @@ namespace MusicalNoteLauncher.Windows
 
     public class QingNiaoLoginDialog : Window
     {
-        private TextBox _txtUsername;
+        private TextBox _txtEmail;
         private PasswordBox _txtPassword;
-        private TextBox _txtVerifyCode;
         private TextBlock _lblStatus;
         private TextBlock _lblServerHint;
-        private Button _btnSendCode;
         private Button _btnLogin;
         private bool _isLoggingIn;
-        private bool _isSendingCode;
         private string _serverUrl;
 
         public event Action<QingNiaoLoginResult> OnLoginSuccess;
 
         public QingNiaoLoginDialog()
         {
-            Title = "青鸟账号登录";
+            Title = "邮箱登录";
             Width = 400;
-            Height = 440;
+            Height = 340;
             WindowStartupLocation = WindowStartupLocation.CenterOwner;
             WindowStyle = WindowStyle.None;
             AllowsTransparency = true;
@@ -59,8 +57,8 @@ namespace MusicalNoteLauncher.Windows
             if (string.IsNullOrEmpty(_serverUrl))
                 _serverUrl = "85.137.246.87";
 
-            string cachedUser = PCL.Account.Settings.Get<string>("CacheQingNiaoUsername");
-            string cachedPass = PCL.Account.Settings.Get<string>("CacheQingNiaoPass");
+            string cachedUser = PCL.Account.Settings.Get<string>("CacheQingNiaoEmail");
+            string cachedPass = SecureStorage.Unprotect(PCL.Account.Settings.Get<string>("CacheQingNiaoPass"));
 
             BuildContent(cachedUser, cachedPass);
 
@@ -86,17 +84,13 @@ namespace MusicalNoteLauncher.Windows
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(8) });   // 1: 间距
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 2: 服务器提示
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });  // 3: 间距
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 4: 账号
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 4: 邮箱
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });  // 5: 间距
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 6: 密码
             grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });  // 7: 间距
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 8: 验证码标签
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(6) });   // 9: 间距
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 10: 验证码输入
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });  // 11: 间距
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 12: 状态
-            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });  // 13: 间距
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 14: 按钮
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 8: 状态
+            grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });  // 9: 间距
+            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });     // 10: 按钮
 
             // 标题栏
             var titleBar = new Grid();
@@ -104,7 +98,7 @@ namespace MusicalNoteLauncher.Windows
             titleBar.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             titleBar.Children.Add(new TextBlock
             {
-                Text = "🐦 青鸟账号登录",
+                Text = "邮箱登录",
                 FontSize = 18,
                 FontWeight = FontWeights.SemiBold,
                 Foreground = new SolidColorBrush(Colors.White),
@@ -137,71 +131,14 @@ namespace MusicalNoteLauncher.Windows
             Grid.SetRow(_lblServerHint, 2);
             grid.Children.Add(_lblServerHint);
 
-            // 账号
-            Grid.SetRow(BuildInputRow("邮箱 / 用户名", "输入你的青鸟账号", out _txtUsername, cachedUser), 4);
-            grid.Children.Add(_txtUsername.Parent as UIElement);
+            // 邮箱
+            Grid.SetRow(BuildInputRow("邮箱", "输入你的邮箱", out _txtEmail, cachedUser), 4);
+            grid.Children.Add(_txtEmail.Parent as UIElement);
 
             // 密码
             var pwdRow = BuildPasswordRow("密码", out _txtPassword, cachedPass);
             Grid.SetRow(pwdRow, 6);
             grid.Children.Add(pwdRow);
-
-            // 验证码标签
-            var verifyLabel = new TextBlock
-            {
-                Text = "邮件验证码",
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Color.FromRgb(170, 170, 170)),
-                FontFamily = new FontFamily("Microsoft YaHei"),
-                VerticalAlignment = VerticalAlignment.Bottom
-            };
-            Grid.SetRow(verifyLabel, 8);
-            grid.Children.Add(verifyLabel);
-
-            // 验证码输入行
-            var verifyInputRow = new DockPanel();
-            _txtVerifyCode = new TextBox
-            {
-                Height = 36, FontSize = 13, FontFamily = new FontFamily("Microsoft YaHei"),
-                Foreground = new SolidColorBrush(Color.FromRgb(230, 230, 230)),
-                Background = new SolidColorBrush(Color.FromRgb(56, 56, 56)),
-                BorderBrush = new SolidColorBrush(Color.FromRgb(80, 80, 86)),
-                BorderThickness = new Thickness(1),
-                Padding = new Thickness(10, 0, 10, 0),
-                VerticalContentAlignment = VerticalAlignment.Center
-            };
-            string verifyPlaceholder = "输入邮件中的验证码";
-            _txtVerifyCode.GotFocus += (s, e) =>
-            {
-                if (_txtVerifyCode.Text == verifyPlaceholder) { _txtVerifyCode.Text = ""; _txtVerifyCode.Foreground = new SolidColorBrush(Color.FromRgb(230, 230, 230)); }
-            };
-            _txtVerifyCode.LostFocus += (s, e) =>
-            {
-                if (string.IsNullOrWhiteSpace(_txtVerifyCode.Text)) { _txtVerifyCode.Text = verifyPlaceholder; _txtVerifyCode.Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120)); }
-            };
-            _txtVerifyCode.Text = verifyPlaceholder;
-            _txtVerifyCode.Foreground = new SolidColorBrush(Color.FromRgb(120, 120, 120));
-            DockPanel.SetDock(_txtVerifyCode, Dock.Left);
-            verifyInputRow.Children.Add(_txtVerifyCode);
-
-            _btnSendCode = new Button
-            {
-                Content = "发送",
-                Width = 56, Height = 36,
-                FontSize = 12,
-                Foreground = new SolidColorBrush(Colors.White),
-                Background = new SolidColorBrush(Color.FromRgb(52, 152, 219)),
-                BorderThickness = new Thickness(0),
-                Cursor = Cursors.Hand,
-                FontFamily = new FontFamily("Microsoft YaHei"),
-                Margin = new Thickness(8, 0, 0, 0)
-            };
-            _btnSendCode.Click += BtnSendCode_Click;
-            DockPanel.SetDock(_btnSendCode, Dock.Right);
-            verifyInputRow.Children.Add(_btnSendCode);
-
-            Grid.SetRow(verifyInputRow, 10);
-            grid.Children.Add(verifyInputRow);
 
             // 状态提示
             _lblStatus = new TextBlock
@@ -213,7 +150,7 @@ namespace MusicalNoteLauncher.Windows
                 HorizontalAlignment = HorizontalAlignment.Center,
                 TextAlignment = TextAlignment.Center
             };
-            Grid.SetRow(_lblStatus, 12);
+            Grid.SetRow(_lblStatus, 8);
             grid.Children.Add(_lblStatus);
 
             // 登录按钮
@@ -230,7 +167,7 @@ namespace MusicalNoteLauncher.Windows
                 FontFamily = new FontFamily("Microsoft YaHei")
             };
             _btnLogin.Click += BtnLogin_Click;
-            Grid.SetRow(_btnLogin, 14);
+            Grid.SetRow(_btnLogin, 10);
             grid.Children.Add(_btnLogin);
 
             border.Child = grid;
@@ -335,56 +272,16 @@ namespace MusicalNoteLauncher.Windows
         }
 
 
-        /// <summary>
-        /// 发送邮件验证码
-        /// </summary>
-        private async void BtnSendCode_Click(object sender, RoutedEventArgs e)
-        {
-            if (_isSendingCode) return;
-
-            string username = _txtUsername != null ?
-                (_txtUsername.Text == "输入你的青鸟账号" ? "" : _txtUsername.Text.Trim()) : "";
-            string password = _txtPassword?.Password ?? "";
-
-            if (string.IsNullOrEmpty(username)) { SetStatus("请输入邮箱/用户名", false); return; }
-            if (string.IsNullOrEmpty(password)) { SetStatus("请输入密码", false); return; }
-
-            string serverUrl = _serverUrl.Replace("https://", "").Replace("http://", "").TrimEnd('/');
-
-            _isSendingCode = true;
-            _btnSendCode.IsEnabled = false;
-            _btnSendCode.Content = "...";
-            SetStatus("正在发送验证码...", true);
-
-            try
-            {
-                await SendVerificationCodeAsync(serverUrl, username, password);
-                SetStatus("验证码已发送，请查收邮箱", true);
-            }
-            catch (Exception ex)
-            {
-                SetStatus($"发送失败: {ex.Message}", false);
-            }
-            finally
-            {
-                _isSendingCode = false;
-                _btnSendCode.IsEnabled = true;
-                _btnSendCode.Content = "发送";
-            }
-        }
-
         private async void BtnLogin_Click(object sender, RoutedEventArgs e)
         {
             if (_isLoggingIn) return;
 
-            string username = _txtUsername != null ?
-                (_txtUsername.Text == "输入你的青鸟账号" ? "" : _txtUsername.Text.Trim()) : "";
+            string email = _txtEmail != null ?
+                (_txtEmail.Text == "输入你的邮箱" ? "" : _txtEmail.Text.Trim()) : "";
             string password = _txtPassword?.Password ?? "";
-            string verifyCode = (_txtVerifyCode.Text == "输入邮件中的验证码" ? "" : _txtVerifyCode.Text.Trim());
 
-            if (string.IsNullOrEmpty(username)) { SetStatus("请输入账号", false); return; }
+            if (string.IsNullOrEmpty(email)) { SetStatus("请输入邮箱", false); return; }
             if (string.IsNullOrEmpty(password)) { SetStatus("请输入密码", false); return; }
-            if (string.IsNullOrEmpty(verifyCode)) { SetStatus("请输入邮件验证码", false); return; }
 
             string serverUrl = _serverUrl.Replace("https://", "").Replace("http://", "").TrimEnd('/');
 
@@ -395,7 +292,7 @@ namespace MusicalNoteLauncher.Windows
 
             try
             {
-                var result = await AuthenticateAsync(serverUrl, username, password, verifyCode,
+                var result = await AuthenticateAsync(serverUrl, email, password,
                     PCL.Account.Settings.Get<string>("CacheQingNiaoClient") ?? Guid.NewGuid().ToString("N"));
 
                 SetStatus("登录成功！", true);
@@ -405,13 +302,31 @@ namespace MusicalNoteLauncher.Windows
                     {
                         Name = result.UserName, Uuid = result.Uuid,
                         AccessToken = result.AccessToken, ClientToken = result.ClientToken, Type = "QingNiao"
-                    }, username, password);
+                    }, email, password);
 
-                PCL.Account.AccountManager.SaveServerLoginRecord("QingNiao", username, password);
+                PCL.Account.AccountManager.SaveServerLoginRecord("QingNiao", email, password);
                 PCL.Account.Settings.Set("CacheQingNiaoServer", serverUrl);
-                PCL.Account.Settings.Set("CacheQingNiaoUsername", username);
-                PCL.Account.Settings.Set("CacheQingNiaoPass", password);
+                PCL.Account.Settings.Set("CacheQingNiaoEmail", email);
+                PCL.Account.Settings.Set("CacheQingNiaoPass", SecureStorage.Protect(password));
                 PCL.Account.Settings.Set("CacheQingNiaoClient", result.ClientToken);
+
+                // 持久化服务器返回的真实青鸟ID和名称
+                PCL.Account.Settings.Set("QingniaoId", result.Uuid);
+                PCL.Account.Settings.Set("QingniaoName", result.UserName);
+
+                // 同步到 MNL 主配置 (SettingsManager)，确保 GetProfileJson 验证通过
+                Core.SettingsManager.Settings.QingniaoId = result.Uuid;
+                Core.SettingsManager.Settings.QingniaoName = result.UserName;
+                Core.SettingsManager.Settings.QingniaoEmail = email;
+                Core.SettingsManager.Settings.QingniaoPass = password;
+                Core.SettingsManager.Settings.QingniaoServer = serverUrl;
+                Core.SettingsManager.Settings.QingniaoClientToken = result.ClientToken;
+                Core.SettingsManager.SaveSettings();
+
+                // 立即更新 AppContext（WebView 的 GetProfileJson 优先读 AppContext）
+                MusicalNoteLauncher.AppContext.QingniaoId = result.Uuid;
+                MusicalNoteLauncher.AppContext.QingniaoName = result.UserName;
+                MusicalNoteLauncher.AppContext.SetQingniaoName(result.UserName);
 
                 OnLoginSuccess?.Invoke(result);
                 await Task.Delay(500);
@@ -426,46 +341,16 @@ namespace MusicalNoteLauncher.Windows
             }
         }
 
-        private async Task SendVerificationCodeAsync(string serverUrl, string username, string password)
-        {
-            string url = $"https://{serverUrl}/authserver/send-verification";
-
-            var payload = new JObject { ["username"] = username, ["password"] = password };
-
-            using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) })
-            {
-                var content = new StringContent(payload.ToString(Newtonsoft.Json.Formatting.None), Encoding.UTF8, "application/json");
-                HttpResponseMessage response;
-                try
-                {
-                    response = await client.PostAsync(url, content);
-                }
-                catch (HttpRequestException) { throw new Exception("无法连接到认证服务器"); }
-                catch (TaskCanceledException) { throw new Exception("连接超时"); }
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    string body = await response.Content.ReadAsStringAsync();
-                    try { throw new Exception(JObject.Parse(body)["errorMessage"]?.ToString() ?? $"错误 ({(int)response.StatusCode})"); }
-                    catch (Exception ex) when (ex is not System.Text.Json.JsonException) { throw; }
-                    catch { throw new Exception($"服务器返回错误 ({(int)response.StatusCode})"); }
-                }
-            }
-        }
-
         private async Task<QingNiaoLoginResult> AuthenticateAsync(
-            string serverUrl, string username, string password, string verifyCode, string clientToken)
+            string serverUrl, string email, string password, string clientToken)
         {
-            string authUrl = $"https://{serverUrl}/authserver/authenticate";
+            string authUrl = $"http://{serverUrl}/api/auth.php?action=login";
 
             var payload = new JObject
             {
-                ["agent"] = new JObject { ["name"] = "Minecraft", ["version"] = 1 },
-                ["username"] = username,
+                ["email"] = email,
                 ["password"] = password,
-                ["verificationCode"] = verifyCode,
-                ["clientToken"] = clientToken,
-                ["requestUser"] = true
+                ["client_id"] = clientToken
             };
 
             using (var client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) })
@@ -481,25 +366,24 @@ namespace MusicalNoteLauncher.Windows
 
                 if (!response.IsSuccessStatusCode)
                 {
-                    try { throw new Exception(JObject.Parse(body)["errorMessage"]?.ToString() ?? $"错误 ({(int)response.StatusCode})"); }
+                    try { throw new Exception(JObject.Parse(body)["error"]?.ToString() ?? $"错误 ({(int)response.StatusCode})"); }
                     catch (Exception ex) when (ex is not System.Text.Json.JsonException) { throw; }
                     catch { throw new Exception($"服务器返回错误 ({(int)response.StatusCode})"); }
                 }
 
                 var json = JObject.Parse(body);
-                string accessToken = json["accessToken"]?.ToString();
-                string retClientToken = json["clientToken"]?.ToString();
-                var profile = json["selectedProfile"];
+                string accessToken = json["token"]?.ToString();
+                var user = json["user"];
 
-                if (string.IsNullOrEmpty(accessToken) || profile?["id"] == null)
+                if (string.IsNullOrEmpty(accessToken) || user == null)
                     throw new Exception("服务器返回数据不完整");
 
                 return new QingNiaoLoginResult
                 {
-                    UserName = profile["name"]?.ToString() ?? username,
-                    Uuid = profile["id"].ToString(),
+                    UserName = user["nickname"]?.ToString() ?? email,
+                    Uuid = user["qingniao_id"]?.ToString() ?? email,
                     AccessToken = accessToken,
-                    ClientToken = retClientToken ?? clientToken,
+                    ClientToken = clientToken,
                     ServerUrl = serverUrl
                 };
             }

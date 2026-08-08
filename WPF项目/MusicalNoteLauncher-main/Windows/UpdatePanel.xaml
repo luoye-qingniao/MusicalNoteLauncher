@@ -1,0 +1,296 @@
+<Window x:Class="MusicalNoteLauncher.Windows.UpdatePanel"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="MNL 启动器更新" Height="560" Width="500"
+        MinHeight="480" MaxHeight="660"
+        WindowStyle="None" AllowsTransparency="True" Background="Transparent"
+        SnapsToDevicePixels="True" UseLayoutRounding="True"
+        WindowStartupLocation="CenterScreen" ShowInTaskbar="True">
+
+    <Window.Resources>
+        <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontFamily" Value="Microsoft YaHei"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="MinWidth" Value="120"/>
+            <Setter Property="Padding" Value="24,0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="10"
+                                Background="{StaticResource PrimaryGradientBrush}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="{StaticResource PrimaryDarkBrush}"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GhostButtonStyle" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontFamily" Value="Microsoft YaHei"/>
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="16,0"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" CornerRadius="8" Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#18FFFFFF"/>
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Border Background="{StaticResource CardBackgroundBrush}"
+            CornerRadius="16"
+            Effect="{StaticResource CardShadow}"
+            SnapsToDevicePixels="True"
+            UseLayoutRounding="True">
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- 关闭按钮 -->
+            <Button x:Name="btnClose"
+                    Grid.Row="0" HorizontalAlignment="Right"
+                    Content="&#10005;"
+                    FontSize="14" FontFamily="Microsoft YaHei"
+                    Foreground="{StaticResource TextSecondaryBrush}"
+                    Background="Transparent" BorderThickness="0"
+                    Cursor="Hand" Click="BtnClose_Click"
+                    Width="32" Height="32" Margin="8,6,8,0">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border" Background="Transparent" CornerRadius="16"
+                                Width="32" Height="32">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#25FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
+
+            <!-- 头部：图标 + "发现新版本" -->
+            <StackPanel Grid.Row="1" Margin="32,0,32,0">
+                <StackPanel HorizontalAlignment="Center" Margin="0,0,0,16">
+                    <Border Width="56" Height="56" CornerRadius="14"
+                            HorizontalAlignment="Center">
+                        <Image Source="pack://application:,,,/Assets/图标.png"
+                               Width="56" Height="56"
+                               RenderOptions.BitmapScalingMode="HighQuality"/>
+                    </Border>
+                    <TextBlock Text="发现新版本"
+                               FontSize="20" FontWeight="Bold"
+                               Foreground="{StaticResource TextPrimaryBrush}"
+                               FontFamily="Microsoft YaHei"
+                               HorizontalAlignment="Center"
+                               Margin="0,10,0,2"/>
+                    <TextBlock x:Name="txtSubtitle"
+                               Text="您的 MNL 启动器有新版本可用"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontFamily="Microsoft YaHei"
+                               HorizontalAlignment="Center"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- 版本对比区：横式 -->
+            <Border Grid.Row="2" Margin="32,0,32,0"
+                    Background="{StaticResource SurfaceBrush}" CornerRadius="10" Padding="18,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                        <TextBlock Text="当前版本"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   FontFamily="Microsoft YaHei"
+                                   HorizontalAlignment="Center"/>
+                        <TextBlock x:Name="txtCurrentVersion"
+                                   Text="1.0.0"
+                                   FontSize="18" FontWeight="Bold"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,3,0,0"
+                                   HorizontalAlignment="Center"
+                                   FontFamily="Microsoft YaHei"
+                                   TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
+                            Background="{StaticResource PrimaryGradientBrush}"
+                            Margin="16,0">
+                        <TextBlock Text="&#10132;"
+                                   FontSize="14" FontWeight="Bold"
+                                   Foreground="White"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   FontFamily="Microsoft YaHei"/>
+                    </Border>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                HorizontalAlignment="Center">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <TextBlock Text="最新版本"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontFamily="Microsoft YaHei"
+                                       VerticalAlignment="Center"/>
+                            <Border x:Name="forcedTag" CornerRadius="3"
+                                    Background="#FF5252"
+                                    Padding="5,1" Margin="4,0,0,0"
+                                    Visibility="Collapsed">
+                                <TextBlock Text="强制"
+                                           FontSize="9" FontWeight="SemiBold"
+                                           Foreground="White"
+                                           FontFamily="Microsoft YaHei"/>
+                            </Border>
+                        </StackPanel>
+                        <TextBlock x:Name="txtNewVersion"
+                                   Text="1.1.0"
+                                   FontSize="18" FontWeight="Bold"
+                                   Foreground="{StaticResource PrimaryBrush}"
+                                   Margin="0,3,0,0"
+                                   HorizontalAlignment="Center"
+                                   FontFamily="Microsoft YaHei"
+                                   TextTrimming="CharacterEllipsis"/>
+                        <TextBlock x:Name="txtFileSize"
+                                   Text=""
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                   Margin="0,2,0,0"
+                                   HorizontalAlignment="Center"
+                                   FontFamily="Microsoft YaHei"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- 更新日志（唯一可滚动区域） -->
+            <Border Grid.Row="3" Margin="32,12,32,0"
+                    Background="{StaticResource SurfaceBrush}" CornerRadius="10"
+                    Padding="18,14">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Grid.Row="0" Text="更新内容"
+                               FontSize="12" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               FontFamily="Microsoft YaHei"
+                               Margin="0,0,0,6"/>
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <TextBlock x:Name="txtReleaseNotes"
+                                   Text=""
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   TextWrapping="Wrap"
+                                   LineHeight="20"
+                                   FontFamily="Microsoft YaHei"/>
+                    </ScrollViewer>
+                </Grid>
+            </Border>
+
+            <!-- 下载进度 -->
+            <Border Grid.Row="4" x:Name="progressPanel" Visibility="Collapsed"
+                    Margin="32,12,32,0"
+                    Background="{StaticResource SurfaceBrush}" CornerRadius="10"
+                    Padding="18,12">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="txtProgressStatus"
+                                   Text="准备下载..."
+                                   FontSize="13"
+                                   Foreground="{StaticResource TextPrimaryBrush}"
+                                   FontFamily="Microsoft YaHei"/>
+                        <TextBlock x:Name="txtProgressPercent"
+                                   Text=""
+                                   FontSize="13" FontWeight="SemiBold"
+                                   Foreground="{StaticResource PrimaryBrush}"
+                                   Margin="8,0,0,0"
+                                   FontFamily="Microsoft YaHei"/>
+                    </StackPanel>
+                    <ProgressBar x:Name="downloadProgressBar"
+                                 Height="6"
+                                 Minimum="0" Maximum="100"
+                                 Margin="0,6,0,0"
+                                 Foreground="{StaticResource PrimaryGradientBrush}"
+                                 Background="{StaticResource BorderBrush}"
+                                 BorderThickness="0">
+                        <ProgressBar.Template>
+                            <ControlTemplate TargetType="ProgressBar">
+                                <Border CornerRadius="3" Background="{TemplateBinding Background}">
+                                    <Border x:Name="indicator" CornerRadius="3"
+                                            Background="{TemplateBinding Foreground}"
+                                            HorizontalAlignment="Left"/>
+                                </Border>
+                            </ControlTemplate>
+                        </ProgressBar.Template>
+                    </ProgressBar>
+                </StackPanel>
+            </Border>
+
+            <!-- 底部按钮 -->
+            <Border Grid.Row="5" Padding="32,12" CornerRadius="0,0,16,16">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Button x:Name="btnSkip" Grid.Column="0"
+                            Content="跳过此版本"
+                            Style="{StaticResource GhostButtonStyle}"
+                            Click="BtnSkip_Click"
+                            VerticalAlignment="Center"/>
+
+                    <Button x:Name="btnUpdate" Grid.Column="2"
+                            Content="立即更新"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Click="BtnUpdate_Click"
+                            VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

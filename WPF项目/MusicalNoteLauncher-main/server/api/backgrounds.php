@@ -107,6 +107,11 @@ function listBackgrounds(): void {
  * 上传背景素材
  */
 function uploadBackground(): void {
+    checkRateLimit('bg_upload');
+
+    $pdo = getDB();
+    $authUser = requireAuth($pdo);
+
     // 验证文件
     if (!isset($_FILES['file']) || $_FILES['file']['error'] !== UPLOAD_ERR_OK) {
         $errorCode = $_FILES['file']['error'] ?? -1;
@@ -149,8 +154,8 @@ function uploadBackground(): void {
     }
 
     // 获取参数
-    $name = $_POST['name'] ?? pathinfo($file['name'], PATHINFO_FILENAME);
-    $uploader = $_POST['uploader'] ?? '';
+    $name     = $_POST['name'] ?? pathinfo($file['name'], PATHINFO_FILENAME);
+    $uploader = $authUser['qingniao_id']; // 强制使用认证用户 ID
 
     // 写入数据库
     try {
@@ -185,12 +190,14 @@ function uploadBackground(): void {
  * 删除背景素材
  */
 function deleteBackground(array $body): void {
+    checkRateLimit('bg_delete');
     $id = intval($body['id'] ?? 0);
     if ($id <= 0) {
         jsonResponse(['error' => 'Invalid id'], 400);
     }
 
     $pdo = getDB();
+    $authUser = requireAuth($pdo);
 
     // 查询文件信息
     $stmt = $pdo->prepare("SELECT file_name FROM backgrounds WHERE id = ?");
@@ -257,7 +264,7 @@ function serveFile(): void {
     // 输出文件
     header('Content-Type: ' . $contentType);
     header('Content-Length: ' . filesize($filePath));
-    header('Content-Disposition: inline; filename="' . $bg['name'] . '.' . $ext . '"');
+    header('Content-Disposition: inline; filename="' . cleanHeaderValue($bg['name']) . '.' . $ext . '"');
     header('Cache-Control: public, max-age=86400');
     readfile($filePath);
     exit;

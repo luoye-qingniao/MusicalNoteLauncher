@@ -282,7 +282,7 @@ namespace MusicalNoteLauncher.Core
             return list;
         }
 
-        private async Task<List<PlaylistInfo>> SearchPlaylistsAsync(string keyword, int limit)
+        public async Task<List<PlaylistInfo>> SearchPlaylistsAsync(string keyword, int limit)
         {
             var list = new List<PlaylistInfo>();
             try

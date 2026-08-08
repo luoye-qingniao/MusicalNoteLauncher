@@ -29,8 +29,12 @@ namespace PCL.Auth.Microsoft
             System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
         }
 
+        /// <summary>
+        /// Microsoft OAuth Client ID。
+        /// 优先级：环境变量 PCL_MS_CLIENT_ID > 内置默认值（GUID 格式，支持 Device Code Flow）。
+        /// </summary>
         private static string OAuthClientId =>
-            Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID") ?? "00000000402b5328";
+            Environment.GetEnvironmentVariable("PCL_MS_CLIENT_ID") ?? "9c1f1f43-58d5-4b7a-af0d-4e487f073441";
 
         private static TaskCompletionSource<string> _authCodeTcs;
 
@@ -38,6 +42,11 @@ namespace PCL.Auth.Microsoft
         /// 触发当需要用户打开浏览器登录时，参数为授权 URL
         /// </summary>
         public static event Action<string> OnBrowserAuthRequired;
+
+        /// <summary>
+        /// Device Code 模式：当获取到验证码时触发，参数为 (userCode, verificationUri)
+        /// </summary>
+        public static event Action<string, string> OnDeviceCodeRequired;
 
         /// <summary>
         /// 用户完成浏览器授权后，提交完整的回调 URL
@@ -105,6 +114,69 @@ namespace PCL.Auth.Microsoft
                 cancellationToken.ThrowIfCancellationRequested();
                 onProgress?.Invoke(0.25);
 
+                string xblToken = await Step2_GetXblTokenAsync(oAuthAccessToken);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                onProgress?.Invoke(0.40);
+
+                (string xstsToken, string uhs) = await Step3_GetXstsTokenAsync(xblToken);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                onProgress?.Invoke(0.55);
+
+                (string mcAccessToken, long expiresAt) = await Step4_GetMcAccessTokenAsync(xstsToken, uhs);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                onProgress?.Invoke(0.70);
+
+                await Step5_CheckOwnershipAsync(mcAccessToken);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                onProgress?.Invoke(0.85);
+
+                var profile = await Step6_GetProfileAsync(mcAccessToken);
+
+                onProgress?.Invoke(0.98);
+
+                return new MsLoginResult
+                {
+                    OAuthRefreshToken = newRefreshToken,
+                    OAuthAccessToken = oAuthAccessToken,
+                    McAccessToken = mcAccessToken,
+                    McExpiresAt = expiresAt,
+                    Uuid = profile.Uuid,
+                    UserName = profile.UserName,
+                    ProfileJson = profile.ProfileJson
+                };
+            }
+            catch (OperationCanceledException) { throw; }
+            catch (MsAuthException) { throw; }
+            catch (Exception ex)
+            {
+                throw new MsAuthException("微软登录失败", ex);
+            }
+        }
+
+        /// <summary>
+        /// Device Code Flow 登录入口。获取设备验证码，打开 microsoft.com/link，
+        /// 轮询等待用户授权，然后走完整的 XBL → XSTS → Minecraft 认证链。
+        /// </summary>
+        public static async Task<MsLoginResult> LoginWithDeviceCodeAsync(
+            Action<double> onProgress = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (cancellationToken == default) cancellationToken = CancellationToken.None;
+            try
+            {
+                onProgress?.Invoke(0.05);
+
+                // 步骤 1：Device Code Flow 获取 OAuth Token
+                (string oAuthAccessToken, string newRefreshToken) = await Step1_DeviceCodeAsync(cancellationToken);
+
+                cancellationToken.ThrowIfCancellationRequested();
+                onProgress?.Invoke(0.25);
+
+                // 步骤 2-6：XBL → XSTS → Minecraft（复用现有方法）
                 string xblToken = await Step2_GetXblTokenAsync(oAuthAccessToken);
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -280,6 +352,111 @@ namespace PCL.Auth.Microsoft
                     throw new MsAuthException("该账号已被微软封禁，无法登录");
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Device Code Flow：获取设备验证码，轮询等待用户授权，返回 OAuth Token
+        /// </summary>
+        private static async Task<(string accessToken, string refreshToken)> Step1_DeviceCodeAsync(
+            CancellationToken cancellationToken)
+        {
+            // 自动选择端点：GUID 格式 client_id 用 Azure AD v2.0，旧式 hex ID 不支持 Device Code
+            bool isGuidId = Guid.TryParse(OAuthClientId, out _);
+            string deviceCodeUrl, tokenUrl;
+
+            if (isGuidId)
+            {
+                deviceCodeUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode";
+                tokenUrl = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token";
+            }
+            else
+            {
+                throw new MsAuthException(
+                    "当前 Client ID 不支持设备码登录（login.live.com 无 devicecode 端点）。\n" +
+                    "请设置环境变量 PCL_MS_CLIENT_ID 为新版 Azure AD 应用 ID（GUID 格式）。\n" +
+                    "例如：set PCL_MS_CLIENT_ID=9c1f1f43-58d5-4b7a-af0d-4e487f073441");
+            }
+
+            // 1. 获取设备验证码
+            string deviceCodeBody =
+                $"client_id={OAuthClientId}&scope=XboxLive.signin+offline_access";
+
+            string deviceCodeResult;
+            try
+            {
+                deviceCodeResult = await PostFormUrlEncodedAsync(deviceCodeUrl, deviceCodeBody);
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new MsAuthException("获取验证码失败，请检查网络连接: " + ex.Message, ex);
+            }
+
+            JObject json = JObject.Parse(deviceCodeResult);
+            if (json["error"] != null)
+            {
+                throw new MsAuthException("获取验证码失败: " + json["error_description"]?.ToString());
+            }
+
+            string userCode = json["user_code"].ToString();
+            string deviceCode = json["device_code"].ToString();
+            string verificationUri = json["verification_uri"]?.ToString() ?? "https://www.microsoft.com/link";
+            int interval = Math.Max(3, json["interval"]?.Value<int>() ?? 5);
+            int expiresIn = json["expires_in"]?.Value<int>() ?? 900;
+
+            // 2. 通知 UI：显示验证码 + 打开浏览器
+            OnDeviceCodeRequired?.Invoke(userCode, verificationUri);
+
+            // 3. 轮询等待用户完成授权（tokenUrl 已在上面根据 client_id 格式选择）
+            string tokenBody =
+                "grant_type=urn:ietf:params:oauth:grant-type:device_code&" +
+                $"device_code={Uri.EscapeDataString(deviceCode)}&" +
+                $"client_id={OAuthClientId}";
+
+            DateTime deadline = DateTime.UtcNow.AddSeconds(expiresIn);
+
+            while (DateTime.UtcNow < deadline)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    string result = await PostFormUrlEncodedAsync(tokenUrl, tokenBody);
+                    JObject tokenJson = JObject.Parse(result);
+
+                    if (tokenJson["error"] == null)
+                    {
+                        return (
+                            tokenJson["access_token"].ToString(),
+                            tokenJson["refresh_token"].ToString()
+                        );
+                    }
+
+                    string error = tokenJson["error"].ToString();
+                    switch (error)
+                    {
+                        case "authorization_pending":
+                            break;
+                        case "slow_down":
+                            interval += 5;
+                            break;
+                        case "expired_token":
+                            throw new MsAuthException("验证码已过期，请重新登录");
+                        default:
+                            throw new MsAuthException(
+                                "登录失败: " + tokenJson["error_description"]?.ToString() ?? error);
+                    }
+                }
+                catch (MsAuthException) { throw; }
+                catch (OperationCanceledException) { throw; }
+                catch
+                {
+                    // 网络错误等非致命异常，继续轮询
+                }
+
+                await Task.Delay(interval * 1000, cancellationToken);
+            }
+
+            throw new MsAuthException("登录超时，验证码已过期（15 分钟）");
         }
 
         #endregion
